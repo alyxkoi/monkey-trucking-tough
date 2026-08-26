@@ -376,7 +376,7 @@ export async function loadControlData(): Promise<ControlData> {
     messages: unwrap(messages, "Messages") ?? [],
     materials: unwrap(materials, "Materials") ?? [],
     drivers: unwrap(drivers, "Drivers") ?? [],
-    appSettings: unwrap(appSettings, "Business settings"),
+    appSettings: unwrap(appSettings, "Business settings") as AppSettings | null,
     userRoles: unwrap(userRoles, "User roles") ?? [],
     controlSettings: unwrap(controlSettings, "Control Center settings"),
     automations: unwrap(automations, "Automation rules") ?? [],
