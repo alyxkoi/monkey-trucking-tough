@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MessageSquare, Pencil, Printer, Trash2 } from "lucide-react";
+import { Ban, MessageSquare, Pencil, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSettings } from "@/hooks/admin/useAdminMeta";
@@ -9,13 +9,16 @@ import { deliveryShort, money, type DeliveryType } from "@/lib/admin/calc";
 import { outputTicketPng, renderTicketPng, shareOrDownloadPng, type PrintMethod, type PrintTicket } from "@/lib/admin/print";
 import AdminTopBar from "@/components/admin/AdminTopBar";
 import ReceiptPreviewDialog from "@/components/admin/ReceiptPreviewDialog";
+import { voidTicket } from "@/lib/admin/tickets";
 
 const AdminTicketDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: settings } = useSettings();
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmVoid, setConfirmVoid] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
+  const [voiding, setVoiding] = useState(false);
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -23,17 +26,29 @@ const AdminTicketDetail = () => {
     queryKey: ["admin", "ticket", id],
     enabled: !!id,
     queryFn: async () => {
-      const [t, items] = await Promise.all([
+      const [t, items, history] = await Promise.all([
         supabase.from("tickets").select("*").eq("id", id!).single(),
-        supabase.from("ticket_items").select("*").eq("ticket_id", id!).order("created_at"),
+        supabase
+          .from("ticket_items")
+          .select("*")
+          .eq("ticket_id", id!)
+          .is("superseded_at", null)
+          .order("created_at"),
+        supabase
+          .from("ticket_history")
+          .select("id, event_type, reason, actor_label, created_at")
+          .eq("ticket_id", id!)
+          .order("created_at", { ascending: false }),
       ]);
       if (t.error) throw t.error;
+      if (items.error) throw items.error;
+      if (history.error) throw history.error;
       let driverName = "";
       if (t.data.driver_id) {
         const { data: d } = await supabase.from("drivers").select("name").eq("id", t.data.driver_id).single();
         driverName = d?.name ?? "";
       }
-      return { ticket: t.data, items: items.data ?? [], driverName };
+      return { ticket: t.data, items: items.data ?? [], history: history.data ?? [], driverName };
     },
   });
 
@@ -53,7 +68,7 @@ const AdminTicketDetail = () => {
       jobSiteAddress: t.job_site_address,
       items: data.items.map((i) => ({
         name: i.material_name,
-        detail: `${Number(i.yards)} yds ${i.is_full_load ? "(Full Load)" : ""}`.trim(),
+        detail: `${i.loads == null ? "loads not recorded" : `${i.loads} load${i.loads === 1 ? "" : "s"}`} · ${Number(i.yards)} yds ${i.is_full_load ? "(Full Load)" : ""}`.trim(),
         amount: money(Number(i.line_total)),
       })),
       subtotal: money(Number(t.materials_subtotal)),
@@ -99,22 +114,27 @@ const AdminTicketDetail = () => {
     if (phone) window.location.href = `sms:${phone}`;
   };
 
-  const onDelete = async () => {
-    if (!data) return;
-    await supabase.from("ticket_items").delete().eq("ticket_id", data.ticket.id);
-    const { error } = await supabase.from("tickets").delete().eq("id", data.ticket.id);
-    if (error) {
-      toast.error(error.message);
-      return;
+  const onVoid = async () => {
+    if (!data || !voidReason.trim()) return;
+    setVoiding(true);
+    try {
+      await voidTicket(data.ticket.id, voidReason.trim());
+      await queryClient.invalidateQueries({ queryKey: ["admin"] });
+      setConfirmVoid(false);
+      setVoidReason("");
+      toast.success("Ticket voided. Its record and history were preserved.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not void the ticket.");
+    } finally {
+      setVoiding(false);
     }
-    queryClient.invalidateQueries({ queryKey: ["admin", "tickets"] });
-    navigate("/admin", { replace: true });
   };
 
   if (isLoading || !data) return <main className="px-4 pt-6 adm-meta">Loading…</main>;
 
   const t = data.ticket;
   const paid = t.payment_status === "paid";
+  const isVoid = t.status === "void";
 
   const Row = ({ label, value }: { label: string; value: string }) => (
     <>
@@ -143,8 +163,17 @@ const AdminTicketDetail = () => {
             })}
           </p>
         </div>
-        <span className={`adm-pill ${paid ? "adm-pill-paid" : "adm-pill-unpaid"}`}>{paid ? "Paid" : "Unpaid"}</span>
+        <span className={`adm-pill ${isVoid ? "adm-pill-void" : paid ? "adm-pill-paid" : "adm-pill-unpaid"}`}>
+          {isVoid ? "Void" : paid ? "Paid" : "Unpaid"}
+        </span>
       </div>
+
+      {isVoid && (
+        <div className="adm-panel mt-4 p-4" style={{ borderColor: "var(--adm-red)" }}>
+          <span className="adm-label" style={{ color: "var(--adm-red)" }}>Voided ticket</span>
+          <p>{t.void_reason || "Reason preserved in activity history"}</p>
+        </div>
+      )}
 
       <div className="adm-panel mt-6 p-4">
         <span className="adm-label">Customer</span>
@@ -163,7 +192,7 @@ const AdminTicketDetail = () => {
             <div>
               <p style={{ fontSize: 16 }}>{i.material_name}</p>
               <p className="adm-meta">
-                {Number(i.yards)} yds {i.is_full_load ? "(Full load)" : `@ ${money(Number(i.rate_used))}/yd`}
+                {i.loads == null ? "Legacy load count not recorded" : `${i.loads} material load${i.loads === 1 ? "" : "s"}`} · {Number(i.yards)} yds {i.is_full_load ? "(Full load)" : `@ ${money(Number(i.rate_used))}/yd`}
               </p>
             </div>
             <span className="adm-num" style={{ fontSize: 22 }}>
@@ -199,34 +228,58 @@ const AdminTicketDetail = () => {
         </div>
       )}
 
+      {data.history.length > 0 && (
+        <div className="adm-panel mt-4 p-4">
+          <span className="adm-label">Activity history</span>
+          <div className="space-y-3">
+            {data.history.map((entry) => (
+              <div key={entry.id}>
+                <p className="font-semibold capitalize">{entry.event_type}</p>
+                <p className="adm-meta">
+                  {entry.actor_label || "Authorized account"} · {new Date(entry.created_at).toLocaleString("en-US")}
+                </p>
+                {entry.reason && <p className="adm-meta">{entry.reason}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mt-8 space-y-3">
-        <button type="button" className="adm-btn adm-btn-red w-full" onClick={() => void onPrint()}>
+        <button type="button" className="adm-btn adm-btn-red w-full" disabled={isVoid} onClick={() => void onPrint()}>
           <Printer size={20} /> Print
         </button>
-        <button type="button" className="adm-btn w-full" onClick={() => void onText()}>
+        <button type="button" className="adm-btn w-full" disabled={isVoid} onClick={() => void onText()}>
           <MessageSquare size={20} /> Text to customer
         </button>
-        <Link to={`/admin/ticket/${t.id}/edit`} className="adm-btn w-full">
-          <Pencil size={18} /> Edit
-        </Link>
-        {!confirmDelete ? (
+        {!isVoid && <Link to={`/admin/ticket/${t.id}/edit`} className="adm-btn w-full">
+          <Pencil size={18} /> Correct ticket
+        </Link>}
+        {!isVoid && !confirmVoid ? (
           <button
             type="button"
             className="adm-btn w-full"
             style={{ background: "transparent", border: "none", color: "var(--adm-red)" }}
-            onClick={() => setConfirmDelete(true)}
+            onClick={() => setConfirmVoid(true)}
           >
-            <Trash2 size={18} /> Delete ticket
+            <Ban size={18} /> Void ticket
           </button>
-        ) : (
+        ) : !isVoid && (
           <div className="adm-panel p-4">
-            <p style={{ fontSize: 16 }}>Delete this ticket for good?</p>
+            <label className="adm-label" htmlFor="void-reason">Reason for void</label>
+            <textarea
+              id="void-reason"
+              className="adm-textarea"
+              value={voidReason}
+              onChange={(event) => setVoidReason(event.target.value)}
+              placeholder="Required. This is saved in activity history."
+            />
             <div className="mt-3 flex gap-3">
-              <button type="button" className="adm-btn flex-1" onClick={() => setConfirmDelete(false)}>
+              <button type="button" className="adm-btn flex-1" onClick={() => setConfirmVoid(false)}>
                 Cancel
               </button>
-              <button type="button" className="adm-btn adm-btn-red flex-1" onClick={() => void onDelete()}>
-                Delete
+              <button type="button" className="adm-btn adm-btn-red flex-1" disabled={voiding || !voidReason.trim()} onClick={() => void onVoid()}>
+                {voiding ? "Voiding…" : "Void ticket"}
               </button>
             </div>
           </div>

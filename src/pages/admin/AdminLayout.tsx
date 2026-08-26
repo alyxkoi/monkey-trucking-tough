@@ -3,24 +3,31 @@ import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { FileText, LogOut, Plus, Settings as SettingsIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { flushQueue, getQueue } from "@/lib/admin/tickets";
+import { useAdminAccess } from "@/hooks/admin/useAdminAccess";
+import { flushQueue, getPendingCount } from "@/lib/admin/tickets";
 import { useQueryClient } from "@tanstack/react-query";
 import "@/styles/admin.css";
 import logo from "@/assets/monkey-trucking-logo.webp";
 
 const AdminLayout = () => {
   const { user, loading, signOut } = useAuth();
+  const userId = user?.id;
+  const access = useAdminAccess(userId);
   const { pathname } = useLocation();
   const queryClient = useQueryClient();
   const [pending, setPending] = useState(0);
 
   useEffect(() => {
+    if (!userId || !access.authorized) {
+      setPending(0);
+      return;
+    }
     const sync = async () => {
-      const synced = await flushQueue();
+      const synced = await flushQueue(userId);
       if (synced) queryClient.invalidateQueries({ queryKey: ["admin", "tickets"] });
-      setPending(getQueue().length);
+      setPending(getPendingCount(userId));
     };
-    const update = () => setPending(getQueue().length);
+    const update = () => setPending(getPendingCount(userId));
     update();
     void sync();
     window.addEventListener("online", sync);
@@ -31,9 +38,9 @@ const AdminLayout = () => {
       window.removeEventListener("mt-queue-change", update);
       window.clearInterval(interval);
     };
-  }, [queryClient]);
+  }, [access.authorized, queryClient, userId]);
 
-  if (loading) {
+  if (loading || (!!user && access.isLoading)) {
     return (
       <>
         <Helmet>
@@ -45,6 +52,7 @@ const AdminLayout = () => {
   }
 
   if (!user) return <Navigate to="/" replace />;
+  if (!access.authorized) return <Navigate to="/" replace />;
 
   const onNew = pathname === "/admin/new" || pathname.endsWith("/edit");
   const nav = [

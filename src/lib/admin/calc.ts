@@ -8,9 +8,11 @@ export type DeliveryType = "tier_1" | "tier_2" | "tier_3" | "over_10" | "custom"
 
 export interface LineItemDraft {
   key: string;
+  source_item_id?: string;
   material_id: string;
   material_name: string;
   is_full_load: boolean;
+  loads: string;
   yards: string;
   rate_used: number;
   line_total: number;
@@ -37,16 +39,20 @@ export const deliveryShort: Record<DeliveryType, string> = {
   pickup: "Pickup",
 };
 
-export const lineTotalFor = (m: Material | undefined, isFullLoad: boolean, yards: number) => {
+export const lineTotalFor = (m: Material | undefined, isFullLoad: boolean, yards: number, loads = 1) => {
   if (!m) return { rate: 0, total: 0 };
-  if (isFullLoad) return { rate: Number(m.full_load_price), total: Number(m.full_load_price) };
+  if (isFullLoad) {
+    const safeLoads = Math.max(1, Math.floor(loads || 1));
+    const rate = Number(m.full_load_price);
+    return { rate, total: Math.round(rate * safeLoads * 100) / 100 };
+  }
   const rate = Number(m.price_per_yard);
   return { rate, total: Math.round(rate * (yards || 0) * 100) / 100 };
 };
 
 export interface TotalsInput {
   items: LineItemDraft[];
-  deliveryType: DeliveryType;
+  deliveryType: DeliveryType | null;
   miles: number;
   customFee: number;
   loads: number;
@@ -54,7 +60,7 @@ export interface TotalsInput {
 }
 
 export const perLoadFee = ({ deliveryType, miles, customFee, settings }: TotalsInput) => {
-  if (!settings) return 0;
+  if (!settings || !deliveryType) return 0;
   switch (deliveryType) {
     case "tier_1":
       return Number(settings.delivery_tier_1_fee);

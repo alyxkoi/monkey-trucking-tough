@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LogOut, Plus, Printer, Trash2 } from "lucide-react";
+import { CircleOff, LogOut, Plus, Printer } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -138,21 +138,13 @@ const AdminSettings = () => {
     window.setTimeout(() => setStatus("idle"), 2000);
   };
 
-  const removeMaterial = async (material: Material) => {
-    if (!window.confirm(`Delete ${material.name || "this material"}? Tickets that used it keep their pricing.`)) return;
-    setStatus("saving");
-    const { error } = await supabase.from("materials").delete().eq("id", material.id);
-    if (error) { console.error("Material delete failed:", error); setStatus(navigator.onLine ? "not-saved" : "retrying"); return; }
-    setMaterials((rows) => rows.filter((row) => row.id !== material.id));
-    await queryClient.invalidateQueries({ queryKey: ["admin", "materials"] }); markSaved();
+  const deactivateMaterial = (material: Material) => {
+    if (!window.confirm(`Make ${material.name || "this material"} inactive? Existing Ticket snapshots stay unchanged.`)) return;
+    patchMaterial(material.id, { is_active: false }, true);
   };
-  const removeDriver = async (driver: Driver) => {
-    if (!window.confirm(`Delete ${driver.name || "this driver"}?`)) return;
-    setStatus("saving");
-    const { error } = await supabase.from("drivers").delete().eq("id", driver.id);
-    if (error) { console.error("Driver delete failed:", error); setStatus(navigator.onLine ? "not-saved" : "retrying"); return; }
-    setDrivers((rows) => rows.filter((row) => row.id !== driver.id));
-    await queryClient.invalidateQueries({ queryKey: ["admin", "drivers"] }); markSaved();
+  const deactivateDriver = (driver: Driver) => {
+    if (!window.confirm(`Make ${driver.name || "this driver"} inactive? Existing Tickets keep the driver reference.`)) return;
+    patchDriver(driver.id, { is_active: false }, true);
   };
 
   const smallField = (material: Material, key: "price_per_yard" | "full_load_price" | "full_load_yards", label: string, currency = false) => (
@@ -242,10 +234,10 @@ const AdminSettings = () => {
 
       <div hidden={tab !== "materials"} className="grid gap-3 lg:grid-cols-2">{materials.map((material, index) => <article key={material.id} className="adm-panel flex min-h-[140px] min-w-0 flex-col p-3">
         <div className="flex items-center gap-2"><input ref={index === materials.length - 1 ? newName : undefined} aria-label="Material name" className="adm-inline min-w-0 flex-1 text-lg font-semibold" value={material.name} placeholder="Material name" onChange={(e) => patchMaterial(material.id, { name: e.target.value })} onBlur={(e) => patchMaterial(material.id, { name: e.currentTarget.value }, true)} /><Toggle on={material.is_active} onChange={() => patchMaterial(material.id, { is_active: !material.is_active }, true)} label={`${material.name} active`} /></div>
-        <div className="adm-material-fields mt-2">{smallField(material, "price_per_yard", "Per yard", true)}{smallField(material, "full_load_price", "Full load", true)}{smallField(material, "full_load_yards", "Load yds")}<button aria-label={`Delete ${material.name}`} className="flex h-11 w-11 items-center justify-center text-[var(--adm-text-2)] hover:text-[var(--adm-red)]" onClick={() => void removeMaterial(material)}><Trash2 size={18} /></button></div>
+        <div className="adm-material-fields mt-2">{smallField(material, "price_per_yard", "Per yard", true)}{smallField(material, "full_load_price", "Full load", true)}{smallField(material, "full_load_yards", "Load yds")}{material.is_active && <button aria-label={`Make ${material.name} inactive`} className="flex h-11 w-11 items-center justify-center text-[var(--adm-text-2)] hover:text-[var(--adm-red)]" onClick={() => deactivateMaterial(material)}><CircleOff size={18} /></button>}</div>
       </article>)}<button className="adm-btn adm-btn-ghost min-h-[64px]" onClick={() => void addMaterial()}><Plus size={18} /> Add material</button></div>
 
-      <div hidden={tab !== "drivers"} className="grid gap-3 lg:grid-cols-2">{drivers.map((driver, index) => <article key={driver.id} className="adm-panel flex min-h-[92px] min-w-0 items-center gap-2 p-3"><input ref={index === drivers.length - 1 ? newName : undefined} aria-label="Driver name" className="adm-inline min-w-0 flex-1 text-lg font-semibold" value={driver.name} placeholder="Driver name" onChange={(e) => patchDriver(driver.id, { name: e.target.value })} onBlur={(e) => patchDriver(driver.id, { name: e.currentTarget.value }, true)} /><Toggle on={driver.is_active} onChange={() => patchDriver(driver.id, { is_active: !driver.is_active }, true)} label={`${driver.name} active`} /><button aria-label={`Delete ${driver.name}`} className="flex h-11 w-11 items-center justify-center text-[var(--adm-text-2)] hover:text-[var(--adm-red)]" onClick={() => void removeDriver(driver)}><Trash2 size={18} /></button></article>)}<button className="adm-btn adm-btn-ghost min-h-[64px]" onClick={() => void addDriver()}><Plus size={18} /> Add driver</button></div>
+      <div hidden={tab !== "drivers"} className="grid gap-3 lg:grid-cols-2">{drivers.map((driver, index) => <article key={driver.id} className="adm-panel flex min-h-[92px] min-w-0 items-center gap-2 p-3"><input ref={index === drivers.length - 1 ? newName : undefined} aria-label="Driver name" className="adm-inline min-w-0 flex-1 text-lg font-semibold" value={driver.name} placeholder="Driver name" onChange={(e) => patchDriver(driver.id, { name: e.target.value })} onBlur={(e) => patchDriver(driver.id, { name: e.currentTarget.value }, true)} /><Toggle on={driver.is_active} onChange={() => patchDriver(driver.id, { is_active: !driver.is_active }, true)} label={`${driver.name} active`} />{driver.is_active && <button aria-label={`Make ${driver.name} inactive`} className="flex h-11 w-11 items-center justify-center text-[var(--adm-text-2)] hover:text-[var(--adm-red)]" onClick={() => deactivateDriver(driver)}><CircleOff size={18} /></button>}</article>)}<button className="adm-btn adm-btn-ghost min-h-[64px]" onClick={() => void addDriver()}><Plus size={18} /> Add driver</button></div>
 
       <div hidden={tab !== "business"} className="space-y-8 pb-8">
         {settings && <>

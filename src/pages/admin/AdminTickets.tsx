@@ -47,7 +47,7 @@ const AdminTickets = () => {
     const { start, end } = monthBounds(0);
     const rows = tickets.filter((t) => {
       const d = new Date(t.created_at);
-      return d >= start && d < end;
+      return t.status !== "void" && d >= start && d < end;
     });
     return {
       revenue: rows.reduce((s, t) => s + Number(t.grand_total), 0),
@@ -159,6 +159,7 @@ const AdminTickets = () => {
 
         {filtered.map((t) => {
           const paid = t.payment_status === "paid";
+          const isVoid = t.status === "void";
           return (
             <div key={t.id} className="adm-panel flex items-start gap-3 p-4">
               <Link to={`/admin/ticket/${t.id}`} className="min-w-0 flex-1">
@@ -175,12 +176,14 @@ const AdminTickets = () => {
                 </span>
                 <button
                   type="button"
-                  className={`adm-pill ${paid ? "adm-pill-paid" : "adm-pill-unpaid"}`}
-                  onClick={() => setOpenPill(openPill === t.id ? null : t.id)}
+                  className={`adm-pill ${isVoid ? "adm-pill-void" : paid ? "adm-pill-paid" : "adm-pill-unpaid"}`}
+                  onClick={() => {
+                    if (!isVoid) setOpenPill(openPill === t.id ? null : t.id);
+                  }}
                 >
-                  {paid ? "Paid" : "Unpaid"}
+                  {isVoid ? "Void" : paid ? "Paid" : "Unpaid"}
                 </button>
-                {openPill === t.id && (
+                {!isVoid && openPill === t.id && (
                   <div
                     className="adm-panel absolute right-0 top-full z-20 mt-2 w-32 overflow-hidden"
                     style={{ background: "var(--adm-raised)" }}

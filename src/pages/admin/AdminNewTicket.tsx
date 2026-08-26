@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Minus, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useDrivers, useMaterials, useSettings } from "@/hooks/admin/useAdminMeta";
 import {
   computeTotals,
@@ -14,7 +15,7 @@ import {
   type DeliveryType,
   type LineItemDraft,
 } from "@/lib/admin/calc";
-import { saveTicket, type TicketDraft } from "@/lib/admin/tickets";
+import { correctTicket, saveTicket, type TicketDraft } from "@/lib/admin/tickets";
 import AdminTopBar from "@/components/admin/AdminTopBar";
 
 const newLine = (): LineItemDraft => ({
@@ -22,6 +23,7 @@ const newLine = (): LineItemDraft => ({
   material_id: "",
   material_name: "",
   is_full_load: true,
+  loads: "1",
   yards: "",
   rate_used: 0,
   line_total: 0,
@@ -31,6 +33,7 @@ const AdminNewTicket = () => {
   const { id: editId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { data: settings } = useSettings();
   const { data: materials = [] } = useMaterials();
   const { data: drivers = [] } = useDrivers();
@@ -40,15 +43,18 @@ const AdminNewTicket = () => {
   const [jobSite, setJobSite] = useState("");
   const [driverId, setDriverId] = useState("");
   const [items, setItems] = useState<LineItemDraft[]>([newLine()]);
-  const [deliveryType, setDeliveryType] = useState<DeliveryType>("tier_1");
+  const [deliveryType, setDeliveryType] = useState<DeliveryType | null>(null);
   const [miles, setMiles] = useState("");
   const [customFee, setCustomFee] = useState("");
   const [loads, setLoads] = useState("1");
   const [notes, setNotes] = useState("");
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [pricingTouched, setPricingTouched] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const hydrated = useRef(false);
+  const deliveryLoadsTouched = useRef(false);
 
   // Past customers, for the name autocomplete.
   const { data: pastCustomers = [] } = useQuery({
@@ -75,9 +81,15 @@ const AdminNewTicket = () => {
     queryFn: async () => {
       const [t, it] = await Promise.all([
         supabase.from("tickets").select("*").eq("id", editId!).single(),
-        supabase.from("ticket_items").select("*").eq("ticket_id", editId!).order("created_at"),
+        supabase
+          .from("ticket_items")
+          .select("*")
+          .eq("ticket_id", editId!)
+          .is("superseded_at", null)
+          .order("created_at"),
       ]);
       if (t.error) throw t.error;
+      if (it.error) throw it.error;
       return { ticket: t.data, items: it.data ?? [] };
     },
   });
@@ -99,9 +111,11 @@ const AdminNewTicket = () => {
       existing.items.length
         ? existing.items.map((i) => ({
             key: i.id,
+            source_item_id: i.id,
             material_id: i.material_id ?? "",
             material_name: i.material_name,
             is_full_load: i.is_full_load,
+            loads: i.loads == null ? "" : String(i.loads),
             yards: String(i.yards),
             rate_used: Number(i.rate_used),
             line_total: Number(i.line_total),
@@ -115,43 +129,87 @@ const AdminNewTicket = () => {
     if (!driverId && drivers.length === 1) setDriverId(drivers[0].id);
   }, [drivers, driverId]);
 
+  const materialLoadSum = useMemo(
+    () => items.reduce((sum, item) => sum + Math.max(1, Number(item.loads) || 1), 0),
+    [items],
+  );
+
+  useEffect(() => {
+    if (!editId && !deliveryLoadsTouched.current) setLoads(String(Math.max(1, materialLoadSum)));
+  }, [editId, materialLoadSum]);
+
+  const pricingLocked = !!editId && existing?.ticket.tax_applies_to_delivery == null;
+
   const totals = useMemo(
-    () =>
-      computeTotals({
+    () => {
+      if (editId && existing && !pricingTouched) {
+        return {
+          materials_subtotal: Number(existing.ticket.materials_subtotal),
+          delivery_fee_per_load: Number(existing.ticket.delivery_fee_per_load),
+          delivery_total: Number(existing.ticket.delivery_total),
+          tax_rate: Number(existing.ticket.tax_rate),
+          tax_amount: Number(existing.ticket.tax_amount),
+          grand_total: Number(existing.ticket.grand_total),
+          loads: Number(existing.ticket.load_count),
+        };
+      }
+      return computeTotals({
         items,
         deliveryType,
         miles: Number(miles) || 0,
         customFee: Number(customFee) || 0,
         loads: Number(loads) || 1,
         settings: settings ?? null,
-      }),
-    [items, deliveryType, miles, customFee, loads, settings],
+      });
+    },
+    [customFee, deliveryType, editId, existing, items, loads, miles, pricingTouched, settings],
   );
 
-  const updateLine = (key: string, patch: Partial<LineItemDraft>) =>
+  const updateLine = (key: string, patch: Partial<LineItemDraft>) => {
+    setPricingTouched(true);
     setItems((prev) =>
       prev.map((line) => {
         if (line.key !== key) return line;
         const next = { ...line, ...patch };
         const material = materials.find((m) => m.id === next.material_id);
-        if (patch.is_full_load === true && material) next.yards = String(material.full_load_yards);
+        const materialLoads = Math.max(1, Number(next.loads) || 1);
+        if ((patch.is_full_load === true || next.is_full_load) && material) {
+          next.yards = String(Number(material.full_load_yards) * materialLoads);
+        }
         if (patch.is_full_load === false) next.yards = "";
         if (material) next.material_name = material.name;
-        const { rate, total } = lineTotalFor(material, next.is_full_load, Number(next.yards) || 0);
+        const { rate, total } = lineTotalFor(material, next.is_full_load, Number(next.yards) || 0, materialLoads);
         next.rate_used = rate;
         next.line_total = total;
         return next;
       }),
     );
+  };
 
   const suggestions = customerName.trim()
     ? pastCustomers.filter((c) => c.name.toLowerCase().includes(customerName.trim().toLowerCase())).slice(0, 5)
     : [];
 
   const onSave = async () => {
-    if (!settings) return;
+    if (!settings || !user) return;
+    if (!deliveryType) {
+      toast.error("Choose a delivery option.");
+      return;
+    }
     if (items.some((i) => !i.material_id)) {
       toast.error("Pick a material for every line.");
+      return;
+    }
+    if (items.some((item) => {
+      if (Number(item.loads) >= 1) return false;
+      if (!editId || !item.source_item_id) return true;
+      return existing?.items.find((source) => source.id === item.source_item_id)?.loads != null;
+    })) {
+      toast.error("Enter the material load count for every new or corrected line.");
+      return;
+    }
+    if (editId && !correctionReason.trim()) {
+      toast.error("Enter a reason for this correction.");
       return;
     }
     setSaving(true);
@@ -167,33 +225,33 @@ const AdminNewTicket = () => {
       delivery_total: totals.delivery_total,
       materials_subtotal: totals.materials_subtotal,
       tax_rate: totals.tax_rate,
+      tax_applies_to_delivery: editId && existing && !pricingTouched
+        ? existing.ticket.tax_applies_to_delivery
+        : settings.tax_applies_to_delivery,
       tax_amount: totals.tax_amount,
       grand_total: totals.grand_total,
       notes: notes.trim() || null,
       items: items.map((i) => ({
+        source_item_id: i.source_item_id,
         material_id: i.material_id || null,
         material_name: i.material_name,
         yards: Number(i.yards) || 0,
         is_full_load: i.is_full_load,
         rate_used: i.rate_used,
         line_total: i.line_total,
+        loads: Number(i.loads) >= 1 ? Number(i.loads) : null,
       })),
     };
 
     try {
       if (editId) {
-        const { items: lineItems, ...ticket } = draft;
-        const { error } = await supabase.from("tickets").update(ticket).eq("id", editId);
-        if (error) throw error;
-        await supabase.from("ticket_items").delete().eq("ticket_id", editId);
-        if (lineItems.length)
-          await supabase.from("ticket_items").insert(lineItems.map((i) => ({ ...i, ticket_id: editId })));
+        await correctTicket(editId, correctionReason.trim(), draft);
         queryClient.invalidateQueries({ queryKey: ["admin"] });
         navigate(`/admin/ticket/${editId}`, { replace: true });
         return;
       }
 
-      const result = await saveTicket({ ...draft });
+      const result = await saveTicket(draft, user.id);
       queryClient.invalidateQueries({ queryKey: ["admin"] });
       if (result.queued) {
         toast.warning("Offline — ticket saved on this device and will sync automatically.");
@@ -300,7 +358,13 @@ const AdminNewTicket = () => {
       <h2 className="adm-label mt-9" style={{ fontSize: 15, color: "var(--adm-text)" }}>
         Materials
       </h2>
-      <div className="space-y-4">
+      {pricingLocked && (
+        <p className="adm-meta mb-4">
+          This legacy ticket did not record its tax-on-delivery rule. Pricing stays unchanged; customer, driver,
+          address and notes can still be corrected with a reason.
+        </p>
+      )}
+      <fieldset disabled={pricingLocked} className="space-y-4">
         {items.map((line) => (
           <div key={line.key} className="adm-panel relative p-4">
             {items.length > 1 && (
@@ -309,7 +373,10 @@ const AdminNewTicket = () => {
                 aria-label="Remove material line"
                 className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center"
                 style={{ color: "var(--adm-text-2)" }}
-                onClick={() => setItems((prev) => prev.filter((l) => l.key !== line.key))}
+                onClick={() => {
+                  setPricingTouched(true);
+                  setItems((prev) => prev.filter((l) => l.key !== line.key));
+                }}
               >
                 <X size={20} />
               </button>
@@ -351,6 +418,42 @@ const AdminNewTicket = () => {
               </button>
             </div>
 
+            <div className="mt-4">
+              <span className="adm-label">Material loads</span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  aria-label={`Fewer loads of ${line.material_name || "material"}`}
+                  className="adm-btn"
+                  style={{ width: 56 }}
+                  onClick={() => updateLine(line.key, { loads: String(Math.max(1, (Number(line.loads) || 1) - 1)) })}
+                >
+                  <Minus size={20} />
+                </button>
+                <input
+                  className="adm-input text-center"
+                  type="text"
+                  inputMode="numeric"
+                  aria-label={`Loads of ${line.material_name || "material"}`}
+                  value={line.loads}
+                  placeholder={line.source_item_id ? "Not recorded" : "1"}
+                  onChange={(event) => updateLine(line.key, { loads: event.target.value.replace(/[^0-9]/g, "") })}
+                  onBlur={() => {
+                    if (line.loads) updateLine(line.key, { loads: String(Math.max(1, Number(line.loads) || 1)) });
+                  }}
+                />
+                <button
+                  type="button"
+                  aria-label={`More loads of ${line.material_name || "material"}`}
+                  className="adm-btn"
+                  style={{ width: 56 }}
+                  onClick={() => updateLine(line.key, { loads: String((Number(line.loads) || 0) + 1) })}
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+            </div>
+
             <div className="mt-4 flex items-end gap-4">
               <div className="flex-1">
                 <label className="adm-label" htmlFor={`yards-${line.key}`}>
@@ -372,10 +475,17 @@ const AdminNewTicket = () => {
             </div>
           </div>
         ))}
-      </div>
-      <button type="button" className="adm-btn adm-btn-ghost mt-3 w-full" onClick={() => setItems((p) => [...p, newLine()])}>
+        <button
+          type="button"
+          className="adm-btn adm-btn-ghost mt-3 w-full"
+          onClick={() => {
+            setPricingTouched(true);
+            setItems((previous) => [...previous, newLine()]);
+          }}
+        >
         <Plus size={18} /> Add another material
-      </button>
+        </button>
+      </fieldset>
 
       {/* Delivery */}
       <div className="mt-9 space-y-5">
@@ -386,9 +496,14 @@ const AdminNewTicket = () => {
           <select
             id="delivery"
             className="adm-select"
-            value={deliveryType}
-            onChange={(e) => setDeliveryType(e.target.value as DeliveryType)}
+            value={deliveryType ?? ""}
+            disabled={pricingLocked}
+            onChange={(e) => {
+              setPricingTouched(true);
+              setDeliveryType(e.target.value ? e.target.value as DeliveryType : null);
+            }}
           >
+            <option value="">Select delivery</option>
             {(Object.keys(labels) as DeliveryType[]).map((k) => (
               <option key={k} value={k}>
                 {labels[k]}
@@ -408,7 +523,11 @@ const AdminNewTicket = () => {
               type="text"
               inputMode="decimal"
               value={miles}
-              onChange={(e) => setMiles(e.target.value.replace(/[^0-9.]/g, ""))}
+              disabled={pricingLocked}
+              onChange={(e) => {
+                setPricingTouched(true);
+                setMiles(e.target.value.replace(/[^0-9.]/g, ""));
+              }}
             />
           </div>
         )}
@@ -424,20 +543,29 @@ const AdminNewTicket = () => {
               type="text"
               inputMode="decimal"
               value={customFee}
-              onChange={(e) => setCustomFee(e.target.value.replace(/[^0-9.]/g, ""))}
+              disabled={pricingLocked}
+              onChange={(e) => {
+                setPricingTouched(true);
+                setCustomFee(e.target.value.replace(/[^0-9.]/g, ""));
+              }}
             />
           </div>
         )}
 
         <div>
-          <span className="adm-label">Number of loads</span>
+          <span className="adm-label">Delivery loads</span>
           <div className="flex items-center gap-3">
             <button
               type="button"
               aria-label="Fewer loads"
               className="adm-btn"
               style={{ width: 56 }}
-              onClick={() => setLoads(String(Math.max(1, (Number(loads) || 1) - 1)))}
+              disabled={pricingLocked}
+              onClick={() => {
+                deliveryLoadsTouched.current = true;
+                setPricingTouched(true);
+                setLoads(String(Math.max(1, (Number(loads) || 1) - 1)));
+              }}
             >
               <Minus size={20} />
             </button>
@@ -447,7 +575,12 @@ const AdminNewTicket = () => {
               inputMode="numeric"
               aria-label="Loads"
               value={loads}
-              onChange={(e) => setLoads(e.target.value.replace(/[^0-9]/g, ""))}
+              disabled={pricingLocked}
+              onChange={(e) => {
+                deliveryLoadsTouched.current = true;
+                setPricingTouched(true);
+                setLoads(e.target.value.replace(/[^0-9]/g, ""));
+              }}
               onBlur={() => setLoads(String(Math.max(1, Number(loads) || 1)))}
             />
             <button
@@ -455,7 +588,12 @@ const AdminNewTicket = () => {
               aria-label="More loads"
               className="adm-btn"
               style={{ width: 56 }}
-              onClick={() => setLoads(String((Number(loads) || 1) + 1))}
+              disabled={pricingLocked}
+              onClick={() => {
+                deliveryLoadsTouched.current = true;
+                setPricingTouched(true);
+                setLoads(String((Number(loads) || 1) + 1));
+              }}
             >
               <Plus size={20} />
             </button>
@@ -468,6 +606,20 @@ const AdminNewTicket = () => {
           </label>
           <textarea id="notes" className="adm-textarea" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
+        {editId && (
+          <div>
+            <label className="adm-label" htmlFor="correction-reason">
+              Correction reason
+            </label>
+            <textarea
+              id="correction-reason"
+              className="adm-textarea"
+              value={correctionReason}
+              onChange={(event) => setCorrectionReason(event.target.value)}
+              placeholder="Required for the activity history"
+            />
+          </div>
+        )}
       </div>
 
       {/* Totals */}
@@ -481,7 +633,7 @@ const AdminNewTicket = () => {
         <div className="adm-rule" />
         <div className="flex items-center justify-between py-2">
           <span className="adm-label" style={{ margin: 0 }}>
-            Delivery, {deliveryShort[deliveryType]}, {totals.loads} load{totals.loads > 1 ? "s" : ""}
+            Delivery, {deliveryType ? deliveryShort[deliveryType] : "not selected"}, {totals.loads} load{totals.loads > 1 ? "s" : ""}
           </span>
           <span style={{ fontSize: 16 }}>{money(totals.delivery_total)}</span>
         </div>

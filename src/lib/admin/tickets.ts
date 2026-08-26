@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface TicketDraft {
   customer_name: string;
@@ -12,99 +13,219 @@ export interface TicketDraft {
   delivery_total: number;
   materials_subtotal: number;
   tax_rate: number;
+  tax_applies_to_delivery: boolean | null;
   tax_amount: number;
   grand_total: number;
   notes: string | null;
+  payment_status?: string;
   items: {
+    source_item_id?: string;
     material_id: string | null;
     material_name: string;
     yards: number;
     is_full_load: boolean;
     rate_used: number;
     line_total: number;
+    loads: number | null;
   }[];
 }
 
-const QUEUE_KEY = "mt_ticket_queue_v1";
+interface LegacyTicketDraft extends Omit<TicketDraft, "tax_applies_to_delivery" | "items"> {
+  tax_applies_to_delivery?: boolean | null;
+  items: Array<Omit<TicketDraft["items"][number], "loads"> & { loads?: number | null }>;
+}
 
-export const getQueue = (): { id: string; draft: TicketDraft; queued_at: string }[] => {
+export interface QueueEntry {
+  id: string;
+  draft: TicketDraft;
+  queued_at: string;
+  attempts: number;
+  last_error: string | null;
+}
+
+interface LegacyQueueEntry {
+  id: string;
+  draft: LegacyTicketDraft;
+  queued_at: string;
+}
+
+export const LEGACY_QUEUE_KEY = "mt_ticket_queue_v1";
+const QUEUE_PREFIX = "mt_ticket_queue_v2";
+
+export const queueKeyForUser = (userId: string) => `${QUEUE_PREFIX}:${userId}`;
+
+const parseQueue = <T>(key: string): T[] => {
   try {
-    return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
+    const parsed = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 };
 
-const writeQueue = (q: ReturnType<typeof getQueue>) => {
-  localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
-  window.dispatchEvent(new Event("mt-queue-change"));
+const dispatchQueueChange = () => window.dispatchEvent(new Event("mt-queue-change"));
+
+const writeQueue = (key: string, entries: unknown[]) => {
+  localStorage.setItem(key, JSON.stringify(entries));
+  dispatchQueueChange();
 };
 
-export const enqueueTicket = (draft: TicketDraft) => {
-  const q = getQueue();
-  q.push({ id: crypto.randomUUID(), draft, queued_at: new Date().toISOString() });
-  writeQueue(q);
+export const getLegacyQueue = () => parseQueue<LegacyQueueEntry>(LEGACY_QUEUE_KEY);
+export const getQueue = (userId: string) => parseQueue<QueueEntry>(queueKeyForUser(userId));
+export const getPendingCount = (userId: string) => getLegacyQueue().length + getQueue(userId).length;
+
+const normalizeLegacyDraft = (draft: LegacyTicketDraft): TicketDraft => ({
+  ...draft,
+  tax_applies_to_delivery: draft.tax_applies_to_delivery ?? null,
+  items: draft.items.map((item) => ({ ...item, loads: item.loads ?? null })),
+});
+
+export const enqueueTicket = (draft: TicketDraft, userId: string, requestId = crypto.randomUUID()) => {
+  const entries = getQueue(userId);
+  entries.push({
+    id: requestId,
+    draft,
+    queued_at: new Date().toISOString(),
+    attempts: 0,
+    last_error: null,
+  });
+  writeQueue(queueKeyForUser(userId), entries);
+  return requestId;
 };
 
-/** Inserts a ticket + its line items. The ticket number is assigned here, at write time. */
-export const insertTicket = async (draft: TicketDraft) => {
+export const ticketRpcPayload = (draft: TicketDraft) => {
   const { items, ...ticket } = draft;
-  const { data: number, error: numErr } = await supabase.rpc("next_ticket_number");
-  if (numErr) throw numErr;
+  return { ticket: ticket as unknown as Json, items: items as unknown as Json };
+};
 
-  const { data: user } = await supabase.auth.getUser();
-  const { data: created, error } = await supabase
-    .from("tickets")
-    .insert({ ...ticket, ticket_number: number as string, created_by: user.user?.id ?? null })
-    .select("id, ticket_number")
-    .single();
+/**
+ * Allocates the MT number and inserts the ticket and items in one server-side
+ * transaction. Reusing requestId returns the original ticket without consuming
+ * another number.
+ */
+export const insertTicket = async (
+  draft: TicketDraft,
+  requestId: string,
+  preserveLegacyUnknowns = false,
+) => {
+  const payload = ticketRpcPayload(draft);
+  const { data, error } = await supabase.rpc("create_ticket_atomic", {
+    p_ticket: payload.ticket,
+    p_items: payload.items,
+    p_client_request_id: requestId,
+    p_preserve_legacy_unknowns: preserveLegacyUnknowns,
+  });
   if (error) throw error;
-
-  if (items.length) {
-    const { error: itemErr } = await supabase
-      .from("ticket_items")
-      .insert(items.map((i) => ({ ...i, ticket_id: created.id })));
-    if (itemErr) throw itemErr;
-  }
+  const created = data?.[0];
+  if (!created) throw new Error("Ticket save returned no record.");
   return created;
 };
 
-/** Saves a ticket, falling back to the offline queue when the device has no connection. */
-export const saveTicket = async (draft: TicketDraft) => {
+export const correctTicket = async (ticketId: string, reason: string, draft: TicketDraft) => {
+  const payload = ticketRpcPayload(draft);
+  const { data, error } = await supabase.rpc("correct_ticket_atomic", {
+    p_ticket_id: ticketId,
+    p_reason: reason,
+    p_ticket: payload.ticket,
+    p_items: payload.items,
+  });
+  if (error) throw error;
+  const corrected = data?.[0];
+  if (!corrected) throw new Error("Ticket correction returned no record.");
+  return corrected;
+};
+
+export const voidTicket = async (ticketId: string, reason: string) => {
+  const { data, error } = await supabase.rpc("void_ticket", {
+    p_ticket_id: ticketId,
+    p_reason: reason,
+  });
+  if (error) throw error;
+  const voided = data?.[0];
+  if (!voided) throw new Error("Ticket void returned no record.");
+  return voided;
+};
+
+export const isRetryableNetworkError = (error: unknown) => {
+  if (!navigator.onLine) return true;
+  const message = error instanceof Error
+    ? error.message
+    : typeof error === "object" && error && "message" in error
+      ? String(error.message)
+      : String(error);
+  return /failed to fetch|network|load failed|connection|timeout/i.test(message);
+};
+
+/** Saves a new ticket, falling back to the account-scoped queue on connection failure. */
+export const saveTicket = async (draft: TicketDraft, userId: string) => {
+  const requestId = crypto.randomUUID();
   if (!navigator.onLine) {
-    enqueueTicket(draft);
-    return { queued: true as const };
+    enqueueTicket(draft, userId, requestId);
+    return { queued: true as const, requestId };
   }
   try {
-    const created = await insertTicket(draft);
-    return { queued: false as const, ticket: created };
-  } catch (err) {
-    if (!navigator.onLine) {
-      enqueueTicket(draft);
-      return { queued: true as const };
+    const ticket = await insertTicket(draft, requestId);
+    return { queued: false as const, ticket, requestId };
+  } catch (error) {
+    if (isRetryableNetworkError(error)) {
+      enqueueTicket(draft, userId, requestId);
+      return { queued: true as const, requestId };
     }
-    throw err;
+    throw error;
   }
 };
 
-export const flushQueue = async () => {
+const errorMessage = (error: unknown) => error instanceof Error
+  ? error.message
+  : typeof error === "object" && error && "message" in error
+    ? String(error.message)
+    : "Sync failed";
+
+/**
+ * Drains unscoped v1 records first, preserving their unknown item loads and tax
+ * rule as null. New v2 entries are read only from the signed-in user's key.
+ */
+export const flushQueue = async (userId: string) => {
   if (!navigator.onLine) return 0;
-  const q = getQueue();
-  if (!q.length) return 0;
   let synced = 0;
-  const remaining = [...q];
-  for (const entry of q) {
+
+  const legacyEntries = getLegacyQueue();
+  const legacyRemaining = [...legacyEntries];
+  for (const entry of legacyEntries) {
     try {
-      await insertTicket(entry.draft);
-      remaining.splice(
-        remaining.findIndex((r) => r.id === entry.id),
-        1,
-      );
+      await insertTicket(normalizeLegacyDraft(entry.draft), entry.id, true);
+      const index = legacyRemaining.findIndex((candidate) => candidate.id === entry.id);
+      if (index >= 0) legacyRemaining.splice(index, 1);
+      writeQueue(LEGACY_QUEUE_KEY, legacyRemaining);
       synced += 1;
     } catch {
-      break;
+      return synced;
     }
   }
-  writeQueue(remaining);
+
+  const key = queueKeyForUser(userId);
+  const entries = getQueue(userId);
+  const remaining = [...entries];
+  for (const entry of entries) {
+    try {
+      await insertTicket(entry.draft, entry.id);
+      const index = remaining.findIndex((candidate) => candidate.id === entry.id);
+      if (index >= 0) remaining.splice(index, 1);
+      writeQueue(key, remaining);
+      synced += 1;
+    } catch (error) {
+      const index = remaining.findIndex((candidate) => candidate.id === entry.id);
+      if (index >= 0) {
+        remaining[index] = {
+          ...remaining[index],
+          attempts: remaining[index].attempts + 1,
+          last_error: errorMessage(error),
+        };
+        writeQueue(key, remaining);
+      }
+      return synced;
+    }
+  }
+
   return synced;
 };
