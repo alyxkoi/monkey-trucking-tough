@@ -38,10 +38,13 @@ const AdminSettings = () => {
   const writeVersions = useRef<Record<string, number>>({});
   const newName = useRef<HTMLInputElement>(null);
 
-  useEffect(() => setMaterials(sourceMaterials), [sourceMaterials]);
-  useEffect(() => setDrivers(sourceDrivers), [sourceDrivers]);
-  useEffect(() => setSettings(sourceSettings ?? null), [sourceSettings]);
-  useEffect(() => () => Object.values(timers.current).forEach(window.clearTimeout), []);
+  useEffect(() => { setMaterials(sourceMaterials); }, [sourceMaterials]);
+  useEffect(() => { setDrivers(sourceDrivers); }, [sourceDrivers]);
+  useEffect(() => { setSettings(sourceSettings ?? null); }, [sourceSettings]);
+  useEffect(() => {
+    const store = timers.current;
+    return () => { Object.values(store).forEach((id) => window.clearTimeout(id)); };
+  }, []);
 
   const markSaved = () => {
     setStatus("saved");

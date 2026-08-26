@@ -296,7 +296,7 @@ export function CollectedChart({ payments, period }: { payments: Payment[]; peri
     }
     return result;
   }, [payments, period]);
-  useEffect(() => setSelected(null), [period]);
+  useEffect(() => { setSelected(null); }, [period]);
 
   const width = 1000;
   const height = 180;
