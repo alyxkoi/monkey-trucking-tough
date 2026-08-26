@@ -254,15 +254,61 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_history: {
+        Row: {
+          actor_id: string | null
+          actor_label: string | null
+          after_snapshot: Json | null
+          before_snapshot: Json | null
+          created_at: string
+          event_type: string
+          id: string
+          reason: string | null
+          ticket_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_label?: string | null
+          after_snapshot?: Json | null
+          before_snapshot?: Json | null
+          created_at?: string
+          event_type: string
+          id?: string
+          reason?: string | null
+          ticket_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_label?: string | null
+          after_snapshot?: Json | null
+          before_snapshot?: Json | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          reason?: string | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_history_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_items: {
         Row: {
           created_at: string
           id: string
           is_full_load: boolean
           line_total: number
+          loads: number | null
           material_id: string | null
           material_name: string
           rate_used: number
+          superseded_at: string | null
           ticket_id: string
           yards: number
         }
@@ -271,9 +317,11 @@ export type Database = {
           id?: string
           is_full_load?: boolean
           line_total?: number
+          loads?: number | null
           material_id?: string | null
           material_name: string
           rate_used?: number
+          superseded_at?: string | null
           ticket_id: string
           yards?: number
         }
@@ -282,9 +330,11 @@ export type Database = {
           id?: string
           is_full_load?: boolean
           line_total?: number
+          loads?: number | null
           material_id?: string | null
           material_name?: string
           rate_used?: number
+          superseded_at?: string | null
           ticket_id?: string
           yards?: number
         }
@@ -307,6 +357,7 @@ export type Database = {
       }
       tickets: {
         Row: {
+          client_request_id: string | null
           created_at: string
           created_by: string | null
           customer_name: string
@@ -324,12 +375,18 @@ export type Database = {
           notes: string | null
           payment_status: string
           printed_at: string | null
+          status: string
           tax_amount: number
+          tax_applies_to_delivery: boolean | null
           tax_rate: number
           ticket_number: string
           updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
+          client_request_id?: string | null
           created_at?: string
           created_by?: string | null
           customer_name?: string
@@ -347,12 +404,18 @@ export type Database = {
           notes?: string | null
           payment_status?: string
           printed_at?: string | null
+          status?: string
           tax_amount?: number
+          tax_applies_to_delivery?: boolean | null
           tax_rate?: number
           ticket_number: string
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
+          client_request_id?: string | null
           created_at?: string
           created_by?: string | null
           customer_name?: string
@@ -370,10 +433,15 @@ export type Database = {
           notes?: string | null
           payment_status?: string
           printed_at?: string | null
+          status?: string
           tax_amount?: number
+          tax_applies_to_delivery?: boolean | null
           tax_rate?: number
           ticket_number?: string
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -411,6 +479,92 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      correct_ticket_atomic: {
+        Args: {
+          p_items: Json
+          p_reason: string
+          p_ticket: Json
+          p_ticket_id: string
+        }
+        Returns: {
+          client_request_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_name: string
+          customer_phone: string
+          delivery_fee_per_load: number
+          delivery_miles: number | null
+          delivery_total: number
+          delivery_type: string
+          driver_id: string | null
+          grand_total: number
+          id: string
+          job_site_address: string
+          load_count: number
+          materials_subtotal: number
+          notes: string | null
+          payment_status: string
+          printed_at: string | null
+          status: string
+          tax_amount: number
+          tax_applies_to_delivery: boolean | null
+          tax_rate: number
+          ticket_number: string
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      create_ticket_atomic: {
+        Args: {
+          p_client_request_id: string
+          p_items: Json
+          p_preserve_legacy_unknowns?: boolean
+          p_ticket: Json
+        }
+        Returns: {
+          client_request_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_name: string
+          customer_phone: string
+          delivery_fee_per_load: number
+          delivery_miles: number | null
+          delivery_total: number
+          delivery_type: string
+          driver_id: string | null
+          grand_total: number
+          id: string
+          job_site_address: string
+          load_count: number
+          materials_subtotal: number
+          notes: string | null
+          payment_status: string
+          printed_at: string | null
+          status: string
+          tax_amount: number
+          tax_applies_to_delivery: boolean | null
+          tax_rate: number
+          ticket_number: string
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -420,6 +574,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      is_admin_or_staff: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -437,6 +592,44 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      void_ticket: {
+        Args: { p_reason: string; p_ticket_id: string }
+        Returns: {
+          client_request_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_name: string
+          customer_phone: string
+          delivery_fee_per_load: number
+          delivery_miles: number | null
+          delivery_total: number
+          delivery_type: string
+          driver_id: string | null
+          grand_total: number
+          id: string
+          job_site_address: string
+          load_count: number
+          materials_subtotal: number
+          notes: string | null
+          payment_status: string
+          printed_at: string | null
+          status: string
+          tax_amount: number
+          tax_applies_to_delivery: boolean | null
+          tax_rate: number
+          ticket_number: string
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
     }
     Enums: {
