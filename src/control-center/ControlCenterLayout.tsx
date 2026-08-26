@@ -243,7 +243,7 @@ function ActionSheets() {
 
 function Shell() {
   const { pathname } = useLocation();
-  useEffect(() => window.scrollTo({ top: 0 }), [pathname]);
+  useEffect(() => { window.scrollTo({ top: 0 }); }, [pathname]);
   return (
     <div className="cc">
       <Helmet><title>Control Center · Monkey Trucking</title><meta name="robots" content="noindex, nofollow" /><meta name="googlebot" content="noindex, nofollow" /><meta name="theme-color" content="#0E0E10" /></Helmet>
