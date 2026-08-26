@@ -1449,6 +1449,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      confirm_worker_payment_details: {
+        Args: { p_worker_payment_id: string }
+        Returns: undefined
+      }
       correct_ticket_atomic: {
         Args: {
           p_items: Json
@@ -1508,6 +1512,11 @@ export type Database = {
           id: string
           ticket_number: string
         }[]
+      }
+      create_invoice_from_job: { Args: { p_job_id: string }; Returns: string }
+      create_invoice_from_standalone_ticket: {
+        Args: { p_ticket_id: string }
+        Returns: string
       }
       create_job_with_customer: {
         Args: {
@@ -1600,6 +1609,19 @@ export type Database = {
           ticket_number: string
         }[]
       }
+      create_worker_payment_pending: {
+        Args: {
+          p_amount: number
+          p_attachment_path?: string
+          p_hours: number
+          p_period_end: string
+          p_period_start: string
+          p_rate: number
+          p_source: string
+          p_worker_id: string
+        }
+        Returns: string
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -1635,6 +1657,10 @@ export type Database = {
       is_admin_or_staff:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
+      mark_worker_payment_paid: {
+        Args: { p_worker_payment_id: string }
+        Returns: undefined
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -1655,12 +1681,25 @@ export type Database = {
           read_ct: number
         }[]
       }
+      record_invoice_payment_full: {
+        Args: {
+          p_invoice_id: string
+          p_method: string
+          p_note?: string
+          p_received_at: string
+        }
+        Returns: string
+      }
       save_quote_atomic: {
         Args: { p_items: Json; p_quote: Json }
         Returns: {
           id: string
           quote_number: string
         }[]
+      }
+      void_financial_record: {
+        Args: { p_reason: string; p_record_id: string; p_record_type: string }
+        Returns: undefined
       }
       void_ticket: {
         Args: { p_reason: string; p_ticket_id: string }
