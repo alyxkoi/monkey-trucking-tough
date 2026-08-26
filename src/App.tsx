@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import ScrollToTop from "@/components/ScrollToTop";
 import Layout from "@/components/Layout";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -18,11 +18,23 @@ const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const SignIn = lazy(() => import("./pages/SignIn"));
-const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
-const AdminTickets = lazy(() => import("./pages/admin/AdminTickets"));
-const AdminNewTicket = lazy(() => import("./pages/admin/AdminNewTicket"));
-const AdminTicketDetail = lazy(() => import("./pages/admin/AdminTicketDetail"));
-const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
+const ControlCenterLayout = lazy(() => import("./control-center/ControlCenterLayout"));
+const Overview = lazy(() => import("./control-center/pages").then((module) => ({ default: module.Overview })));
+const NeedsAttention = lazy(() => import("./control-center/pages").then((module) => ({ default: module.NeedsAttention })));
+const LeadsQuotes = lazy(() => import("./control-center/pages").then((module) => ({ default: module.LeadsQuotes })));
+const Customers = lazy(() => import("./control-center/pages").then((module) => ({ default: module.Customers })));
+const Jobs = lazy(() => import("./control-center/pages").then((module) => ({ default: module.Jobs })));
+const Tickets = lazy(() => import("./control-center/pages").then((module) => ({ default: module.Tickets })));
+const Money = lazy(() => import("./control-center/pages").then((module) => ({ default: module.Money })));
+const SettingsHome = lazy(() => import("./control-center/pages").then((module) => ({ default: module.SettingsHome })));
+const LeadDetail = lazy(() => import("./control-center/details").then((module) => ({ default: module.LeadDetail })));
+const QuoteDetail = lazy(() => import("./control-center/details").then((module) => ({ default: module.QuoteDetail })));
+const JobDetail = lazy(() => import("./control-center/details").then((module) => ({ default: module.JobDetail })));
+const CustomerDetail = lazy(() => import("./control-center/details").then((module) => ({ default: module.CustomerDetail })));
+const InvoiceDetail = lazy(() => import("./control-center/details").then((module) => ({ default: module.InvoiceDetail })));
+const SettingsSection = lazy(() => import("./control-center/details").then((module) => ({ default: module.SettingsSection })));
+const TicketBuilder = lazy(() => import("./control-center/ticketPages").then((module) => ({ default: module.TicketBuilder })));
+const TicketDetail = lazy(() => import("./control-center/ticketPages").then((module) => ({ default: module.TicketDetail })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -64,12 +76,29 @@ const App = () => (
                 <Route path="/blog/:slug" element={<BlogPost />} />
               </Route>
               <Route path="/signin" element={<SignIn />} />
-              <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<AdminTickets />} />
-                <Route path="new" element={<AdminNewTicket />} />
-                <Route path="ticket/:id" element={<AdminTicketDetail />} />
-                <Route path="ticket/:id/edit" element={<AdminNewTicket />} />
-                <Route path="settings" element={<AdminSettings />} />
+              <Route path="/admin" element={<ControlCenterLayout />}>
+                <Route index element={<Overview />} />
+                <Route path="attention" element={<NeedsAttention />} />
+                <Route path="leads" element={<LeadsQuotes />} />
+                <Route path="leads/:leadId" element={<LeadDetail />} />
+                <Route path="quotes/:quoteId" element={<QuoteDetail />} />
+                <Route path="jobs" element={<Jobs />} />
+                <Route path="jobs/:jobId" element={<JobDetail />} />
+                <Route path="tickets" element={<Tickets />} />
+                <Route path="tickets/new" element={<TicketBuilder />} />
+                <Route path="tickets/:ticketId" element={<TicketDetail />} />
+                <Route path="tickets/:ticketId/edit" element={<TicketBuilder />} />
+                <Route path="customers" element={<Customers />} />
+                <Route path="customers/:customerId" element={<CustomerDetail />} />
+                <Route path="money" element={<Money />} />
+                <Route path="money/invoices/:invoiceId" element={<InvoiceDetail />} />
+                <Route path="settings" element={<SettingsHome />} />
+                <Route path="settings/:section" element={<SettingsSection />} />
+
+                {/* Backward-compatible links from the retired Ticket-only dashboard. */}
+                <Route path="new" element={<Navigate to="/admin/tickets/new" replace />} />
+                <Route path="ticket/:ticketId" element={<TicketDetail />} />
+                <Route path="ticket/:ticketId/edit" element={<TicketBuilder />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

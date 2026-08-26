@@ -38,6 +38,8 @@ interface LegacyTicketDraft extends Omit<TicketDraft, "tax_applies_to_delivery" 
 export interface QueueEntry {
   id: string;
   draft: TicketDraft;
+  /** Present for Control Center tickets. Legacy queue entries intentionally have no inferred links. */
+  context?: TicketContext;
   queued_at: string;
   attempts: number;
   last_error: string | null;
@@ -53,6 +55,11 @@ export const LEGACY_QUEUE_KEY = "mt_ticket_queue_v1";
 const QUEUE_PREFIX = "mt_ticket_queue_v2";
 
 export const queueKeyForUser = (userId: string) => `${QUEUE_PREFIX}:${userId}`;
+
+export interface TicketContext {
+  customerId: string;
+  jobId?: string;
+}
 
 const parseQueue = <T>(key: string): T[] => {
   try {
@@ -80,11 +87,17 @@ const normalizeLegacyDraft = (draft: LegacyTicketDraft): TicketDraft => ({
   items: draft.items.map((item) => ({ ...item, loads: item.loads ?? null })),
 });
 
-export const enqueueTicket = (draft: TicketDraft, userId: string, requestId = crypto.randomUUID()) => {
+export const enqueueTicket = (
+  draft: TicketDraft,
+  userId: string,
+  requestId = crypto.randomUUID(),
+  context?: TicketContext,
+) => {
   const entries = getQueue(userId);
   entries.push({
     id: requestId,
     draft,
+    context,
     queued_at: new Date().toISOString(),
     attempts: 0,
     last_error: null,
@@ -107,14 +120,28 @@ export const insertTicket = async (
   draft: TicketDraft,
   requestId: string,
   preserveLegacyUnknowns = false,
+  context?: TicketContext,
 ) => {
   const payload = ticketRpcPayload(draft);
-  const { data, error } = await supabase.rpc("create_ticket_atomic", {
-    p_ticket: payload.ticket,
-    p_items: payload.items,
-    p_client_request_id: requestId,
-    p_preserve_legacy_unknowns: preserveLegacyUnknowns,
-  });
+  const rawRpc = supabase.rpc.bind(supabase) as unknown as (
+    functionName: string,
+    args: Record<string, unknown>,
+  ) => PromiseLike<{ data: Array<{ id: string; ticket_number: string; created: boolean }> | null; error: { message: string } | null }>;
+  const { data, error } = context
+    ? await rawRpc("create_control_center_ticket_atomic", {
+        p_ticket: payload.ticket,
+        p_items: payload.items,
+        p_client_request_id: requestId,
+        p_customer_id: context.customerId,
+        p_job_id: context.jobId ?? null,
+        p_preserve_legacy_unknowns: preserveLegacyUnknowns,
+      })
+    : await rawRpc("create_ticket_compat_atomic", {
+        p_ticket: payload.ticket,
+        p_items: payload.items,
+        p_client_request_id: requestId,
+        p_preserve_legacy_unknowns: preserveLegacyUnknowns,
+      });
   if (error) throw error;
   const created = data?.[0];
   if (!created) throw new Error("Ticket save returned no record.");
@@ -157,18 +184,18 @@ export const isRetryableNetworkError = (error: unknown) => {
 };
 
 /** Saves a new ticket, falling back to the account-scoped queue on connection failure. */
-export const saveTicket = async (draft: TicketDraft, userId: string) => {
+export const saveTicket = async (draft: TicketDraft, userId: string, context?: TicketContext) => {
   const requestId = crypto.randomUUID();
   if (!navigator.onLine) {
-    enqueueTicket(draft, userId, requestId);
+    enqueueTicket(draft, userId, requestId, context);
     return { queued: true as const, requestId };
   }
   try {
-    const ticket = await insertTicket(draft, requestId);
+    const ticket = await insertTicket(draft, requestId, false, context);
     return { queued: false as const, ticket, requestId };
   } catch (error) {
     if (isRetryableNetworkError(error)) {
-      enqueueTicket(draft, userId, requestId);
+      enqueueTicket(draft, userId, requestId, context);
       return { queued: true as const, requestId };
     }
     throw error;
@@ -208,7 +235,7 @@ export const flushQueue = async (userId: string) => {
   const remaining = [...entries];
   for (const entry of entries) {
     try {
-      await insertTicket(entry.draft, entry.id);
+      await insertTicket(entry.draft, entry.id, false, entry.context);
       const index = remaining.findIndex((candidate) => candidate.id === entry.id);
       if (index >= 0) remaining.splice(index, 1);
       writeQueue(key, remaining);

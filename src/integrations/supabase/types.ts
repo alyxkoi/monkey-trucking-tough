@@ -360,6 +360,7 @@ export type Database = {
           client_request_id: string | null
           created_at: string
           created_by: string | null
+          customer_id: string | null
           customer_name: string
           customer_phone: string
           delivery_fee_per_load: number
@@ -369,6 +370,7 @@ export type Database = {
           driver_id: string | null
           grand_total: number
           id: string
+          job_id: string | null
           job_site_address: string
           load_count: number
           materials_subtotal: number
@@ -389,6 +391,7 @@ export type Database = {
           client_request_id?: string | null
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           customer_name?: string
           customer_phone?: string
           delivery_fee_per_load?: number
@@ -398,6 +401,7 @@ export type Database = {
           driver_id?: string | null
           grand_total?: number
           id?: string
+          job_id?: string | null
           job_site_address?: string
           load_count?: number
           materials_subtotal?: number
@@ -418,6 +422,7 @@ export type Database = {
           client_request_id?: string | null
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           customer_name?: string
           customer_phone?: string
           delivery_fee_per_load?: number
@@ -427,6 +432,7 @@ export type Database = {
           driver_id?: string | null
           grand_total?: number
           id?: string
+          job_id?: string | null
           job_site_address?: string
           load_count?: number
           materials_subtotal?: number
@@ -445,10 +451,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "tickets_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tickets_driver_id_fkey"
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
         ]

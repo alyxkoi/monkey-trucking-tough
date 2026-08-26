@@ -66,6 +66,26 @@ describe("Ticket snapshot and offline safety", () => {
     expect(queueKeyForUser(userA)).not.toBe(queueKeyForUser(userB));
   });
 
+  it("keeps the real customer and job context on scoped offline retries", async () => {
+    const context = {
+      customerId: "10000000-0000-4000-8000-000000000001",
+      jobId: "20000000-0000-4000-8000-000000000002",
+    };
+    enqueueTicket(safeTicketDraft, userA, "30000000-0000-4000-8000-000000000003", context);
+    expect(getQueue(userA)[0].context).toEqual(context);
+
+    rpcMock.mockResolvedValue({
+      data: [{ id: "ticket-id", ticket_number: "MT1104", created: true }],
+      error: null,
+    });
+    await expect(flushQueue(userA)).resolves.toBe(1);
+    expect(rpcMock).toHaveBeenCalledWith("create_control_center_ticket_atomic", expect.objectContaining({
+      p_client_request_id: "30000000-0000-4000-8000-000000000003",
+      p_customer_id: context.customerId,
+      p_job_id: context.jobId,
+    }));
+  });
+
   it("queues a complete new snapshot without allocating a number while offline", async () => {
     Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
 

@@ -1,0 +1,213 @@
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { flushQueue, getPendingCount } from "@/lib/admin/tickets";
+import { invoiceStatus, loadControlData, type ControlData } from "./data";
+
+export type NewAction = "menu" | "lead" | "job" | "payment" | null;
+export type AttentionItem = {
+  id: string;
+  rank: number;
+  tone: "red" | "warn" | "ice";
+  title: string;
+  detail: string;
+  to: string;
+  action: string;
+  waitingSince: string;
+};
+
+type ControlContextValue = {
+  data: ControlData | null;
+  loading: boolean;
+  error: Error | null;
+  refresh: () => Promise<void>;
+  attention: AttentionItem[];
+  action: NewAction;
+  setAction: (value: NewAction) => void;
+  pendingTickets: number;
+  syncing: boolean;
+};
+
+const ControlContext = createContext<ControlContextValue | null>(null);
+
+function deriveAttention(data: ControlData): AttentionItem[] {
+  const now = Date.now();
+  const activeSnoozes = new Set(
+    data.snoozes.filter((item) => new Date(item.returns_at).getTime() > now).map((item) => item.fingerprint),
+  );
+  const items: AttentionItem[] = [];
+
+  for (const job of data.jobs) {
+    if (job.status !== "CANCELLED" && job.blocked_reason) {
+      items.push({
+        id: `job-blocked:${job.id}`,
+        rank: 10,
+        tone: "red",
+        title: job.blocked_reason,
+        detail: `${data.customers.find((c) => c.id === job.customer_id)?.name ?? "Customer"} · ${job.description}`,
+        to: `/admin/jobs/${job.id}?attention=blocked`,
+        action: "Call or text",
+        waitingSince: job.blocked_at ?? job.updated_at,
+      });
+    }
+  }
+
+  for (const lead of data.leads) {
+    const customer = data.customers.find((entry) => entry.id === lead.customer_id);
+    const messages = data.messages.filter((message) => message.lead_id === lead.id);
+    const latest = messages.at(-1);
+    if (latest?.sender_type === "CUSTOMER" && !lead.human_takeover) {
+      items.push({
+        id: `customer-waiting:${lead.id}`,
+        rank: 20,
+        tone: "red",
+        title: `${customer?.name ?? "Customer"} is waiting`,
+        detail: latest.body,
+        to: `/admin/leads/${lead.id}?attention=reply`,
+        action: "Reply",
+        waitingSince: latest.created_at,
+      });
+    } else if (lead.status === "NEW") {
+      items.push({
+        id: `new-lead:${lead.id}`,
+        rank: 30,
+        tone: "ice",
+        title: `New lead · ${customer?.name ?? "Customer"}`,
+        detail: lead.need,
+        to: `/admin/leads/${lead.id}?attention=reply`,
+        action: "Open lead",
+        waitingSince: lead.created_at,
+      });
+    } else if (lead.status === "ACTIVE" && now - new Date(lead.updated_at).getTime() > 24 * 60 * 60 * 1000) {
+      items.push({
+        id: `lead-follow-up:${lead.id}`,
+        rank: 70,
+        tone: "ice",
+        title: `Follow up with ${customer?.name ?? "customer"}`,
+        detail: lead.need,
+        to: `/admin/leads/${lead.id}?attention=follow-up`,
+        action: "Call or text",
+        waitingSince: lead.updated_at,
+      });
+    }
+  }
+
+  for (const quote of data.quotes) {
+    const customer = data.customers.find((entry) => entry.id === quote.customer_id);
+    if (quote.status === "ACCEPTED" && !data.jobs.some((job) => job.quote_id === quote.id)) {
+      items.push({
+        id: `quote-schedule:${quote.id}`,
+        rank: 40,
+        tone: "red",
+        title: `Schedule ${customer?.name ?? "accepted work"}`,
+        detail: `${quote.quote_number} accepted · ${quote.description}`,
+        to: `/admin/quotes/${quote.id}?attention=schedule`,
+        action: "Schedule job",
+        waitingSince: quote.accepted_at ?? quote.updated_at,
+      });
+    } else if (quote.status === "SENT" && now - new Date(quote.sent_at ?? quote.updated_at).getTime() > 24 * 60 * 60 * 1000) {
+      items.push({
+        id: `quote-follow-up:${quote.id}`,
+        rank: 60,
+        tone: "ice",
+        title: `Quote follow up · ${customer?.name ?? "Customer"}`,
+        detail: `${quote.quote_number} · ${quote.description}`,
+        to: `/admin/quotes/${quote.id}?attention=follow-up`,
+        action: "Call or text",
+        waitingSince: quote.sent_at ?? quote.updated_at,
+      });
+    }
+  }
+
+  for (const invoice of data.invoices) {
+    const customer = data.customers.find((entry) => entry.id === invoice.customer_id);
+    if (invoice.payment_claimed_at) {
+      items.push({
+        id: `payment-claim:${invoice.id}`,
+        rank: 55,
+        tone: "warn",
+        title: `${customer?.name ?? "Customer"} says they paid`,
+        detail: `Invoice ${invoice.invoice_number} · verify before recording`,
+        to: `/admin/money/invoices/${invoice.id}?attention=verify`,
+        action: "Verify and record",
+        waitingSince: invoice.payment_claimed_at,
+      });
+    } else if (invoiceStatus(invoice) === "OVERDUE") {
+      items.push({
+        id: `invoice-overdue:${invoice.id}`,
+        rank: 50,
+        tone: "red",
+        title: `${customer?.name ?? "Invoice"} is overdue`,
+        detail: `Invoice ${invoice.invoice_number} · ${invoice.description}`,
+        to: `/admin/money/invoices/${invoice.id}?attention=overdue`,
+        action: "Call or text",
+        waitingSince: invoice.due_at ?? invoice.updated_at,
+      });
+    }
+  }
+
+  return items
+    .filter((item) => !activeSnoozes.has(item.id))
+    .sort((a, b) => a.rank - b.rank || new Date(a.waitingSince).getTime() - new Date(b.waitingSince).getTime());
+}
+
+export function ControlCenterProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ["admin", "control-center"],
+    queryFn: loadControlData,
+    retry: false,
+  });
+  const [action, setAction] = useState<NewAction>(null);
+  const [pendingTickets, setPendingTickets] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const sync = async () => {
+      setSyncing(true);
+      try {
+        const count = await flushQueue(user.id);
+        if (count > 0) await queryClient.invalidateQueries({ queryKey: ["admin"] });
+      } finally {
+        setPendingTickets(getPendingCount(user.id));
+        setSyncing(false);
+      }
+    };
+    const update = () => setPendingTickets(getPendingCount(user.id));
+    update();
+    void sync();
+    window.addEventListener("online", sync);
+    window.addEventListener("mt-queue-change", update);
+    const interval = window.setInterval(sync, 30000);
+    return () => {
+      window.removeEventListener("online", sync);
+      window.removeEventListener("mt-queue-change", update);
+      window.clearInterval(interval);
+    };
+  }, [queryClient, user?.id]);
+
+  const value = useMemo<ControlContextValue>(() => ({
+    data: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error instanceof Error ? query.error : null,
+    refresh: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin"] });
+    },
+    attention: query.data ? deriveAttention(query.data) : [],
+    action,
+    setAction,
+    pendingTickets,
+    syncing,
+  }), [action, pendingTickets, query.data, query.error, query.isLoading, queryClient, syncing]);
+
+  return <ControlContext.Provider value={value}>{children}</ControlContext.Provider>;
+}
+
+export function useControlCenter() {
+  const value = useContext(ControlContext);
+  if (!value) throw new Error("useControlCenter must be used inside ControlCenterProvider");
+  return value;
+}
