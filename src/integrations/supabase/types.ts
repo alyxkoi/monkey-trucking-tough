@@ -1494,6 +1494,54 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      create_control_center_ticket_atomic: {
+        Args: {
+          p_client_request_id: string
+          p_customer_id: string
+          p_items: Json
+          p_job_id?: string
+          p_preserve_legacy_unknowns?: boolean
+          p_ticket: Json
+        }
+        Returns: {
+          created: boolean
+          id: string
+          ticket_number: string
+        }[]
+      }
+      create_job_with_customer: {
+        Args: {
+          p_address: string
+          p_agreed_amount: number
+          p_all_day: boolean
+          p_category: string
+          p_customer_id: string
+          p_date: string
+          p_description: string
+          p_email: string
+          p_name: string
+          p_notes: string
+          p_phone: string
+          p_quote_id: string
+          p_time: string
+        }
+        Returns: string
+      }
+      create_lead_with_customer: {
+        Args: {
+          p_campaign: string
+          p_email: string
+          p_name: string
+          p_need: string
+          p_phone: string
+          p_source: string
+        }
+        Returns: {
+          customer_id: string
+          lead_id: string
+          matched_existing: boolean
+        }[]
+      }
       create_ticket_atomic: {
         Args: {
           p_client_request_id: string
@@ -1539,6 +1587,19 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      create_ticket_compat_atomic: {
+        Args: {
+          p_client_request_id: string
+          p_items: Json
+          p_preserve_legacy_unknowns?: boolean
+          p_ticket: Json
+        }
+        Returns: {
+          created: boolean
+          id: string
+          ticket_number: string
+        }[]
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -1547,6 +1608,29 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      find_or_create_customer: {
+        Args: { p_email?: string; p_name: string; p_phone?: string }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          last_activity_at: string
+          name: string
+          normalized_email: string | null
+          normalized_phone: string | null
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "customers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       is_admin_or_staff:
         | { Args: never; Returns: boolean }
@@ -1560,6 +1644,8 @@ export type Database = {
         }
         Returns: number
       }
+      next_invoice_number: { Args: never; Returns: string }
+      next_quote_number: { Args: never; Returns: string }
       next_ticket_number: { Args: never; Returns: string }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
@@ -1567,6 +1653,13 @@ export type Database = {
           message: Json
           msg_id: number
           read_ct: number
+        }[]
+      }
+      save_quote_atomic: {
+        Args: { p_items: Json; p_quote: Json }
+        Returns: {
+          id: string
+          quote_number: string
         }[]
       }
       void_ticket: {
