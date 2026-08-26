@@ -254,6 +254,50 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_history: {
+        Row: {
+          actor_id: string | null
+          actor_label: string | null
+          after_snapshot: Json | null
+          before_snapshot: Json | null
+          created_at: string
+          event_type: string
+          id: string
+          reason: string | null
+          ticket_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_label?: string | null
+          after_snapshot?: Json | null
+          before_snapshot?: Json | null
+          created_at?: string
+          event_type: string
+          id?: string
+          reason?: string | null
+          ticket_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_label?: string | null
+          after_snapshot?: Json | null
+          before_snapshot?: Json | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          reason?: string | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_history_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_items: {
         Row: {
           created_at: string
@@ -311,50 +355,6 @@ export type Database = {
           },
         ]
       }
-      ticket_history: {
-        Row: {
-          actor_id: string | null
-          actor_label: string | null
-          after_snapshot: Json | null
-          before_snapshot: Json | null
-          created_at: string
-          event_type: string
-          id: string
-          reason: string | null
-          ticket_id: string
-        }
-        Insert: {
-          actor_id?: string | null
-          actor_label?: string | null
-          after_snapshot?: Json | null
-          before_snapshot?: Json | null
-          created_at?: string
-          event_type: string
-          id?: string
-          reason?: string | null
-          ticket_id: string
-        }
-        Update: {
-          actor_id?: string | null
-          actor_label?: string | null
-          after_snapshot?: Json | null
-          before_snapshot?: Json | null
-          created_at?: string
-          event_type?: string
-          id?: string
-          reason?: string | null
-          ticket_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ticket_history_ticket_id_fkey"
-            columns: ["ticket_id"]
-            isOneToOne: false
-            referencedRelation: "tickets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       tickets: {
         Row: {
           client_request_id: string | null
@@ -375,7 +375,7 @@ export type Database = {
           notes: string | null
           payment_status: string
           printed_at: string | null
-          status: string | null
+          status: string
           tax_amount: number
           tax_applies_to_delivery: boolean | null
           tax_rate: number
@@ -404,7 +404,7 @@ export type Database = {
           notes?: string | null
           payment_status?: string
           printed_at?: string | null
-          status?: string | null
+          status?: string
           tax_amount?: number
           tax_applies_to_delivery?: boolean | null
           tax_rate?: number
@@ -433,7 +433,7 @@ export type Database = {
           notes?: string | null
           payment_status?: string
           printed_at?: string | null
-          status?: string | null
+          status?: string
           tax_amount?: number
           tax_applies_to_delivery?: boolean | null
           tax_rate?: number
@@ -487,9 +487,40 @@ export type Database = {
           p_ticket_id: string
         }
         Returns: {
+          client_request_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_name: string
+          customer_phone: string
+          delivery_fee_per_load: number
+          delivery_miles: number | null
+          delivery_total: number
+          delivery_type: string
+          driver_id: string | null
+          grand_total: number
           id: string
+          job_site_address: string
+          load_count: number
+          materials_subtotal: number
+          notes: string | null
+          payment_status: string
+          printed_at: string | null
+          status: string
+          tax_amount: number
+          tax_applies_to_delivery: boolean | null
+          tax_rate: number
           ticket_number: string
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       create_ticket_atomic: {
         Args: {
@@ -499,10 +530,40 @@ export type Database = {
           p_ticket: Json
         }
         Returns: {
-          created: boolean
+          client_request_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_name: string
+          customer_phone: string
+          delivery_fee_per_load: number
+          delivery_miles: number | null
+          delivery_total: number
+          delivery_type: string
+          driver_id: string | null
+          grand_total: number
           id: string
+          job_site_address: string
+          load_count: number
+          materials_subtotal: number
+          notes: string | null
+          payment_status: string
+          printed_at: string | null
+          status: string
+          tax_amount: number
+          tax_applies_to_delivery: boolean | null
+          tax_rate: number
           ticket_number: string
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       delete_email: {
         Args: { message_id: number; queue_name: string }
@@ -513,6 +574,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      is_admin_or_staff: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -522,8 +584,6 @@ export type Database = {
         }
         Returns: number
       }
-      is_admin_or_staff: { Args: never; Returns: boolean }
-      is_admin: { Args: never; Returns: boolean }
       next_ticket_number: { Args: never; Returns: string }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
@@ -533,20 +593,43 @@ export type Database = {
           read_ct: number
         }[]
       }
-      validate_ticket_payload: {
-        Args: {
-          p_items: Json
-          p_preserve_legacy_unknowns?: boolean
-          p_ticket: Json
-        }
-        Returns: undefined
-      }
       void_ticket: {
         Args: { p_reason: string; p_ticket_id: string }
         Returns: {
+          client_request_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_name: string
+          customer_phone: string
+          delivery_fee_per_load: number
+          delivery_miles: number | null
+          delivery_total: number
+          delivery_type: string
+          driver_id: string | null
+          grand_total: number
           id: string
+          job_site_address: string
+          load_count: number
+          materials_subtotal: number
+          notes: string | null
+          payment_status: string
+          printed_at: string | null
+          status: string
+          tax_amount: number
+          tax_applies_to_delivery: boolean | null
+          tax_rate: number
           ticket_number: string
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
     }
     Enums: {
