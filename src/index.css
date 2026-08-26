@@ -1,0 +1,364 @@
+/* Fonts are loaded via <link rel="preconnect"> + <link rel="stylesheet"> in index.html to avoid render-blocking @import. */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    background-color: #0E0E10;
+    color-scheme: dark;
+  }
+  html, body, #root {
+    min-height: 100%;
+    background-color: #0E0E10;
+  }
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 7%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 7%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 7%;
+
+    --primary: 0 100% 62%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 7%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 43%;
+
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 7%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 80%;
+    --input: 0 0% 80%;
+    --ring: 0 100% 62%;
+
+    --radius: 0.5rem;
+
+    --industrial: 0 0% 7%;
+    --industrial-foreground: 0 0% 100%;
+
+    --gravel: 0 0% 43%;
+    --gravel-foreground: 0 0% 100%;
+
+    --light-gray: 0 0% 96%;
+  }
+
+  .dark {
+    --background: 0 0% 7%;
+    --foreground: 0 0% 96%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 96%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 0 100% 62%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 96%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 96%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 0 100% 62%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply text-foreground font-body;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+.route-fallback {
+  min-height: 100vh;
+  background: #0E0E10;
+  padding: 112px 24px 48px;
+}
+.route-fallback-line, .route-fallback-block {
+  background: #17171A;
+  border: 1px solid #2C2C31;
+}
+.route-fallback-line { width: min(320px, 70%); height: 32px; margin-bottom: 24px; }
+.route-fallback-block { width: 100%; height: 144px; margin-bottom: 16px; }
+
+.public-header {
+  background: #0E0E10;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.public-drawer-backdrop { background: rgba(14, 14, 16, 0.72); }
+@supports ((backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))) {
+  .public-header, .public-drawer-backdrop {
+    background: rgba(14, 14, 16, 0.72);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: blur(20px) saturate(140%);
+  }
+}
+.public-drawer-panel {
+  background: #0E0E10;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+@supports ((backdrop-filter: blur(24px)) or (-webkit-backdrop-filter: blur(24px))) {
+  .public-drawer-panel {
+    background: rgba(14, 14, 16, 0.94);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    backdrop-filter: blur(24px) saturate(140%);
+  }
+}
+.public-nav-link {
+  position: relative;
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  letter-spacing: 0.08em;
+}
+.public-nav-link::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 9px;
+  left: 0;
+  height: 2px;
+  background: hsl(var(--primary));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 200ms ease;
+}
+.public-nav-link:hover::after { transform: scaleX(1); }
+.public-nav-link.text-primary::after { transform: scaleX(0); }
+
+/* Gravel texture text effect */
+.gravel-text {
+  background-image: 
+    radial-gradient(ellipse at 20% 50%, hsl(0 0% 35%) 1px, transparent 1px),
+    radial-gradient(ellipse at 80% 20%, hsl(0 0% 45%) 1px, transparent 1px),
+    radial-gradient(ellipse at 40% 80%, hsl(0 0% 30%) 1px, transparent 1px),
+    radial-gradient(ellipse at 60% 40%, hsl(0 0% 50%) 1px, transparent 1px),
+    radial-gradient(ellipse at 10% 10%, hsl(0 0% 40%) 1px, transparent 1px),
+    linear-gradient(135deg, hsl(0 0% 55%), hsl(0 0% 35%), hsl(0 0% 50%), hsl(0 0% 40%));
+  background-size: 8px 8px, 12px 12px, 6px 6px, 10px 10px, 7px 7px, 100% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Fade in animation */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+.animate-fade-in-up.visible {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+/* Premium dark surfaces */
+.bg-nearblack { background-color: #0E0E10; }
+.bg-asphalt { background-color: #16161A; }
+
+/* Subtle film grain overlay (CSS only, no asset) */
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 160px 160px;
+  z-index: 1;
+}
+
+/* Soft red radial glow behind headlines */
+.red-glow {
+  position: relative;
+}
+.red-glow::after {
+  content: "";
+  position: absolute;
+  inset: -20% -10%;
+  background: radial-gradient(ellipse at center, rgba(255,59,59,0.22), transparent 60%);
+  filter: blur(40px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Eyebrow label */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: hsl(var(--primary));
+}
+/* No leading dash before eyebrow labels */
+
+/* Hairline border */
+.hairline { border: 1px solid rgba(255,255,255,0.08); }
+
+/* Premium dark card */
+.dark-card {
+  background: linear-gradient(180deg, #17171B 0%, #121215 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 30px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+  border-radius: 14px;
+}
+
+/* Hazard divider */
+.hazard {
+  height: 6px;
+  background: repeating-linear-gradient(135deg, #FF3B3B 0 14px, #0E0E10 14px 28px);
+  opacity: 0.85;
+}
+
+/* Marquee */
+.marquee {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%);
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 38s linear infinite;
+}
+@media (max-width: 768px) {
+  .marquee-track { animation-duration: 18s; }
+}
+.marquee:hover .marquee-track { animation-play-state: paused; }
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track,
+  .animate-ken-burns,
+  .animate-slide-up-in,
+  .animate-bounce-soft { animation: none !important; }
+}
+.material-card {
+  background-image:
+    radial-gradient(ellipse at 30% 40%, hsl(0 0% 0% / 0.02) 1px, transparent 1px),
+    radial-gradient(ellipse at 70% 60%, hsl(0 0% 0% / 0.015) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 20%, hsl(0 0% 0% / 0.02) 1px, transparent 1px);
+  background-size: 6px 6px, 8px 8px, 5px 5px;
+}
+
+/* Brushed aluminum panel effect for FAQ */
+.faq-aluminum-panel {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      hsla(0, 0%, 78%, 0.06) 0px,
+      transparent 1px,
+      transparent 2px,
+      hsla(0, 0%, 82%, 0.04) 3px
+    ),
+    linear-gradient(
+      180deg,
+      hsl(40, 2%, 87%) 0%,
+      hsl(40, 2%, 84%) 40%,
+      hsl(40, 2%, 82%) 100%
+    );
+  border: 1px solid hsl(40, 2%, 72%);
+  box-shadow:
+    inset 0 1px 0 0 hsla(0, 0%, 93%, 0.7),
+    0 2px 6px -1px hsla(0, 0%, 0%, 0.12),
+    0 1px 3px 0 hsla(0, 0%, 0%, 0.06);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.faq-aluminum-panel:hover {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      hsla(0, 0%, 74%, 0.08) 0px,
+      transparent 1px,
+      transparent 2px,
+      hsla(0, 0%, 78%, 0.05) 3px
+    ),
+    linear-gradient(
+      180deg,
+      hsl(40, 2%, 84%) 0%,
+      hsl(40, 2%, 81%) 40%,
+      hsl(40, 2%, 79%) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 0 hsla(0, 0%, 90%, 0.6),
+    0 3px 8px -1px hsla(0, 0%, 0%, 0.16),
+    0 2px 4px 0 hsla(0, 0%, 0%, 0.08);
+}
+
+.faq-aluminum-panel [data-state="open"] .faq-chevron {
+  transform: rotate(180deg);
+}
+
+.faq-chevron {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Industrial service card panels */
+.service-industrial-panel {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      hsla(0, 0%, 0%, 0.03) 0px,
+      transparent 1px,
+      transparent 3px
+    ),
+    radial-gradient(ellipse at 30% 40%, hsla(0, 0%, 0%, 0.025) 1px, transparent 1px),
+    radial-gradient(ellipse at 70% 60%, hsla(0, 0%, 0%, 0.02) 1px, transparent 1px),
+    linear-gradient(
+      180deg,
+      hsl(40, 2%, 88%) 0%,
+      hsl(40, 2%, 84%) 50%,
+      hsl(40, 2%, 82%) 100%
+    );
+  background-size: 4px 4px, 6px 6px, 8px 8px, 100% 100%;
+  border: 2px solid hsl(0, 0%, 68%);
+  box-shadow:
+    inset 0 1px 0 0 hsla(0, 0%, 94%, 0.7),
+    0 3px 10px -2px hsla(0, 0%, 0%, 0.18),
+    0 2px 4px 0 hsla(0, 0%, 0%, 0.1);
+  transition: all 0.3s ease;
+}
+
+.service-industrial-panel:hover {
+  border-color: hsl(0, 0%, 50%);
+  box-shadow:
+    inset 0 1px 0 0 hsla(0, 0%, 90%, 0.5),
+    0 10px 24px -4px hsla(0, 0%, 0%, 0.22),
+    0 4px 8px 0 hsla(0, 0%, 0%, 0.12);
+}

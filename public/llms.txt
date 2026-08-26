@@ -1,0 +1,13 @@
+# Monkey Trucking LLC
+
+> Gravel delivery, hauling, driveway installation, pond construction, and dirt work serving Kaufman County, TX and surrounding areas.
+
+Monkey Trucking LLC is a locally owned hauling and dirt-work company based in Kaufman, Texas. We build gravel driveways and private roads, excavate ponds, clear land, and deliver aggregate materials such as gravel, flex base, crushed concrete, sand, and topsoil within roughly a 30-mile radius of Kaufman.
+
+## Pages
+
+- [Home](/): Overview of services, recent projects, and materials supplied.
+- [Services](/services): Driveway construction, pond construction, dirt work, aggregate hauling, and material delivery.
+- [Materials](/materials): Millings, native gravels, decomposed granite, mason sand, flex base, crushed concrete, cushion sand, limestone, and topsoil.
+- [Projects](/projects): Photo and video gallery of completed driveways, ponds, and hauling jobs.
+- [Contact](/contact): Phone, text, and contact form for quotes; service area details.
