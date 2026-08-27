@@ -241,6 +241,54 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_submissions: {
+        Row: {
+          consent_disclosure_text: string
+          consent_disclosure_version: string
+          consent_source: string
+          email: string
+          email_message_id: string
+          id: string
+          message: string | null
+          name: string
+          phone: string
+          project_type: string | null
+          sms_consent: boolean
+          sms_consent_at: string | null
+          submitted_at: string
+        }
+        Insert: {
+          consent_disclosure_text: string
+          consent_disclosure_version: string
+          consent_source: string
+          email: string
+          email_message_id: string
+          id?: string
+          message?: string | null
+          name: string
+          phone: string
+          project_type?: string | null
+          sms_consent?: boolean
+          sms_consent_at?: string | null
+          submitted_at?: string
+        }
+        Update: {
+          consent_disclosure_text?: string
+          consent_disclosure_version?: string
+          consent_source?: string
+          email?: string
+          email_message_id?: string
+          id?: string
+          message?: string | null
+          name?: string
+          phone?: string
+          project_type?: string | null
+          sms_consent?: boolean
+          sms_consent_at?: string | null
+          submitted_at?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           created_at: string

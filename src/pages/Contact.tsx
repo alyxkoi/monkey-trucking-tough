@@ -1,18 +1,31 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import Seo from "@/components/Seo";
 import { Phone, MapPin, Send, Loader2 } from "lucide-react";
 import contactHeroImg from "@/assets/contact-hero.webp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import CTASection from "@/components/CTASection";
 import ContactActionSheet from "@/components/ContactActionSheet";
 
+const SMS_DISCLOSURE_VERSION = "website-contact-v1-2026-08-27";
+
+const EMPTY_FORM = {
+  name: "",
+  email: "",
+  phone: "",
+  projectType: "",
+  message: "",
+  smsConsent: false,
+};
+
 const Contact = () => {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", projectType: "", message: "" });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -20,11 +33,11 @@ const Contact = () => {
     setIsSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke("send-contact-email", {
-        body: form,
+        body: { ...form, smsDisclosureVersion: SMS_DISCLOSURE_VERSION },
       });
       if (error) throw error;
       toast("Message sent! We'll get back to you soon.", { description: "Thank you for contacting Monkey Trucking." });
-      setForm({ name: "", email: "", phone: "", projectType: "", message: "" });
+      setForm(EMPTY_FORM);
     } catch (err) {
       console.error("Contact form error:", err);
       toast("Something went wrong. Please call us instead.", { description: "We apologize for the inconvenience." });
@@ -115,7 +128,7 @@ const Contact = () => {
                   </Select>
                 </div>
                 <div>
-                  <label htmlFor="contact-message" className="text-body font-medium text-foreground block mb-2">Message</label>
+                  <label htmlFor="contact-message" className="text-body font-medium text-foreground block mb-2">What can we help with?</label>
                   <Textarea
                     id="contact-message"
                     placeholder="Tell us about your project..."
@@ -124,6 +137,30 @@ const Contact = () => {
                     rows={5}
                     className="text-body"
                   />
+                </div>
+                <div className="rounded-lg border border-border bg-light-gray p-4 sm:p-5">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="contact-sms-consent"
+                      checked={form.smsConsent}
+                      onCheckedChange={(checked) => setForm({ ...form, smsConsent: checked === true })}
+                      aria-describedby="contact-sms-disclosure"
+                      className="mt-1 h-5 w-5"
+                    />
+                    <div id="contact-sms-disclosure" className="text-small leading-relaxed text-muted-foreground">
+                      <label htmlFor="contact-sms-consent" className="cursor-pointer">
+                        I agree to receive customer care text messages from Monkey Trucking LLC regarding quotes, scheduling, deliveries, job updates, and service questions. Message frequency varies. Msg &amp; data rates may apply. Reply HELP for help or STOP to opt out. Consent is not a condition of purchase. See our{" "}
+                      </label>
+                      <Link to="/privacy-policy" className="inline-block font-medium text-primary underline underline-offset-2 hover:text-primary/80">
+                        Privacy Policy
+                      </Link>{" "}
+                      and{" "}
+                      <Link to="/terms" className="inline-block font-medium text-primary underline underline-offset-2 hover:text-primary/80">
+                        Terms &amp; Conditions
+                      </Link>.
+                      <p className="mt-2 text-xs text-muted-foreground">Optional. Leave unchecked to submit without SMS consent.</p>
+                    </div>
+                  </div>
                 </div>
                 <Button
                   type="submit"
@@ -171,10 +208,13 @@ const Contact = () => {
                     <MapPin className="h-7 w-7 text-primary" />
                   </div>
                   <div>
-                    <p className="font-heading text-h4 text-foreground">LOCATION</p>
-                    <p className="text-body text-muted-foreground">
+                    <p className="font-heading text-h4 text-foreground">MONKEY TRUCKING LLC</p>
+                    <p className="text-body text-muted-foreground mb-3">
                       7653 S FM 148<br />
-                      Kaufman, TX
+                      Kaufman, TX 75142
+                    </p>
+                    <p className="text-body text-muted-foreground">
+                      Materials, delivery, driveway and private-road work, pond work, dirt and grading work, hauling, and light land clearing in the Kaufman area.
                     </p>
                   </div>
                 </div>

@@ -5,6 +5,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
+const SMS_CONSENT_SOURCE = 'website_contact_form'
+const SMS_CONSENT_VERSION = 'website-contact-v1-2026-08-27'
+const SMS_CONSENT_DISCLOSURE = 'I agree to receive customer care text messages from Monkey Trucking LLC regarding quotes, scheduling, deliveries, job updates, and service questions. Message frequency varies. Msg & data rates may apply. Reply HELP for help or STOP to opt out. Consent is not a condition of purchase. See our Privacy Policy and Terms & Conditions.'
+
 const escapeHtml = (value: unknown): string => String(value ?? '')
   .replaceAll('&', '&amp;')
   .replaceAll('<', '&lt;')
@@ -29,7 +33,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { name, email, phone, projectType, message } = await req.json()
+    const {
+      name,
+      email,
+      phone,
+      projectType,
+      message,
+      smsConsent: requestedSmsConsent,
+      smsDisclosureVersion,
+    } = await req.json()
 
     if (!name || !phone || !email) {
       return new Response(
@@ -37,6 +49,17 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    if (smsDisclosureVersion !== SMS_CONSENT_VERSION) {
+      return new Response(
+        JSON.stringify({ error: 'The contact form disclosure is out of date. Please refresh and try again.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Only an explicit checked state is consent. Missing, false, and all other
+    // values remain false and must never trigger automated customer messaging.
+    const smsConsent = requestedSmsConsent === true
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
@@ -50,6 +73,8 @@ Deno.serve(async (req) => {
     const safePhone = escapeHtml(phone)
     const safeProjectTypeLabel = escapeHtml(projectTypeLabel)
     const safeMessage = escapeHtml(message || 'No message provided')
+
+    const safeSmsConsent = smsConsent ? 'Yes' : 'No'
 
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -75,14 +100,40 @@ Deno.serve(async (req) => {
             <td style="padding: 8px 12px; font-weight: bold; color: #555; vertical-align: top;">Message:</td>
              <td style="padding: 8px 12px; color: #333; white-space: pre-wrap;">${safeMessage}</td>
           </tr>
+          <tr>
+            <td style="padding: 8px 12px; font-weight: bold; color: #555; vertical-align: top;">SMS consent:</td>
+            <td style="padding: 8px 12px; color: #333;">${safeSmsConsent}<br><span style="font-size: 12px; color: #777;">${SMS_CONSENT_VERSION}</span></td>
+          </tr>
         </table>
         <p style="margin-top: 20px; font-size: 12px; color: #999;">This email was sent from the Monkey Trucking website contact form.</p>
       </div>
     `
 
-    const textBody = `New Contact Form Submission\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nProject Type: ${projectTypeLabel}\nMessage: ${message || 'No message provided'}`
+    const textBody = `New Contact Form Submission\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nProject Type: ${projectTypeLabel}\nMessage: ${message || 'No message provided'}\nSMS consent: ${safeSmsConsent}\nConsent disclosure: ${SMS_CONSENT_VERSION}`
 
     const messageId = crypto.randomUUID()
+
+    const { error: submissionError } = await supabase.from('contact_submissions').insert({
+      email_message_id: messageId,
+      name,
+      email,
+      phone,
+      project_type: projectType || null,
+      message: message || null,
+      sms_consent: smsConsent,
+      sms_consent_at: smsConsent ? new Date().toISOString() : null,
+      consent_source: SMS_CONSENT_SOURCE,
+      consent_disclosure_version: SMS_CONSENT_VERSION,
+      consent_disclosure_text: SMS_CONSENT_DISCLOSURE,
+    })
+
+    if (submissionError) {
+      console.error('Failed to record contact submission:', submissionError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to record message' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     // Log pending before enqueue
     await supabase.from('email_send_log').insert({

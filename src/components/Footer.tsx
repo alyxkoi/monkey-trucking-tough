@@ -70,15 +70,20 @@ const Footer = () => {
                 <MapPin className="h-5 w-5 text-primary mt-1 shrink-0" />
                 <span>
                   7653 S FM 148<br />
-                  Kaufman, TX
+                  Kaufman, TX 75142
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-gravel/20 mt-12 pt-8 text-center text-small text-gravel">
-          © {new Date().getFullYear()} Monkey Trucking LLC. All rights reserved.
+        <div className="border-t border-gravel/20 mt-12 pt-8 flex flex-col items-center justify-between gap-4 text-center text-small text-gravel md:flex-row md:text-left">
+          <p>© {new Date().getFullYear()} Monkey Trucking LLC. All rights reserved.</p>
+          <nav aria-label="Legal and contact" className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 md:justify-end">
+            <Link to="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-primary transition-colors">Terms &amp; Conditions</Link>
+            <Link to="/contact" className="hover:text-primary transition-colors">Contact</Link>
+          </nav>
         </div>
       </div>
     </footer>
