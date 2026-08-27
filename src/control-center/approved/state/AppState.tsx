@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { toast } from 'sonner'
+import type { Json } from '@/integrations/supabase/types'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
 import {
