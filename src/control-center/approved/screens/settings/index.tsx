@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { Check, Copy, Link2, Printer } from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Check, Copy, Link2, Printer, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
@@ -25,6 +25,8 @@ import { useDemoMode } from '@/control-center/demo/DemoMode'
 import { QA_FIXTURE_USER_ID } from '@/control-center/demo/constants'
 import { supabase } from '@/integrations/supabase/client'
 import { outputTicketPng, renderTicketPng } from '@/lib/admin/print'
+import { buildAutomationPreviews } from '@/control-center/ai/automationDryRun'
+import { generateAutomationDraft } from '@/control-center/ai/service'
 
 /* ------------------------------------------------------------------ shared */
 
@@ -406,8 +408,28 @@ export function SettingsCommunication() {
   const [takeover, setTakeover] = useState(true)
   const [openRule, setOpenRule] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [previewDrafts, setPreviewDrafts] = useState<Record<string, string>>({})
+  const [previewLoading, setPreviewLoading] = useState<string | null>(null)
+  const [previewError, setPreviewError] = useState<Record<string, string>>({})
   const settings = sourceData?.controlSettings
   const automations = sourceData?.automations ?? []
+  const previews = useMemo(() => sourceData ? buildAutomationPreviews(sourceData) : [], [sourceData])
+
+  const generatePreview = async (ruleId: string) => {
+    const preview = previews.find((item) => item.ruleId === ruleId)
+    if (!preview) return
+    setPreviewLoading(ruleId)
+    setPreviewError((current) => ({ ...current, [ruleId]: '' }))
+    try {
+      const draft = await generateAutomationDraft({ preview, demo: demo.enabled })
+      setPreviewDrafts((current) => ({ ...current, [ruleId]: draft }))
+      if (!demo.enabled) await refresh()
+    } catch (error) {
+      setPreviewError((current) => ({ ...current, [ruleId]: error instanceof Error ? error.message : 'Preview generation failed.' }))
+    } finally {
+      setPreviewLoading(null)
+    }
+  }
 
   useEffect(() => {
     if (!settings) return
@@ -461,9 +483,9 @@ export function SettingsCommunication() {
           <StatusRow label="Calling" value={setupLabel(settings?.calling_status)} tone={setupTone(settings?.calling_status)} line={settings?.calling_status === 'READY' ? 'Connected.' : 'Not connected.'} />
           <StatusRow
             label="AI replies"
-            value={setupLabel(settings?.ai_status)}
-            tone={setupTone(settings?.ai_status)}
-            line={settings?.ai_status === 'READY' ? 'Connected.' : 'Turns on with the business number.'}
+            value="Draft ready"
+            tone="ice"
+            line="OpenAI drafts and dry runs are available internally. No customer transport is enabled."
           />
         </div>
       </Panel>
@@ -525,6 +547,45 @@ export function SettingsCommunication() {
                     <DetailList label="Stops when" values={jsonTextList(rule.stop_conditions)} />
                     <Detail label="If it fails" value={rule.fallback_description} />
                     <Detail label="Logged" value={rule.log_description} />
+                    {rule.id !== 'human-takeover' && (() => {
+                      const preview = previews.find((item) => item.ruleId === rule.id)
+                      if (!preview) return null
+                      const draft = previewDrafts[rule.id] ?? preview.draft
+                      return (
+                        <div className="rounded-xl border border-ice/20 bg-ice/[0.06] p-4">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <StatusPill tone="ice" size="sm">Dry run</StatusPill>
+                            <StatusPill tone={preview.eligible ? 'ok' : 'idle'} size="sm">
+                              {preview.eligible ? 'Eligible' : 'Not eligible'}
+                            </StatusPill>
+                            <StatusPill tone="warn" size="sm">SMS setup required</StatusPill>
+                          </div>
+                          <div className="mt-3 grid gap-3 text-[13px] sm:grid-cols-2">
+                            <Detail label="Customer" value={preview.customerName} />
+                            <Detail label="Language" value={preview.language} />
+                            <Detail label="Why" value={preview.reason} />
+                            <Detail label="Would run" value={preview.dueAt ? new Date(preview.dueAt).toLocaleString() : 'No due time'} />
+                          </div>
+                          {preview.blockedReason && <p className="mt-3 text-[13px] text-warn">Blocked: {preview.blockedReason}</p>}
+                          <div className="mt-3 rounded-lg border border-white/[0.08] bg-canvas/50 p-3">
+                            <div className="font-label text-[11px] font-semibold uppercase tracking-[0.12em] text-cc-muted">Customer draft</div>
+                            <p className="mt-1.5 text-[14px] leading-relaxed text-ink">{draft || 'No draft is generated while this rule has no customer subject.'}</p>
+                          </div>
+                          <p className="mt-3 text-[12px] text-cc-muted">Stops: {preview.stopConditions.join(', ')}</p>
+                          {previewError[rule.id] && <p className="mt-3 text-[13px] text-mt-red">{previewError[rule.id]} Nothing was sent.</p>}
+                          <div className="mt-4">
+                            <SecondaryButton
+                              size="sm"
+                              disabled={!preview.subjectId || previewLoading === rule.id}
+                              onClick={() => void generatePreview(rule.id)}
+                              icon={<Sparkles className="h-4 w-4" />}
+                            >
+                              {previewLoading === rule.id ? 'Generating' : 'Generate contextual draft'}
+                            </SecondaryButton>
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
                 )}
               </div>

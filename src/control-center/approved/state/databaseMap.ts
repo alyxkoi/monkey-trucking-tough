@@ -82,6 +82,23 @@ export function mapLeads(data: ControlData): Lead[] {
         escalation: message.sender_type === 'SYSTEM' && /salvador|human/i.test(message.body),
       }))
     const quote = data.quotes.find((entry) => entry.lead_id === row.id && entry.status !== 'VOID')
+    const aiState = data.aiConversationStates?.find((entry) => entry.lead_id === row.id)
+    const latestAiAudit = data.aiAuditLogs?.find((entry) => entry.lead_id === row.id)
+    const aiDecision = latestAiAudit?.decision && typeof latestAiAudit.decision === 'object' && !Array.isArray(latestAiAudit.decision)
+      ? latestAiAudit.decision as Record<string, unknown>
+      : null
+    const knownFacts = Array.isArray(aiState?.known_facts)
+      ? aiState.known_facts.flatMap((item) => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return []
+          const fact = item as Record<string, unknown>
+          return typeof fact.key === 'string' && typeof fact.value === 'string'
+            ? [{ label: fact.key.replaceAll('_', ' '), value: fact.value }]
+            : []
+        })
+      : []
+    const missingFacts = Array.isArray(aiState?.missing_facts)
+      ? aiState.missing_facts.filter((item): item is string => typeof item === 'string')
+      : []
     const latestMessageAt = messages.reduce((latest, message) => Math.max(latest, message.at), 0)
     const lastCustomer = [...messages].reverse().find((message) => message.actor === 'customer')
     const lastHuman = [...messages].reverse().find((message) => message.actor === 'salvador')
@@ -94,14 +111,17 @@ export function mapLeads(data: ControlData): Lead[] {
       campaign: row.campaign ?? undefined,
       createdAt: requiredAt(row.created_at),
       lastActivityAt: Math.max(requiredAt(row.updated_at), latestMessageAt),
-      needsSalvador: Boolean(lastCustomer && (!lastHuman || lastCustomer.at > lastHuman.at) && !row.human_takeover),
+      needsSalvador: Boolean(
+        (!row.human_takeover && (latestAiAudit?.status === 'FAILED' || aiDecision?.requires_human === true)) ||
+        (lastCustomer && (!lastHuman || lastCustomer.at > lastHuman.at) && !row.human_takeover),
+      ),
       aiPaused: row.human_takeover,
       notes: row.notes ?? '',
       lostReason: row.lost_reason ?? undefined,
       quoteId: quote?.id,
       messages,
-      known: [],
-      missing: [],
+      known: knownFacts,
+      missing: missingFacts,
     }
   })
 }

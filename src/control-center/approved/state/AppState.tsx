@@ -378,7 +378,25 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
   }, [jobs, leads, quotes])
   const todayJobs = useMemo(() => jobs.filter((job) => job.date === dateKey(new Date()) && job.status !== 'CANCELLED'), [jobs])
-  const derivedAttention = useMemo(() => deriveAttention({ leads, quotes, jobs, invoices, customers, today: dateKey(new Date()) }), [customers, invoices, jobs, leads, quotes])
+  const derivedAttention = useMemo(() => deriveAttention({
+    leads,
+    quotes,
+    jobs,
+    invoices,
+    customers,
+    today: dateKey(new Date()),
+    aiFailures: (data?.aiAuditLogs ?? [])
+      .filter((entry) => entry.evaluation_type === 'AUTOMATION_DRY_RUN' && !entry.lead_id)
+      .filter((entry, index, entries) => index === entries.findIndex((candidate) => candidate.automation_rule_id === entry.automation_rule_id && candidate.customer_id === entry.customer_id))
+      .filter((entry) => entry.status === 'FAILED')
+      .map((entry) => ({
+        id: entry.id,
+        customerId: entry.customer_id ?? undefined,
+        automationRuleId: entry.automation_rule_id ?? undefined,
+        at: new Date(entry.created_at).getTime(),
+        error: entry.error_message ?? 'OpenAI could not produce a safe structured draft.',
+      })),
+  }), [customers, data?.aiAuditLogs, invoices, jobs, leads, quotes])
   const snoozes = useMemo(() => new Map((data?.snoozes ?? []).map((row) => [row.fingerprint, new Date(row.returns_at).getTime()])), [data?.snoozes])
   const attention = useMemo(() => derivedAttention.filter((item) => (snoozes.get(item.id) ?? 0) <= Date.now()), [derivedAttention, snoozes])
   const snoozedItems = useMemo(() => derivedAttention.filter((item) => (snoozes.get(item.id) ?? 0) > Date.now()).map((item) => ({ item, returnsAt: snoozes.get(item.id) as number })), [derivedAttention, snoozes])

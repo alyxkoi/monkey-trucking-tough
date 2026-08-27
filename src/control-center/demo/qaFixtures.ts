@@ -58,6 +58,9 @@ function customer(
     email,
     normalized_email: email?.toLowerCase() ?? null,
     notes,
+    sms_consent_at: createdAt,
+    sms_consent_source: 'QA_FIXTURE',
+    sms_opted_out_at: null,
     is_active: true,
     last_activity_at: lastActivityAt,
     created_by: QA_FIXTURE_USER_ID,
@@ -382,6 +385,7 @@ export function createQaFixtureData(reference = new Date()): ControlData {
     message('qa-message-escalation-1', 'qa-lead-escalation', 'qa-customer-natalie', 'CUSTOMER', 'Can you give me one total price to fix the driveway and reshape the ditch?', at(0, 8, 50)),
     message('qa-message-escalation-2', 'qa-lead-escalation', 'qa-customer-natalie', 'AI', 'i can help collect the details, but Salvador needs to price custom driveway work.', at(0, 9, 28)),
     message('qa-message-escalation-3', 'qa-lead-escalation', 'qa-customer-natalie', 'SYSTEM', 'Salvador needed for custom driveway pricing.', at(0, 9, 30)),
+    message('qa-message-quote-spouse', 'qa-lead-quote-followup', 'qa-customer-joe', 'CUSTOMER', 'thanks, i need to talk to my wife about the quote', at(-4, 14)),
   ]
 
   const quotes: Quote[] = [
@@ -480,6 +484,10 @@ export function createQaFixtureData(reference = new Date()): ControlData {
     { id: 'human-takeover', name: 'Human takeover', trigger_description: 'Salvador replies', conditions: ['AI conversation is active'], delay_description: 'Immediate', action_description: 'Pause AI on that conversation', stop_conditions: [], fallback_description: 'Nothing is sent automatically', log_description: 'Conversation history', status: 'ON', updated_at: at(-1) },
     { id: 'job-reminder', name: 'Job reminder', trigger_description: 'A job is scheduled', conditions: ['Job active', 'More than 24 hours away'], delay_description: 'About 24 hours before work', action_description: 'Send date and time reminder', stop_conditions: ['Cancelled', 'Completed', 'Rescheduled'], fallback_description: 'Time changes go to Salvador', log_description: 'Job and customer history', status: 'SETUP_REQUIRED', updated_at: at(-1) },
     { id: 'invoice-follow-up', name: 'Invoice follow up', trigger_description: 'An invoice is sent', conditions: ['Invoice open', 'Not disputed'], delay_description: 'Due date and overdue sequence', action_description: 'Send a short reminder', stop_conditions: ['Payment recorded', 'Disputed', 'Voided'], fallback_description: 'Final failure goes to Needs Attention', log_description: 'Invoice and customer history', status: 'SETUP_REQUIRED', updated_at: at(-1) },
+    { id: 'missed-call', name: 'Missed call recovery', trigger_description: 'A business call is missed', conditions: ['No active conversation'], delay_description: 'About 1 to 2 minutes', action_description: 'Offer to help by text', stop_conditions: ['Called back', 'Customer replied', 'Human takeover'], fallback_description: 'Failed delivery goes to Needs Attention', log_description: 'Customer history', status: 'SETUP_REQUIRED', updated_at: at(-1) },
+    { id: 'quote-follow-up', name: 'Quote follow up', trigger_description: 'A quote is sent', conditions: ['Quote open', 'No complaint'], delay_description: 'Next business day, day 3 and day 7', action_description: 'Contextual quote follow up', stop_conditions: ['Reply', 'Accepted', 'Declined', 'Human takeover'], fallback_description: 'Negotiation goes to Salvador', log_description: 'Quote and customer history', status: 'SETUP_REQUIRED', updated_at: at(-1) },
+    { id: 'review-request', name: 'Review request', trigger_description: 'Completed job and paid invoice', conditions: ['No complaint', 'Not already sent'], delay_description: 'About 24 hours after payment', action_description: 'Outcome appreciation then review request', stop_conditions: ['Problem reported', 'Already sent'], fallback_description: 'Problem goes to Salvador', log_description: 'Job and customer history', status: 'SETUP_REQUIRED', updated_at: at(-1) },
+    { id: 'reactivation', name: '60 day reactivation', trigger_description: 'Completed and paid work reaches 60 days', conditions: ['No active work or money issue'], delay_description: 'Once around 60 days', action_description: 'Warm no pressure check in', stop_conditions: ['Customer returned', 'Already sent'], fallback_description: 'Reply opens a conversation', log_description: 'Customer history', status: 'SETUP_REQUIRED', updated_at: at(-1) },
   ]
 
   const trackingLinks: TrackingLink[] = [
@@ -557,6 +565,9 @@ export function createQaFixtureData(reference = new Date()): ControlData {
     automations,
     trackingLinks,
     snoozes: [],
+    aiConversationStates: [],
+    aiAuditLogs: [],
+    aiDrafts: [],
   }
 }
 

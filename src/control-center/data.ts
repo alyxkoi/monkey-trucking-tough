@@ -17,6 +17,9 @@ export type Customer = {
   email: string | null;
   normalized_email: string | null;
   notes: string | null;
+  sms_consent_at: string | null;
+  sms_consent_source: string | null;
+  sms_opted_out_at: string | null;
   is_active: boolean;
   last_activity_at: string;
   created_by: string | null;
@@ -277,6 +280,50 @@ export type AttentionSnooze = {
   created_at: string;
 };
 
+export type AiConversationState = {
+  lead_id: string;
+  customer_id: string;
+  known_facts: Json;
+  missing_facts: Json;
+  uncertain_facts: Json;
+  last_evaluated_message_id: string | null;
+  updated_at: string;
+};
+
+export type AiAuditLog = {
+  id: string;
+  evaluation_type: "CONVERSATION" | "AUTOMATION_DRY_RUN";
+  customer_id: string | null;
+  lead_id: string | null;
+  automation_rule_id: string | null;
+  model_id: string | null;
+  prompt_version: string;
+  language: "ENGLISH" | "SPANISH" | "SPANGLISH" | null;
+  decision: Json | null;
+  concise_rationale: string | null;
+  status: "SUCCESS" | "FAILED";
+  latency_ms: number | null;
+  tool_results: Json;
+  error_code: string | null;
+  error_message: string | null;
+  actor_id: string | null;
+  created_at: string;
+};
+
+export type AiDraftRow = {
+  id: string;
+  audit_log_id: string;
+  lead_id: string | null;
+  customer_id: string;
+  automation_rule_id: string | null;
+  status: "DRAFT" | "DISCARDED";
+  body: string;
+  language: "ENGLISH" | "SPANISH" | "SPANGLISH";
+  decision: Json;
+  created_by: string | null;
+  created_at: string;
+};
+
 type ControlDatabase = {
   public: {
     Tables: {
@@ -297,6 +344,9 @@ type ControlDatabase = {
       automation_rules: Table<AutomationRule>;
       tracking_links: Table<TrackingLink>;
       attention_snoozes: Table<AttentionSnooze>;
+      ai_conversation_state: Table<AiConversationState>;
+      ai_audit_logs: Table<AiAuditLog>;
+      ai_drafts: Table<AiDraftRow>;
     };
     Views: { [_ in never]: never };
     Functions: { [_ in never]: never };
@@ -339,6 +389,9 @@ export type ControlData = {
   automations: AutomationRule[];
   trackingLinks: TrackingLink[];
   snoozes: AttentionSnooze[];
+  aiConversationStates: AiConversationState[];
+  aiAuditLogs: AiAuditLog[];
+  aiDrafts: AiDraftRow[];
 };
 
 const unwrap = <T,>(result: { data: T | null; error: { message: string; code?: string } | null }, label: string): T => {
@@ -351,6 +404,7 @@ export async function loadControlData(): Promise<ControlData> {
     customers, leads, quotes, quoteItems, jobs, tickets, ticketItems, ticketHistory, invoices,
     invoiceTickets, payments, workers, workerPayments, activities, messages, financialHistory,
     materials, drivers, appSettings, userRoles, controlSettings, automations, trackingLinks, snoozes,
+    aiConversationStates, aiAuditLogs, aiDrafts,
   ] = await Promise.all([
     controlDb.from("customers").select("*").order("last_activity_at", { ascending: false }),
     controlDb.from("leads").select("*").order("created_at", { ascending: false }),
@@ -376,6 +430,9 @@ export async function loadControlData(): Promise<ControlData> {
     controlDb.from("automation_rules").select("*").order("name"),
     controlDb.from("tracking_links").select("*").order("created_at", { ascending: false }),
     controlDb.from("attention_snoozes").select("*"),
+    controlDb.from("ai_conversation_state").select("*"),
+    controlDb.from("ai_audit_logs").select("*").order("created_at", { ascending: false }).limit(500),
+    controlDb.from("ai_drafts").select("*").order("created_at", { ascending: false }).limit(500),
   ]);
 
   return {
@@ -403,6 +460,9 @@ export async function loadControlData(): Promise<ControlData> {
     automations: unwrap(automations, "Automation rules") ?? [],
     trackingLinks: unwrap(trackingLinks, "Tracking links") ?? [],
     snoozes: unwrap(snoozes, "Attention snoozes") ?? [],
+    aiConversationStates: unwrap(aiConversationStates, "AI conversation state") ?? [],
+    aiAuditLogs: unwrap(aiAuditLogs, "AI audit logs") ?? [],
+    aiDrafts: unwrap(aiDrafts, "AI drafts") ?? [],
   };
 }
 

@@ -25,6 +25,7 @@ export type Priority = 'NOW' | 'TODAY' | 'FOLLOW_UP'
 export const ATTENTION_RANK = {
   work_blocked: 10,
   customer_waiting: 20,
+  ai_failure: 25,
   new_lead: 30,
   needs_scheduling: 40,
   money_overdue: 50,
@@ -101,6 +102,7 @@ export function deriveAttention(input: {
   jobs: Job[]
   invoices: Invoice[]
   customers: Customer[]
+  aiFailures?: { id: string; customerId?: string; automationRuleId?: string; at: number; error: string }[]
   today: string
   at?: number
 }): AttentionItem[] {
@@ -108,6 +110,19 @@ export function deriveAttention(input: {
   const name = (customerId: string) =>
     input.customers.find((customer) => customer.id === customerId)?.name ?? 'Unknown'
   const items: AttentionItem[] = []
+
+  input.aiFailures?.forEach((failure) => {
+    items.push({
+      id: `ai-failure:${failure.id}`,
+      priority: 'TODAY',
+      kind: 'ai_failure',
+      title: 'Automation draft needs manual attention',
+      context: failure.error || 'OpenAI could not produce a safe structured draft.',
+      since: failure.at,
+      action: { label: 'Review AI setup', to: '/admin/settings/communication' },
+      recommend: 'none',
+    })
+  })
 
   // 1. Today's work is blocked.
   input.jobs

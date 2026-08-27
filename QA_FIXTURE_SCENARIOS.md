@@ -40,7 +40,7 @@ The fixture clock anchors records to the local day when the browser session star
 | Angela Price | Customers | Completed and paid work eligible for review-request UI. External sending remains setup-required. |
 | Parker Family Farm | Customers | Prior paid work more than 60 days ago, eligible for reactivation. |
 | Empty State Test | Customers → Empty State Test | Deliberately has no leads, quotes, jobs, tickets, invoices, payments, photos, or activity. |
-| Disconnected providers | Settings → Communication & AI | SMS, calling, AI, and payment processor are setup-required; no provider is faked. |
+| Disconnected providers | Settings → Communication & AI | OpenAI drafts are internal-only; SMS, calling, and payment transport are setup-required and no provider is faked. |
 
 ## Stable fixture IDs
 
@@ -53,3 +53,17 @@ The fixture clock anchors records to the local day when the browser session star
 - Missing Delivery customer: `qa-customer-arturo`
 
 Runtime actions mutate only the in-memory fixture copy. Reset discards those actions and recreates the documented baseline.
+
+## OpenAI draft and automation dry run
+
+| Scenario | Stable record | Expected internal behavior |
+|---|---|---|
+| Spanish material delivery | `qa-lead-spanish` | Detect Spanish, retain known load and city context, ask only for the next missing delivery fact. |
+| Spanglish with takeover | `qa-lead-spanglish` | Human takeover blocks conversational AI. |
+| Custom driveway pricing | `qa-lead-escalation` | No invented price, Salvador required, draft remains internal. |
+| Spouse-aware quote follow up | `qa-quote-followup` | Dry run references the earlier wife context instead of generic copy. |
+| Zelle claim | `qa-invoice-zelle` | Invoice remains unpaid and human verification is required. |
+| Review request | `qa-job-review` | One dry-run preview after completed and paid work. |
+| 60-day reactivation | `qa-customer-reactivation` | One warm preview with no recurring schedule. |
+
+Every AI result in fixture mode is deterministic and in memory. SMS, email and calling remain `SETUP_REQUIRED`.
