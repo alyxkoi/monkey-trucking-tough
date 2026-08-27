@@ -24,6 +24,7 @@ import { generateConversationDraft } from '@/control-center/ai/service'
 import type { AiDecision, AiEvaluationResult } from '@/control-center/ai/types'
 import { useDemoMode } from '@/control-center/demo/DemoMode'
 import { QA_FIXTURE_USER_ID } from '@/control-center/demo/constants'
+import type { Json } from '@/integrations/supabase/types'
 import { useControlCenter } from '@/control-center/context'
 
 export function LeadDetail() {
