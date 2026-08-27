@@ -8,6 +8,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import Layout from "@/components/Layout";
 import { AuthProvider } from "@/hooks/useAuth";
 import { DemoModeProvider } from "@/control-center/demo/DemoMode";
+import { mainAdminRouteLoaders } from "@/control-center/adminRouteLoaders";
 import Index from "./pages/Index"; // keep eager — it's the LCP page
 
 // Lazy-load secondary routes so their bundles + images don't ship with the homepage
@@ -20,14 +21,14 @@ const BlogPost = lazy(() => import("./pages/BlogPost"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const SignIn = lazy(() => import("./pages/SignIn"));
 const ControlCenterLayout = lazy(() => import("./control-center/ExactControlCenterLayout"));
-const Overview = lazy(() => import("./control-center/approved/screens/Overview").then((module) => ({ default: module.Overview })));
+const Overview = lazy(mainAdminRouteLoaders.overview);
 const NeedsAttention = lazy(() => import("./control-center/approved/screens/NeedsAttention").then((module) => ({ default: module.NeedsAttention })));
-const LeadsQuotes = lazy(() => import("./control-center/approved/screens/LeadsQuotes").then((module) => ({ default: module.LeadsQuotes })));
-const Customers = lazy(() => import("./control-center/approved/screens/Customers").then((module) => ({ default: module.Customers })));
-const Jobs = lazy(() => import("./control-center/approved/screens/Jobs").then((module) => ({ default: module.Jobs })));
-const Tickets = lazy(() => import("./control-center/approved/screens/Tickets").then((module) => ({ default: module.Tickets })));
-const Money = lazy(() => import("./control-center/approved/screens/Money").then((module) => ({ default: module.Money })));
-const SettingsHome = lazy(() => import("./control-center/approved/screens/SettingsHome").then((module) => ({ default: module.SettingsHome })));
+const LeadsQuotes = lazy(mainAdminRouteLoaders.leads);
+const Customers = lazy(mainAdminRouteLoaders.customers);
+const Jobs = lazy(mainAdminRouteLoaders.jobs);
+const Tickets = lazy(mainAdminRouteLoaders.tickets);
+const Money = lazy(mainAdminRouteLoaders.money);
+const SettingsHome = lazy(mainAdminRouteLoaders.settings);
 const LeadDetail = lazy(() => import("./control-center/approved/screens/LeadDetail").then((module) => ({ default: module.LeadDetail })));
 const QuoteDetail = lazy(() => import("./control-center/approved/screens/QuoteScreen").then((module) => ({ default: module.QuoteScreen })));
 const JobDetail = lazy(() => import("./control-center/approved/screens/JobDetail").then((module) => ({ default: module.JobDetail })));

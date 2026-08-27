@@ -5,6 +5,7 @@ import { SECTIONS, sectionForPath } from './nav'
 import { initialsFor, useAuth } from '@/hooks/useAuth'
 import { useAdminAccess } from '@/hooks/admin/useAdminAccess'
 import { useDemoMode } from '@/control-center/demo/DemoMode'
+import { preloadMainAdminRoute, type MainAdminSectionKey } from '@/control-center/adminRouteLoaders'
 
 /**
  * Persistent desktop navigation.
@@ -24,7 +25,7 @@ export function SideNav() {
   const accountName = demo.enabled ? 'Salvador' : String(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Account')
 
   return (
-    <aside className="relative hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[248px] lg:shrink-0 lg:flex-col lg:border-r lg:border-white/[0.07] lg:bg-[#121216]/80 lg:backdrop-blur-xl">
+    <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:h-screen lg:w-[248px] lg:flex-col lg:border-r lg:border-white/[0.07] lg:bg-[#121216]/80 lg:backdrop-blur-xl">
       {/* The system line. Full height, outer edge, never interactive. */}
       <span
         aria-hidden
@@ -52,6 +53,8 @@ export function SideNav() {
             <NavLink
               key={section.key}
               to={section.to}
+              onMouseEnter={() => void preloadMainAdminRoute(section.key as MainAdminSectionKey)}
+              onFocus={() => void preloadMainAdminRoute(section.key as MainAdminSectionKey)}
               className={cn(
                 'group relative flex h-12 items-center gap-3 rounded-xl pl-4 pr-3 font-label text-[14px] font-semibold uppercase tracking-[0.08em] transition-[background-color,color,border-color] duration-150',
                 isActive

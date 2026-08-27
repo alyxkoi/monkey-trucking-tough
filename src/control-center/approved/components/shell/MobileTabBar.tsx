@@ -4,6 +4,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { cn } from '@/control-center/approved/lib/cn'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import { SECTIONS, sectionForPath } from './nav'
+import { preloadMainAdminRoute, type MainAdminSectionKey } from '@/control-center/adminRouteLoaders'
 
 /** 64px of bar. The pinned total bar and the New action are offset against this. */
 const TAB_CLASS =
@@ -96,6 +97,8 @@ export function MobileTabBar() {
             <NavLink
               key={section.key}
               to={section.to}
+              onMouseEnter={() => void preloadMainAdminRoute(section.key as MainAdminSectionKey)}
+              onFocus={() => void preloadMainAdminRoute(section.key as MainAdminSectionKey)}
               className={cn(
                 TAB_CLASS,
                 'px-1 text-[11px] tracking-[0.06em]',
@@ -125,6 +128,8 @@ export function MobileTabBar() {
                 key={section.key}
                 to={section.to}
                 ref={isActive ? activeRef : undefined}
+                onMouseEnter={() => void preloadMainAdminRoute(section.key as MainAdminSectionKey)}
+                onFocus={() => void preloadMainAdminRoute(section.key as MainAdminSectionKey)}
                 className={cn(
                   TAB_CLASS,
                   'min-w-[84px] flex-1 px-2 text-[11px] tracking-[0.07em]',

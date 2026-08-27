@@ -10,10 +10,10 @@
     -webkit-tap-highlight-color: transparent;
     background-color: #0c0c0f;
     background-image:
-      radial-gradient(1100px 760px at 8% -12%, rgba(143, 203, 255, 0.055), transparent 62%),
-      radial-gradient(900px 620px at 102% -4%, rgba(255, 49, 49, 0.038), transparent 58%),
-      radial-gradient(1000px 900px at 50% 118%, rgba(174, 182, 200, 0.05), transparent 62%),
-      linear-gradient(178deg, #16161b 0%, #111114 42%, #0b0b0e 100%);
+      radial-gradient(1100px 760px at 8% -12%, rgba(143, 203, 255, 0.06), transparent 62%),
+      radial-gradient(1400px 920px at 50% 22%, rgba(198, 204, 216, 0.045), transparent 68%),
+      radial-gradient(900px 720px at 108% 96%, rgba(98, 18, 25, 0.085), transparent 70%),
+      linear-gradient(178deg, #19191f 0%, #141419 50%, #0b0b0e 100%);
     background-attachment: fixed;
     background-repeat: no-repeat;
   }
@@ -344,6 +344,21 @@
 
 @media (prefers-reduced-motion: reduce) {
   .attention-pulse {
+    animation: none;
+  }
+}
+
+@keyframes mt-route-skeleton {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.admin-route-skeleton {
+  animation: mt-route-skeleton 180ms 60ms ease-out backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-route-skeleton {
     animation: none;
   }
 }

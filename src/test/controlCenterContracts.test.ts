@@ -138,4 +138,23 @@ describe("Phase 05 Control Center contracts", () => {
     expect(migration).not.toMatch(/update\s+public\.ticket_items/i);
     expect(migration).not.toContain("next_ticket_number");
   });
+
+  it("preloads main admin routes without replacing the authenticated shell", () => {
+    const app = read("src/App.tsx");
+    const loaders = read("src/control-center/adminRouteLoaders.ts");
+    const shell = read("src/control-center/approved/components/shell/AppShell.tsx");
+    const sideNav = read("src/control-center/approved/components/shell/SideNav.tsx");
+    const mobileNav = read("src/control-center/approved/components/shell/MobileTabBar.tsx");
+
+    for (const section of ["overview", "leads", "jobs", "tickets", "customers", "money", "settings"]) {
+      expect(loaders).toContain(`${section}: () => import(`);
+      expect(app).toContain(`lazy(mainAdminRouteLoaders.${section})`);
+    }
+    expect(shell).toContain("requestIdleCallback");
+    expect(shell).toContain("<Suspense fallback={<AdminRouteFallback />}>");
+    expect(sideNav).toContain("onMouseEnter={() => void preloadMainAdminRoute");
+    expect(mobileNav).toContain("onFocus={() => void preloadMainAdminRoute");
+    expect(sideNav).toContain("lg:fixed");
+    expect(shell).toContain("lg:pl-[248px]");
+  });
 });
