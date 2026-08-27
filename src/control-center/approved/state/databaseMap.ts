@@ -127,7 +127,7 @@ export function mapQuotes(data: ControlData): Quote[] {
       number: row.quote_number,
       leadId: row.lead_id as string,
       customerId: row.customer_id,
-      status: row.status,
+      status: row.status as QuoteStatus,
       description: row.description,
       address: row.address,
       materialLines: data.quoteItems.filter((item) => item.quote_id === row.id && item.kind === 'MATERIAL').map(quoteLine),
@@ -155,6 +155,7 @@ export function mapQuotes(data: ControlData): Quote[] {
         taxRate: Number(row.tax_rate),
         taxOnDelivery: row.tax_applies_to_delivery,
         customWorkTax: row.custom_work_tax_rule === 'EXEMPT' ? 'NOT_TAXED' : row.custom_work_tax_rule,
+        customTaxed: row.custom_work_tax_rule === 'TAXED',
       },
     }))
 }
@@ -244,6 +245,7 @@ export function mapTickets(data: ControlData): Ticket[] {
         taxRate: Number(row.tax_rate),
         taxOnDelivery: row.tax_applies_to_delivery ?? false,
         customWorkTax: 'PENDING',
+        customTaxed: false,
       },
     }
   })

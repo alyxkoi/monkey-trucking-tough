@@ -350,6 +350,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         taxRate: entry.draft.tax_rate,
         taxOnDelivery: entry.draft.tax_applies_to_delivery ?? false,
         customWorkTax: 'PENDING',
+        customTaxed: false,
       },
     }))
   }, [demo.enabled, pendingVersion, user?.id])
