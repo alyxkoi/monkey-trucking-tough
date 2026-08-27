@@ -24,6 +24,7 @@ import { generateConversationDraft } from '@/control-center/ai/service'
 import type { AiDecision, AiEvaluationResult } from '@/control-center/ai/types'
 import { useDemoMode } from '@/control-center/demo/DemoMode'
 import { QA_FIXTURE_USER_ID } from '@/control-center/demo/constants'
+import type { Json } from '@/integrations/supabase/types'
 import { useControlCenter } from '@/control-center/context'
 
 export function LeadDetail() {
@@ -89,7 +90,7 @@ export function LeadDetail() {
             ...current.aiConversationStates.filter((entry) => entry.lead_id !== lead.id),
           ],
           aiDrafts: [{ ...result.draft, audit_log_id: `qa-ai-audit-${lead.id}`, created_by: QA_FIXTURE_USER_ID }, ...current.aiDrafts.filter((entry) => entry.lead_id !== lead.id)],
-          aiAuditLogs: [{ id: `qa-ai-audit-${lead.id}`, evaluation_type: 'CONVERSATION', customer_id: lead.customerId, lead_id: lead.id, automation_rule_id: null, model_id: 'qa-deterministic', prompt_version: 'mt-ai-draft-v1', language: result.decision.detected_language, decision: result.decision, concise_rationale: result.decision.escalation_reason ?? result.decision.recommended_action, status: 'SUCCESS', latency_ms: 0, tool_results: result.tool_results, error_code: null, error_message: null, actor_id: QA_FIXTURE_USER_ID, created_at: now }, ...current.aiAuditLogs.filter((entry) => entry.lead_id !== lead.id)],
+          aiAuditLogs: [{ id: `qa-ai-audit-${lead.id}`, evaluation_type: 'CONVERSATION', customer_id: lead.customerId, lead_id: lead.id, automation_rule_id: null, model_id: 'qa-deterministic', prompt_version: 'mt-ai-draft-v1', language: result.decision.detected_language, decision: result.decision, concise_rationale: result.decision.escalation_reason ?? result.decision.recommended_action, status: 'SUCCESS', latency_ms: 0, tool_results: result.tool_results as Json, error_code: null, error_message: null, actor_id: QA_FIXTURE_USER_ID, created_at: now }, ...current.aiAuditLogs.filter((entry) => entry.lead_id !== lead.id)],
         }))
       }
       if (!demo.enabled) await refresh()
