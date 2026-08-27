@@ -78,7 +78,7 @@ export function TextArea({
   )
 }
 
-export function SelectField({
+export function SelectField<T extends string>({
   label,
   value,
   onChange,
@@ -87,11 +87,11 @@ export function SelectField({
   className,
 }: {
   label?: string
-  value: string
-  onChange: (value: string) => void
-  options: string[]
+  value: T
+  onChange: (value: NoInfer<T>) => void
+  options: readonly T[]
   /** Maps a stored value to the label shown, for id backed selects. */
-  renderOption?: (value: string) => string
+  renderOption?: (value: T) => string
   className?: string
 }) {
   return (
