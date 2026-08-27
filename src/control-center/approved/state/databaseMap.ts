@@ -1,5 +1,5 @@
 import type { ControlData } from '@/control-center/data'
-import type { Activity, Customer, Lead, Message, Quote } from './salesData'
+import type { Activity, Customer, Lead, Message, Quote, QuoteStatus } from './salesData'
 import type { Job, JobCategory } from './jobsData'
 import type { Invoice, Payment, Worker, WorkerPayment } from './moneyData'
 import type { DeliveryMode, DeliverySelection, Material, MaterialLine } from './pricing'
