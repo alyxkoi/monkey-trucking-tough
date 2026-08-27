@@ -7,10 +7,30 @@ export interface PrintTicket {
 }
 
 export type PrintMethod = "share" | "direct";
+export const TICKET_LOGO_URL = "https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/email-assets//MT-LOGO.png";
 const W = 812, H = 1218, PAD = 40, FEED = 80, CUT_GAP = 34;
 const SANS = '"Barlow", Arial, sans-serif';
 const DISPLAY = '"Anton", "Arial Black", sans-serif';
 const clampCopies = (copies?: number) => Math.min(5, Math.max(1, Math.round(copies ?? 1)));
+
+let ticketLogoPromise: Promise<ImageBitmap> | null = null;
+
+/** Load once, decode completely, and embed into the canvas before PNG export. */
+const loadTicketLogo = () => {
+  if (!ticketLogoPromise) {
+    ticketLogoPromise = fetch(TICKET_LOGO_URL, { mode: "cors", cache: "force-cache" })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Ticket logo could not be loaded (${response.status})`);
+        return response.blob();
+      })
+      .then((blob) => createImageBitmap(blob))
+      .catch((error) => {
+        ticketLogoPromise = null;
+        throw error;
+      });
+  }
+  return ticketLogoPromise;
+};
 
 const forceBlackAndWhite = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
   const pixels = ctx.getImageData(0, 0, width, height);
@@ -35,7 +55,11 @@ const makePages = (t: PrintTicket) => t.items.length >= 7
 
 /** Fixed 812×1218, pure one-bit 4×6 labels. Long tickets split across two pages. */
 export const renderTicketPng = async (t: PrintTicket): Promise<Blob> => {
-  await Promise.all([document.fonts?.load(`52px ${DISPLAY}`), document.fonts?.load(`700 30px ${SANS}`)]).catch(() => undefined);
+  const [, , loadedLogo] = await Promise.all([
+    document.fonts?.load(`52px ${DISPLAY}`).catch(() => undefined),
+    document.fonts?.load(`700 30px ${SANS}`).catch(() => undefined),
+    t.logoImage ? Promise.resolve(t.logoImage) : loadTicketLogo(),
+  ]);
   const pages = makePages(t);
   const labels = Array.from({ length: clampCopies(t.copies) }, () => pages).flat();
   const canvas = document.createElement("canvas");
@@ -58,11 +82,13 @@ export const renderTicketPng = async (t: PrintTicket): Promise<Blob> => {
     const compact = items.length >= 5, logoH = compact ? 124 : 150, infoH = compact ? 98 : 112;
     const customerH = compact ? 94 : 110, itemH = compact ? 58 : 72;
     let y = offset + PAD;
-    if (t.logoImage) ctx.drawImage(t.logoImage, 106, y, 600, logoH - 12);
-    else {
-      ctx.lineWidth = 3; ctx.strokeRect(106, y + 4, 600, logoH - 18);
-      center(t.companyName.toUpperCase(), y + Math.max(30, (logoH - 62) / 2), 52, 560, true);
-    }
+    const logo = loadedLogo as CanvasImageSource & { width?: number; height?: number };
+    const maxLogoW = 440, maxLogoH = logoH - 46;
+    const sourceW = logo.width ?? maxLogoW, sourceH = logo.height ?? maxLogoH;
+    const scale = Math.min(maxLogoW / sourceW, maxLogoH / sourceH);
+    const drawW = sourceW * scale, drawH = sourceH * scale;
+    ctx.drawImage(logo, (W - drawW) / 2, y, drawW, drawH);
+    center("Monkey Trucking LLC", y + logoH - 33, 22, 420);
     if (pages.length > 1) { font(20); text(`Page ${pageIndex + 1} of ${pages.length}`, W - PAD, y + 10, 180, "right"); }
     y += logoH;
     center(t.companyTagline || "Texas Hauling Services and Materials", y, 26);
@@ -123,7 +149,7 @@ export const directPrintPng = async (blob: Blob) => {
     pageCtx.drawImage(bitmap, 0, i * (H + CUT_GAP), W, H, 0, 0, W, H); urls.push(page.toDataURL("image/png"));
   }
   bitmap.close();
-  popup.document.write(`<!doctype html><html><head><title>4x6 Ticket</title><style>@page{size:4in 6in;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}.page{width:4in;height:6in;break-after:page}.page:last-child{break-after:auto}img{display:block;width:4in;height:6in}</style></head><body>${urls.map((url) => `<div class="page"><img src="${url}" alt=""></div>`).join("")}<script>window.onload=()=>setTimeout(()=>window.print(),100);<\/script></body></html>`);
+  popup.document.write(`<!doctype html><html><head><title>4x6 Ticket</title><style>@page{size:4in 6in;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}.page{width:4in;height:6in;break-after:page}.page:last-child{break-after:auto}img{display:block;width:4in;height:6in}</style></head><body>${urls.map((url) => `<div class="page"><img src="${url}" alt=""></div>`).join("")}<script>window.onload=()=>setTimeout(()=>window.print(),100);</script></body></html>`);
   popup.document.close(); return "printed";
 };
 

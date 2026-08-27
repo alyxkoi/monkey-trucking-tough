@@ -412,9 +412,14 @@ export function createQaFixtureData(reference = new Date()): ControlData {
   const materials = [
     { id: 'qa-material-crushed', name: 'Commercial Crushed Concrete Clean', price_per_yard: 20, full_load_price: 350, full_load_yards: 20, is_active: true, sort_order: 1, created_at: at(-500), updated_at: at(-30) },
     { id: 'qa-material-cushion', name: 'Select Fill and Cushion Sand', price_per_yard: 20, full_load_price: 350, full_load_yards: 20, is_active: true, sort_order: 2, created_at: at(-500), updated_at: at(-30) },
-    { id: QA_MISSING_DELIVERY_MATERIAL_ID, name: 'Flexbase First Class 1" or 3"', price_per_yard: 38, full_load_price: 720, full_load_yards: 20, is_active: true, sort_order: 3, created_at: at(-500), updated_at: at(-30) },
-    { id: 'qa-material-mason', name: 'Mason Sand', price_per_yard: 45, full_load_price: 820, full_load_yards: 20, is_active: true, sort_order: 4, created_at: at(-500), updated_at: at(-30) },
-    { id: 'qa-material-gravel', name: 'Native Gravel 3/8"-1"', price_per_yard: 53, full_load_price: 980, full_load_yards: 20, is_active: true, sort_order: 5, created_at: at(-500), updated_at: at(-30) },
+    { id: 'qa-material-3x4', name: '3x4 Crushed Concrete', price_per_yard: 35, full_load_price: 700, full_load_yards: 20, is_active: true, sort_order: 3, created_at: at(-500), updated_at: at(-30) },
+    { id: QA_MISSING_DELIVERY_MATERIAL_ID, name: 'Flexbase First Class 1" or 3"', price_per_yard: 38, full_load_price: 720, full_load_yards: 20, is_active: true, sort_order: 4, created_at: at(-500), updated_at: at(-30) },
+    { id: 'qa-material-mason', name: 'Mason Sand', price_per_yard: 45, full_load_price: 820, full_load_yards: 20, is_active: true, sort_order: 5, created_at: at(-500), updated_at: at(-30) },
+    { id: 'qa-material-millings', name: 'Millings Asphalt 1/2" Minus', price_per_yard: 45, full_load_price: 840, full_load_yards: 20, is_active: true, sort_order: 6, created_at: at(-500), updated_at: at(-30) },
+    { id: 'qa-material-gravel', name: 'Native Gravel 3/8"-1"', price_per_yard: 53, full_load_price: 980, full_load_yards: 20, is_active: true, sort_order: 7, created_at: at(-500), updated_at: at(-30) },
+    { id: 'qa-material-concrete-sand', name: 'Concrete Sand Mix Native Gravel', price_per_yard: 55, full_load_price: 1040, full_load_yards: 20, is_active: true, sort_order: 8, created_at: at(-500), updated_at: at(-30) },
+    { id: 'qa-material-granite', name: 'Decomposed Granite', price_per_yard: 65, full_load_price: 1200, full_load_yards: 20, is_active: true, sort_order: 9, created_at: at(-500), updated_at: at(-30) },
+    { id: 'qa-material-limestone', name: 'Limestone 1"-1 1/2"', price_per_yard: 95, full_load_price: 1700, full_load_yards: 20, is_active: true, sort_order: 10, created_at: at(-500), updated_at: at(-30) },
   ]
 
   const tickets: ControlData['tickets'] = [

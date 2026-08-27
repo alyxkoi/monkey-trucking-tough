@@ -1,6 +1,7 @@
 import { usdExact } from '@/control-center/approved/lib/format'
 import { driverName, ticketTotals, totalYards, type Ticket } from '@/control-center/approved/state/ticketsData'
 import { deliveryLabel } from '@/control-center/approved/state/pricing'
+import { TICKET_LOGO_URL } from '@/lib/admin/print'
 
 /**
  * The printed 4 x 6 thermal label, as documented in the Ticket System Handoff.
@@ -22,9 +23,15 @@ export function TicketLabelPreview({
 
   return (
     <div className="mx-auto w-full max-w-[320px] bg-white p-4 text-black">
-      {/* Logo area. The real label needs a simplified high contrast bitmap. */}
-      <div className="border-2 border-black py-2 text-center font-display text-[22px] leading-none">
-        MONKEY TRUCKING
+      <div className="text-center">
+        <img
+          src={TICKET_LOGO_URL}
+          alt="Monkey Trucking"
+          className="mx-auto h-12 w-auto max-w-[190px] object-contain"
+        />
+        <div className="mt-1 font-label text-[9px] font-bold uppercase tracking-[0.12em]">
+          Monkey Trucking LLC
+        </div>
       </div>
 
       <div className="mt-2 text-center font-label text-[10px] font-semibold uppercase leading-tight tracking-[0.1em]">

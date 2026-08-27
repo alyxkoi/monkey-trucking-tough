@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Check, Copy, Link2, Printer, Sparkles } from 'lucide-react'
+import { Check, Copy, Link2, Pencil, Plus, Printer, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
@@ -13,7 +13,7 @@ import { cn } from '@/control-center/approved/lib/cn'
 import { shortAgo, usd } from '@/control-center/approved/lib/format'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import { AI_SAMPLES, type AutomationStatus } from '@/control-center/approved/state/automationData'
-import { DELIVERY_OPTIONS, MATERIALS, TAX_RATE } from '@/control-center/approved/state/pricing'
+import { DELIVERY_OPTIONS, TAX_RATE } from '@/control-center/approved/state/pricing'
 import {
   BUSINESS,
   LINK_SOURCES,
@@ -284,21 +284,134 @@ export function SettingsBusiness() {
 /* --------------------------------------------------- materials and delivery */
 
 export function SettingsMaterials() {
+  const { sourceData } = useAppState()
+  const { refresh } = useControlCenter()
+  const demo = useDemoMode()
+  const materials = sourceData?.materials ?? []
+  const [editingId, setEditingId] = useState<string | 'new' | null>(null)
+  const [name, setName] = useState('')
+  const [perYard, setPerYard] = useState('')
+  const [fullLoad, setFullLoad] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const openMaterial = (id: string | 'new') => {
+    const current = materials.find((material) => material.id === id)
+    setEditingId(id)
+    setName(current?.name ?? '')
+    setPerYard(current ? String(current.price_per_yard) : '')
+    setFullLoad(current ? String(current.full_load_price) : '')
+  }
+
+  const saveMaterial = async () => {
+    const pricePerYard = Number(perYard)
+    const fullLoadPrice = Number(fullLoad)
+    if (!name.trim() || pricePerYard <= 0 || fullLoadPrice <= 0) {
+      toast.error('Name, per-yard price and full-load price are required.')
+      return
+    }
+    setSaving(true)
+    try {
+      const now = new Date().toISOString()
+      if (demo.enabled) {
+        demo.updateData((current) => {
+          const id = editingId === 'new' ? `qa-runtime-material-${current.materials.length + 1}` : editingId as string
+          const row = {
+            id,
+            name: name.trim(),
+            price_per_yard: pricePerYard,
+            full_load_price: fullLoadPrice,
+            full_load_yards: 20,
+            is_active: true,
+            sort_order: editingId === 'new' ? Math.max(0, ...current.materials.map((item) => item.sort_order)) + 1 : current.materials.find((item) => item.id === id)?.sort_order ?? 1,
+            created_at: current.materials.find((item) => item.id === id)?.created_at ?? now,
+            updated_at: now,
+          }
+          return { ...current, materials: editingId === 'new' ? [...current.materials, row] : current.materials.map((item) => item.id === id ? row : item) }
+        })
+      } else if (editingId === 'new') {
+        const { error } = await supabase.from('materials').insert({
+          name: name.trim(),
+          price_per_yard: pricePerYard,
+          full_load_price: fullLoadPrice,
+          full_load_yards: 20,
+          is_active: true,
+          sort_order: Math.max(0, ...materials.map((item) => item.sort_order)) + 1,
+        })
+        if (error) throw new Error(error.message)
+      } else if (editingId) {
+        const { error } = await supabase.from('materials').update({
+          name: name.trim(),
+          price_per_yard: pricePerYard,
+          full_load_price: fullLoadPrice,
+          full_load_yards: 20,
+        }).eq('id', editingId)
+        if (error) throw new Error(error.message)
+      }
+      await refresh()
+      setEditingId(null)
+      toast.success('Material catalog updated. Historical tickets were not changed.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Material could not be saved.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const setMaterialActive = async (id: string, active: boolean) => {
+    try {
+      if (demo.enabled) {
+        const now = new Date().toISOString()
+        demo.updateData((current) => ({ ...current, materials: current.materials.map((item) => item.id === id ? { ...item, is_active: active, updated_at: now } : item) }))
+      } else {
+        const { error } = await supabase.from('materials').update({ is_active: active }).eq('id', id)
+        if (error) throw new Error(error.message)
+      }
+      await refresh()
+      toast.success(active ? 'Material reactivated.' : 'Material made inactive. Historical tickets remain intact.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Material could not be updated.')
+    }
+  }
+
   return (
     <SettingsScreen title="Materials & Delivery">
-      <Panel padded={false} title={`${MATERIALS.length} materials`}>
+      <Panel padded={false} title={`${materials.length} materials`}>
+        <div className="flex justify-end border-t border-line px-5 py-3">
+          <SecondaryButton size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openMaterial('new')}>
+            Add material
+          </SecondaryButton>
+        </div>
+        {editingId && (
+          <div className="space-y-4 border-t border-ice/25 bg-ice/[0.05] p-5">
+            <div className="font-label text-[13px] font-semibold uppercase tracking-[0.12em] text-ice">
+              {editingId === 'new' ? 'New material' : 'Edit current pricing'}
+            </div>
+            <TextField label="Material name" value={name} onChange={setName} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField label="Per yard" value={perYard} onChange={setPerYard} inputMode="decimal" />
+              <TextField label="20 yd full load" value={fullLoad} onChange={setFullLoad} inputMode="decimal" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <PrimaryButton size="sm" disabled={saving} onClick={() => void saveMaterial()}>{saving ? 'Saving' : 'Save'}</PrimaryButton>
+              <SecondaryButton size="sm" onClick={() => setEditingId(null)}>Cancel</SecondaryButton>
+            </div>
+          </div>
+        )}
         <div className="divide-y divide-line border-t border-line">
-          {MATERIALS.map((material) => (
-            <div key={material.id} className="flex items-center gap-4 px-5 py-4">
+          {materials.map((material) => (
+            <div key={material.id} className="flex flex-wrap items-center gap-4 px-5 py-4">
               <div className="min-w-0 flex-1">
-                <div className="text-[16px] font-semibold text-ink">{material.name}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-[16px] font-semibold text-ink">{material.name}</div>
+                  <StatusPill tone={material.is_active ? 'ok' : 'idle'} size="sm">{material.is_active ? 'Active' : 'Inactive'}</StatusPill>
+                </div>
                 <div className="mt-0.5 font-label text-[12px] uppercase tracking-[0.08em] text-cc-muted">
-                  {material.fullLoadYards} yards to a full load
+                  {material.full_load_yards} yards to a full load
                 </div>
               </div>
               <div className="shrink-0 text-right">
                 <div className="font-display display-tight tnum text-[20px]">
-                  {usd(material.pricePerYard)}
+                  {usd(Number(material.price_per_yard))}
                 </div>
                 <div className="font-label text-[11px] uppercase tracking-[0.1em] text-idle">
                   per yard
@@ -306,11 +419,17 @@ export function SettingsMaterials() {
               </div>
               <div className="w-[92px] shrink-0 text-right">
                 <div className="font-display display-tight tnum text-[20px] text-ice">
-                  {usd(material.fullLoadPrice)}
+                  {usd(Number(material.full_load_price))}
                 </div>
                 <div className="font-label text-[11px] uppercase tracking-[0.1em] text-idle">
                   full load
                 </div>
+              </div>
+              <div className="flex w-full justify-end gap-2 sm:w-auto">
+                <SecondaryButton size="sm" icon={<Pencil className="h-4 w-4" />} onClick={() => openMaterial(material.id)}>Edit</SecondaryButton>
+                <SecondaryButton size="sm" onClick={() => void setMaterialActive(material.id, !material.is_active)}>
+                  {material.is_active ? 'Make inactive' : 'Reactivate'}
+                </SecondaryButton>
               </div>
             </div>
           ))}
@@ -345,10 +464,97 @@ export function SettingsMaterials() {
 /* ----------------------------------------------------------------- workers */
 
 export function SettingsWorkers() {
-  const { workers } = useAppState()
+  const { workers, sourceData } = useAppState()
+  const { refresh } = useControlCenter()
+  const demo = useDemoMode()
+  const drivers = sourceData?.drivers ?? []
+  const [editingId, setEditingId] = useState<string | 'new' | null>(null)
+  const [driverName, setDriverName] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const openDriver = (id: string | 'new') => {
+    setEditingId(id)
+    setDriverName(drivers.find((driver) => driver.id === id)?.name ?? '')
+  }
+
+  const saveDriver = async () => {
+    if (!driverName.trim()) return toast.error('Driver name is required.')
+    setSaving(true)
+    try {
+      const now = new Date().toISOString()
+      if (demo.enabled) {
+        demo.updateData((current) => {
+          const id = editingId === 'new' ? `qa-runtime-driver-${current.drivers.length + 1}` : editingId as string
+          const previous = current.drivers.find((driver) => driver.id === id)
+          const row = { id, name: driverName.trim(), is_active: previous?.is_active ?? true, created_at: previous?.created_at ?? now, updated_at: now }
+          return { ...current, drivers: editingId === 'new' ? [...current.drivers, row] : current.drivers.map((driver) => driver.id === id ? row : driver) }
+        })
+      } else if (editingId === 'new') {
+        const { error } = await supabase.from('drivers').insert({ name: driverName.trim(), is_active: true })
+        if (error) throw new Error(error.message)
+      } else if (editingId) {
+        const { error } = await supabase.from('drivers').update({ name: driverName.trim() }).eq('id', editingId)
+        if (error) throw new Error(error.message)
+      }
+      await refresh()
+      setEditingId(null)
+      toast.success('Driver roster updated.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Driver could not be saved.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const setDriverActive = async (id: string, active: boolean) => {
+    try {
+      if (demo.enabled) {
+        const now = new Date().toISOString()
+        demo.updateData((current) => ({ ...current, drivers: current.drivers.map((driver) => driver.id === id ? { ...driver, is_active: active, updated_at: now } : driver) }))
+      } else {
+        const { error } = await supabase.from('drivers').update({ is_active: active }).eq('id', id)
+        if (error) throw new Error(error.message)
+      }
+      await refresh()
+      toast.success(active ? 'Driver reactivated.' : 'Driver made inactive. Historical tickets remain intact.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Driver could not be updated.')
+    }
+  }
 
   return (
     <SettingsScreen title="Workers">
+      <Panel padded={false} title={`${drivers.length} drivers`}>
+        <div className="flex justify-end border-t border-line px-5 py-3">
+          <SecondaryButton size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openDriver('new')}>Add driver</SecondaryButton>
+        </div>
+        {editingId && (
+          <div className="space-y-4 border-t border-ice/25 bg-ice/[0.05] p-5">
+            <TextField label="Driver name" value={driverName} onChange={setDriverName} />
+            <div className="flex gap-2">
+              <PrimaryButton size="sm" disabled={saving} onClick={() => void saveDriver()}>{saving ? 'Saving' : 'Save'}</PrimaryButton>
+              <SecondaryButton size="sm" onClick={() => setEditingId(null)}>Cancel</SecondaryButton>
+            </div>
+          </div>
+        )}
+        <div className="divide-y divide-line border-t border-line">
+          {drivers.map((driver) => (
+            <div key={driver.id} className="flex flex-wrap items-center gap-3 px-5 py-4">
+              <div className="min-w-0 flex-1 text-[16px] font-semibold text-ink">{driver.name}</div>
+              <StatusPill tone={driver.is_active ? 'ok' : 'idle'} size="sm">{driver.is_active ? 'Active' : 'Inactive'}</StatusPill>
+              <SecondaryButton size="sm" icon={<Pencil className="h-4 w-4" />} onClick={() => openDriver(driver.id)}>Edit</SecondaryButton>
+              <SecondaryButton size="sm" onClick={() => void setDriverActive(driver.id, !driver.is_active)}>{driver.is_active ? 'Make inactive' : 'Reactivate'}</SecondaryButton>
+            </div>
+          ))}
+          {drivers.length === 0 && (
+            <div className="px-5 py-6 text-[15px] text-cc-muted">No drivers configured. Add only real driver names.</div>
+          )}
+        </div>
+        <p className="border-t border-line px-5 py-3 text-[13px] leading-snug text-cc-muted">
+          Drivers are operational records, not user accounts. Inactive drivers remain visible on historical tickets.
+        </p>
+      </Panel>
+
       <Panel padded={false} title={`${workers.length} on the crew`}>
         <div className="divide-y divide-line border-t border-line">
           {workers.map((worker) => (

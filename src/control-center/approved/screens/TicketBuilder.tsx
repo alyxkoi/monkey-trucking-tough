@@ -5,11 +5,12 @@ import { toast } from 'sonner'
 import { DeliverySheet } from '@/control-center/approved/components/sales/DeliverySheet'
 import { MaterialLineRow } from '@/control-center/approved/components/sales/MaterialLineRow'
 import { MaterialSheet } from '@/control-center/approved/components/sales/MaterialSheet'
+import { DriverPicker } from '@/control-center/approved/components/tickets/DriverPicker'
 import { PrimaryButton, QuietButton, SecondaryButton } from '@/control-center/approved/components/ui/Button'
 import { cn } from '@/control-center/approved/lib/cn'
 import { RecordHeader } from '@/control-center/approved/components/ui/RecordHeader'
 import { CustomerPicker } from '@/control-center/approved/components/ui/CustomerPicker'
-import { SelectField, Stepper, TextArea, TextField } from '@/control-center/approved/components/ui/Field'
+import { Stepper, TextArea, TextField } from '@/control-center/approved/components/ui/Field'
 import { Panel } from '@/control-center/approved/components/ui/Panel'
 import { PinnedTotalBar } from '@/control-center/approved/components/ui/PinnedTotalBar'
 import { EmptyState } from '@/control-center/approved/components/ui/States'
@@ -24,7 +25,6 @@ import {
   type DeliverySelection,
   type MaterialLine,
 } from '@/control-center/approved/state/pricing'
-import { DRIVERS, driverName } from '@/control-center/approved/state/ticketsData'
 import { useDemoMode } from '@/control-center/demo/DemoMode'
 import { QA_MISSING_DELIVERY_CUSTOMER_ID, QA_MISSING_DELIVERY_MATERIAL_ID } from '@/control-center/demo/constants'
 
@@ -60,7 +60,7 @@ export function TicketBuilder() {
   const [customerId, setCustomerId] = useState(
     editing?.customerId ?? fromJob?.customerId ?? (missingDeliveryFixture ? QA_MISSING_DELIVERY_CUSTOMER_ID : ''),
   )
-  const [driverId, setDriverId] = useState(editing?.driverId ?? DRIVERS[0]?.id ?? '')
+  const [driverId, setDriverId] = useState(editing?.driverId ?? '')
   const [address, setAddress] = useState(editing?.address ?? fromJob?.address ?? (missingDeliveryFixture ? '2290 County Road 4104, Kaufman' : ''))
   const [lines, setLines] = useState<MaterialLine[]>(editing?.materialLines ?? (missingDeliveryMaterial ? [buildMaterialLine('qa-missing-delivery-line', missingDeliveryMaterial, { isFullLoad: true, loads: 1 })] : []))
   const [delivery, setDelivery] = useState<DeliverySelection>(
@@ -104,6 +104,19 @@ export function TicketBuilder() {
 
   const suggested = suggestedDeliveryLoads(lines)
   const deliveryUnset = delivery.mode === 'UNSET'
+  const ticketSettings = sourceData?.appSettings
+  const deliveryPricingReady = Boolean(ticketSettings && [
+    ticketSettings.delivery_tier_1_fee,
+    ticketSettings.delivery_tier_2_fee,
+    ticketSettings.delivery_tier_3_fee,
+    ticketSettings.delivery_overage_base_fee,
+    ticketSettings.delivery_overage_per_mile,
+  ].every((value) => Number.isFinite(Number(value))))
+  const taxPricingReady = Boolean(ticketSettings && Number(ticketSettings.tax_rate) > 0)
+  const setupProblems = [
+    !deliveryPricingReady && 'Delivery pricing is not configured',
+    !taxPricingReady && 'Ticket tax is not configured',
+  ].filter(Boolean) as string[]
 
   /**
    * Adding material updates the SUGGESTED delivery load count, but never
@@ -137,15 +150,27 @@ export function TicketBuilder() {
    * for it. Derived, never stored, so it can never disagree with the fields.
    */
   const problems: Problem[] = [
+    setupProblems.length > 0 && {
+      section: 'delivery' as SectionId,
+      message: setupProblems.join(' and '),
+    },
     !customerId && { section: 'who' as SectionId, message: 'A customer is still required' },
     !address.trim() && { section: 'who' as SectionId, message: 'A job site address is still required' },
     lines.length === 0 && {
       section: 'material' as SectionId,
       message: 'At least one material is still required',
     },
+    lines.some((line) => line.yards <= 0 || line.lineTotal <= 0) && {
+      section: 'material' as SectionId,
+      message: 'Every material needs a valid quantity',
+    },
     deliveryUnset && {
       section: 'delivery' as SectionId,
       message: 'Delivery is still required',
+    },
+    delivery.mode === 'OVER_10' && (delivery.miles ?? 0) <= 10 && {
+      section: 'delivery' as SectionId,
+      message: 'Enter total mileage greater than 10 miles',
     },
   ].filter(Boolean) as Problem[]
 
@@ -282,6 +307,18 @@ export function TicketBuilder() {
         </div>
       )}
 
+      {setupProblems.length > 0 && (
+        <div className="rounded-panel border border-warn/40 bg-warn/10 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+          <div>
+            <div className="font-label text-[13px] font-semibold uppercase tracking-[0.12em] text-warn">Ticket setup required</div>
+            <p className="mt-1 text-[14px] leading-snug text-ink/80">{setupProblems.join('. ')}. Saving is held until current pricing is safe.</p>
+          </div>
+          <SecondaryButton className="mt-3 shrink-0 sm:mt-0" size="sm" onClick={() => navigate('/admin/settings/materials')}>
+            Review settings
+          </SecondaryButton>
+        </div>
+      )}
+
       {/*
         Something was attempted and could not be saved. This is the only place the
         builder raises its voice, and it names what is missing rather than leaving
@@ -355,13 +392,7 @@ export function TicketBuilder() {
             placeholder="Where it went"
           />
 
-          <SelectField
-            label="Driver"
-            value={driverId}
-            onChange={setDriverId}
-            options={DRIVERS.filter((entry) => entry.isActive).map((entry) => entry.id)}
-            renderOption={(id) => driverName(id)}
-          />
+          <DriverPicker value={driverId} onChange={setDriverId} />
         </FormSection>
 
         <FormSection

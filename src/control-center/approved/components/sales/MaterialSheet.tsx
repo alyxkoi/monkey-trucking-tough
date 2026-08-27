@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
-import { PrimaryButton, QuietButton } from '@/control-center/approved/components/ui/Button'
+import { ChevronRight, Search } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { PrimaryButton, QuietButton, SecondaryButton } from '@/control-center/approved/components/ui/Button'
 import { Stepper, TextField } from '@/control-center/approved/components/ui/Field'
 import { SegmentControl } from '@/control-center/approved/components/ui/SegmentControl'
 import { StatusPill } from '@/control-center/approved/components/ui/StatusPill'
 import { Sheet } from '@/control-center/approved/components/shell/Sheet'
+import { EmptyState } from '@/control-center/approved/components/ui/States'
 import { usd, usdExact } from '@/control-center/approved/lib/format'
 import { MATERIALS, buildMaterialLine, type Material } from '@/control-center/approved/state/pricing'
 
@@ -24,7 +26,9 @@ export function MaterialSheet({
   onClose: () => void
   onAdd: (materialId: string, options: { isFullLoad: boolean; loads?: number; yards?: number }) => void
 }) {
+  const navigate = useNavigate()
   const [material, setMaterial] = useState<Material | null>(null)
+  const [query, setQuery] = useState('')
   const [mode, setMode] = useState<Mode>('FULL')
   const [loads, setLoads] = useState(1)
   const [yards, setYards] = useState('10')
@@ -35,6 +39,7 @@ export function MaterialSheet({
       setMode('FULL')
       setLoads(1)
       setYards('10')
+      setQuery('')
     }
   }, [open])
 
@@ -46,6 +51,10 @@ export function MaterialSheet({
         mode === 'FULL' ? { isFullLoad: true, loads } : { isFullLoad: false, yards: yardsNumber },
       )
     : null
+  const activeMaterials = MATERIALS.filter((entry) => entry.isActive)
+  const matchingMaterials = activeMaterials.filter((entry) =>
+    entry.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+  )
 
   const add = () => {
     if (!material) return
@@ -89,8 +98,23 @@ export function MaterialSheet({
       }
     >
       {!material ? (
-        <div className="divide-y divide-line">
-          {MATERIALS.filter((entry) => entry.isActive).map((entry) => (
+        <div>
+          {activeMaterials.length > 0 && (
+            <div className="border-b border-line p-5">
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-cc-muted" />
+                <input
+                  autoFocus
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search material"
+                  className="h-12 w-full rounded-xl border border-line bg-raised pl-11 pr-4 text-[16px] text-ink placeholder:text-cc-muted focus:border-ice/60 focus:outline-none"
+                />
+              </label>
+            </div>
+          )}
+          <div className="divide-y divide-line">
+          {matchingMaterials.map((entry) => (
             <button
               key={entry.id}
               type="button"
@@ -108,6 +132,20 @@ export function MaterialSheet({
               <ChevronRight className="h-5 w-5 shrink-0 text-idle" strokeWidth={2} />
             </button>
           ))}
+          </div>
+          {activeMaterials.length === 0 ? (
+            <EmptyState
+              title="No active materials configured"
+              line="Add or reactivate the current material catalog in Settings before building this ticket."
+              action={
+                <SecondaryButton onClick={() => navigate('/admin/settings/materials')}>
+                  Manage materials
+                </SecondaryButton>
+              }
+            />
+          ) : matchingMaterials.length === 0 ? (
+            <EmptyState title="No material found" line="Try another material name." />
+          ) : null}
         </div>
       ) : (
         <div className="space-y-5 p-5">

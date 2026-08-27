@@ -33,8 +33,8 @@ export type Driver = {
   isActive: boolean
 }
 
-/** The handoff records exactly one driver today. The roster is built in Settings. */
-export const DRIVERS: Driver[] = [{ id: 'drv-1', name: 'Salvador Alvarez', isActive: true }]
+/** Hydrated from the real Drivers table. Never seed a person name in client code. */
+export const DRIVERS: Driver[] = []
 
 export function configureDrivers(drivers: Driver[]) {
   DRIVERS.splice(0, DRIVERS.length, ...drivers)

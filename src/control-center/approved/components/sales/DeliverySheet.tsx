@@ -48,6 +48,7 @@ export function DeliverySheet({
     customFee: Number(customFee) || 0,
   }
   const perLoad = deliveryFeePerLoad(selection)
+  const invalidMileage = mode === 'OVER_10' && Number(miles) <= 10
 
   return (
     <Sheet
@@ -67,7 +68,7 @@ export function DeliverySheet({
           </div>
           <PrimaryButton
             className="shrink-0"
-            disabled={mode === 'UNSET'}
+            disabled={mode === 'UNSET' || invalidMileage}
             onClick={() => {
               onApply(selection)
               onClose()
@@ -116,7 +117,9 @@ export function DeliverySheet({
               value={miles}
               onChange={setMiles}
               inputMode="numeric"
-              hint={`$100 base plus $10 a mile past 10. That is ${usd(perLoad)} per load.`}
+              hint={invalidMileage
+                ? 'Enter the total mileage. This tier begins above 10 miles.'
+                : `$100 base plus $10 a mile past 10. That is ${usd(perLoad)} per load.`}
             />
           ) : (
             <TextField
