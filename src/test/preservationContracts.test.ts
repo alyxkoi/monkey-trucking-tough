@@ -41,18 +41,20 @@ describe("Phase 05 preservation contracts", () => {
   });
 
   it("replaces Ticket hard delete with void and immutable correction history", () => {
-    const detail = readProjectFile("src/pages/admin/AdminTicketDetail.tsx");
+    const detail = readProjectFile("src/control-center/approved/screens/TicketDetail.tsx");
+    const mapper = readProjectFile("src/control-center/approved/state/databaseMap.ts");
     const migration = readProjectFile("supabase/migrations/20260826210000_phase05_ticket_safety.sql");
     expect(detail).not.toContain('.from("tickets").delete()');
     expect(detail).toContain("voidTicket");
     expect(migration).toContain("phase05_no_hard_delete");
     expect(migration).toContain("superseded_at = now()");
     expect(migration).toContain("coalesce(auth.jwt()->>'email', auth.uid()::text)");
-    expect(detail).toContain("entry.actor_label");
+    expect(mapper).toContain("ticketHistory");
+    expect(mapper).toContain("entry.reason");
   });
 
   it("requires an admin or staff role at both the UI and database boundaries", () => {
-    const layout = readProjectFile("src/pages/admin/AdminLayout.tsx");
+    const layout = readProjectFile("src/control-center/ExactControlCenterLayout.tsx");
     const migration = readProjectFile("supabase/migrations/20260826210000_phase05_ticket_safety.sql");
     expect(layout).toContain("useAdminAccess");
     expect(layout).toContain("!access.authorized");

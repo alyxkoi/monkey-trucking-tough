@@ -18,7 +18,7 @@ describe("Phase 05 Control Center contracts", () => {
   });
 
   it("uses user_roles for the UI boundary and the database boundary", () => {
-    const layout = read("src/control-center/ControlCenterLayout.tsx");
+    const layout = read("src/control-center/ExactControlCenterLayout.tsx");
     const migration = read("supabase/migrations/20260826230000_phase05_control_center.sql");
     expect(layout).toContain("useAdminAccess");
     expect(layout).toContain("!access.authorized");
@@ -55,29 +55,33 @@ describe("Phase 05 Control Center contracts", () => {
   });
 
   it("keeps material-line loads separate from independently editable delivery loads on Quotes", () => {
-    const details = read("src/control-center/details.tsx");
-    expect(details).toContain("pricedMaterialLines");
-    expect(details).toContain("suggestedDeliveryLoads");
-    expect(details).toContain("deliveryLoadsTouched");
-    expect(details).toContain("Delivery loads begin at the sum of material loads");
+    const pricing = read("src/control-center/approved/state/pricing.ts");
+    const quote = read("src/control-center/approved/screens/QuoteScreen.tsx");
+    expect(pricing).toContain("loads: number | null");
+    expect(pricing).toContain("suggestedDeliveryLoads");
+    expect(quote).toContain("setQuoteDeliveryLoads");
+    expect(quote).toContain('title="Delivery"');
+    expect(quote).toContain("Loads");
   });
 
   it("keeps the manual lead source list intentionally simple", () => {
-    const layout = read("src/control-center/ControlCenterLayout.tsx");
-    expect(layout).toContain('["Word of mouth", "Facebook", "Website", "Walk in", "Other"]');
-    expect(layout).not.toContain("Billboard");
-    expect(layout).not.toContain("Flyer");
-    expect(layout).not.toContain("Google Search");
-    expect(layout).not.toContain("Facebook Marketplace");
+    const leadSheet = read("src/control-center/approved/components/shell/NewLeadSheet.tsx");
+    expect(leadSheet).toContain("['Word of mouth', 'Facebook', 'Website', 'Walk in', 'Other']");
+    expect(leadSheet).not.toContain("Billboard");
+    expect(leadSheet).not.toContain("Flyer");
+    expect(leadSheet).not.toContain("Google Search");
+    expect(leadSheet).not.toContain("Facebook Marketplace");
   });
 
   it("uses a keyboard-capable reusable CustomerPicker", () => {
-    const components = read("src/control-center/components.tsx");
-    const layout = read("src/control-center/ControlCenterLayout.tsx");
-    const tickets = read("src/control-center/ticketPages.tsx");
-    expect(components).toContain('event.key === "ArrowDown"');
-    expect(components).toContain('event.key === "Enter"');
-    expect(layout.match(/<CustomerPicker/g)?.length).toBeGreaterThanOrEqual(2);
+    const components = read("src/control-center/approved/components/ui/CustomerPicker.tsx");
+    const leadSheet = read("src/control-center/approved/components/shell/NewLeadSheet.tsx");
+    const jobSheet = read("src/control-center/approved/components/jobs/ScheduleJobSheet.tsx");
+    const tickets = read("src/control-center/approved/screens/TicketBuilder.tsx");
+    expect(components).toContain("event.key === 'ArrowDown'");
+    expect(components).toContain("event.key === 'Enter'");
+    expect(leadSheet).toContain("<CustomerPicker");
+    expect(jobSheet).toContain("<CustomerPicker");
     expect(tickets).toContain("<CustomerPicker");
   });
 
@@ -88,5 +92,17 @@ describe("Phase 05 Control Center contracts", () => {
     expect(context).toContain("loadControlData");
     expect(data).not.toContain("localStorage");
     expect(context).not.toContain("mockData");
+    expect(() => read("src/control-center/approved/state/PrototypeAppState.reference.tsx")).toThrow();
+  });
+
+  it("keeps the exact UI support migration additive and outside Ticket history", () => {
+    const migration = read("supabase/migrations/20260826234500_exact_control_center_ui_support.sql");
+    expect(migration).toContain("alter table public.leads add column if not exists notes text");
+    expect(migration).toContain("create_quote_draft_from_lead");
+    expect(migration).toContain("update_quote_draft_atomic");
+    expect(migration).toContain("LIGHT_CLEARING");
+    expect(migration).not.toMatch(/update\s+public\.tickets/i);
+    expect(migration).not.toMatch(/update\s+public\.ticket_items/i);
+    expect(migration).not.toContain("next_ticket_number");
   });
 });

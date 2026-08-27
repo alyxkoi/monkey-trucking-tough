@@ -18,23 +18,29 @@ const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const SignIn = lazy(() => import("./pages/SignIn"));
-const ControlCenterLayout = lazy(() => import("./control-center/ControlCenterLayout"));
-const Overview = lazy(() => import("./control-center/pages").then((module) => ({ default: module.Overview })));
-const NeedsAttention = lazy(() => import("./control-center/pages").then((module) => ({ default: module.NeedsAttention })));
-const LeadsQuotes = lazy(() => import("./control-center/pages").then((module) => ({ default: module.LeadsQuotes })));
-const Customers = lazy(() => import("./control-center/pages").then((module) => ({ default: module.Customers })));
-const Jobs = lazy(() => import("./control-center/pages").then((module) => ({ default: module.Jobs })));
-const Tickets = lazy(() => import("./control-center/pages").then((module) => ({ default: module.Tickets })));
-const Money = lazy(() => import("./control-center/pages").then((module) => ({ default: module.Money })));
-const SettingsHome = lazy(() => import("./control-center/pages").then((module) => ({ default: module.SettingsHome })));
-const LeadDetail = lazy(() => import("./control-center/details").then((module) => ({ default: module.LeadDetail })));
-const QuoteDetail = lazy(() => import("./control-center/details").then((module) => ({ default: module.QuoteDetail })));
-const JobDetail = lazy(() => import("./control-center/details").then((module) => ({ default: module.JobDetail })));
-const CustomerDetail = lazy(() => import("./control-center/details").then((module) => ({ default: module.CustomerDetail })));
-const InvoiceDetail = lazy(() => import("./control-center/details").then((module) => ({ default: module.InvoiceDetail })));
-const SettingsSection = lazy(() => import("./control-center/details").then((module) => ({ default: module.SettingsSection })));
-const TicketBuilder = lazy(() => import("./control-center/ticketPages").then((module) => ({ default: module.TicketBuilder })));
-const TicketDetail = lazy(() => import("./control-center/ticketPages").then((module) => ({ default: module.TicketDetail })));
+const ControlCenterLayout = lazy(() => import("./control-center/ExactControlCenterLayout"));
+const Overview = lazy(() => import("./control-center/approved/screens/Overview").then((module) => ({ default: module.Overview })));
+const NeedsAttention = lazy(() => import("./control-center/approved/screens/NeedsAttention").then((module) => ({ default: module.NeedsAttention })));
+const LeadsQuotes = lazy(() => import("./control-center/approved/screens/LeadsQuotes").then((module) => ({ default: module.LeadsQuotes })));
+const Customers = lazy(() => import("./control-center/approved/screens/Customers").then((module) => ({ default: module.Customers })));
+const Jobs = lazy(() => import("./control-center/approved/screens/Jobs").then((module) => ({ default: module.Jobs })));
+const Tickets = lazy(() => import("./control-center/approved/screens/Tickets").then((module) => ({ default: module.Tickets })));
+const Money = lazy(() => import("./control-center/approved/screens/Money").then((module) => ({ default: module.Money })));
+const SettingsHome = lazy(() => import("./control-center/approved/screens/SettingsHome").then((module) => ({ default: module.SettingsHome })));
+const LeadDetail = lazy(() => import("./control-center/approved/screens/LeadDetail").then((module) => ({ default: module.LeadDetail })));
+const QuoteDetail = lazy(() => import("./control-center/approved/screens/QuoteScreen").then((module) => ({ default: module.QuoteScreen })));
+const JobDetail = lazy(() => import("./control-center/approved/screens/JobDetail").then((module) => ({ default: module.JobDetail })));
+const CustomerDetail = lazy(() => import("./control-center/approved/screens/CustomerDetail").then((module) => ({ default: module.CustomerDetail })));
+const InvoiceDetail = lazy(() => import("./control-center/approved/screens/InvoiceDetail").then((module) => ({ default: module.InvoiceDetail })));
+const TicketBuilder = lazy(() => import("./control-center/approved/screens/TicketBuilder").then((module) => ({ default: module.TicketBuilder })));
+const TicketDetail = lazy(() => import("./control-center/approved/screens/TicketDetail").then((module) => ({ default: module.TicketDetail })));
+const SettingsBusiness = lazy(() => import("./control-center/approved/screens/settings").then((module) => ({ default: module.SettingsBusiness })));
+const SettingsMaterials = lazy(() => import("./control-center/approved/screens/settings").then((module) => ({ default: module.SettingsMaterials })));
+const SettingsWorkers = lazy(() => import("./control-center/approved/screens/settings").then((module) => ({ default: module.SettingsWorkers })));
+const SettingsCommunication = lazy(() => import("./control-center/approved/screens/settings").then((module) => ({ default: module.SettingsCommunication })));
+const SettingsTracking = lazy(() => import("./control-center/approved/screens/settings").then((module) => ({ default: module.SettingsTracking })));
+const SettingsUsers = lazy(() => import("./control-center/approved/screens/settings").then((module) => ({ default: module.SettingsUsers })));
+const SettingsPrinting = lazy(() => import("./control-center/approved/screens/settings").then((module) => ({ default: module.SettingsPrinting })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,7 +99,13 @@ const App = () => (
                 <Route path="money" element={<Money />} />
                 <Route path="money/invoices/:invoiceId" element={<InvoiceDetail />} />
                 <Route path="settings" element={<SettingsHome />} />
-                <Route path="settings/:section" element={<SettingsSection />} />
+                <Route path="settings/business" element={<SettingsBusiness />} />
+                <Route path="settings/materials" element={<SettingsMaterials />} />
+                <Route path="settings/workers" element={<SettingsWorkers />} />
+                <Route path="settings/communication" element={<SettingsCommunication />} />
+                <Route path="settings/tracking" element={<SettingsTracking />} />
+                <Route path="settings/users" element={<SettingsUsers />} />
+                <Route path="settings/printing" element={<SettingsPrinting />} />
 
                 {/* Backward-compatible links from the retired Ticket-only dashboard. */}
                 <Route path="new" element={<Navigate to="/admin/tickets/new" replace />} />

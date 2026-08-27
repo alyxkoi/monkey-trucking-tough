@@ -1,0 +1,441 @@
+@layer base {
+  .control-center-root {
+    position: relative;
+    isolation: isolate;
+    color-scheme: dark;
+    @apply text-ink font-control-body antialiased;
+    font-size: 16px;
+    overflow-x: hidden;
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+    background-color: #0c0c0f;
+    background-image:
+      radial-gradient(1100px 760px at 8% -12%, rgba(143, 203, 255, 0.055), transparent 62%),
+      radial-gradient(900px 620px at 102% -4%, rgba(255, 49, 49, 0.038), transparent 58%),
+      radial-gradient(1000px 900px at 50% 118%, rgba(174, 182, 200, 0.05), transparent 62%),
+      linear-gradient(178deg, #16161b 0%, #111114 42%, #0b0b0e 100%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+  }
+
+  /*
+   * Faint dotted platinum texture. One pixel dots on a 24px grid, faded out
+   * toward the bottom so it never turns into visible noise behind dense content.
+   */
+  .control-center-root::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: radial-gradient(rgba(214, 220, 232, 0.05) 1px, transparent 1px);
+    background-size: 24px 24px;
+    -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.55) 55%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.55) 55%, transparent 100%);
+  }
+
+  .control-center-root > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Outdoor and iPhone rule: form text never drops below 16px. */
+  .control-center-root input,
+  .control-center-root select,
+  .control-center-root textarea {
+    font-size: 16px;
+  }
+
+  .control-center-root button {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .control-center-root ::selection {
+    background: #ff3131;
+    color: #0e0e10;
+  }
+
+  .control-center-root ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .control-center-root ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .control-center-root ::-webkit-scrollbar-thumb {
+    background: #2c2c31;
+    border-radius: 999px;
+  }
+  .control-center-root ::-webkit-scrollbar-thumb:hover {
+    background: #3a3a41;
+  }
+}
+
+/*
+ * Surface system.
+ *
+ * Four weights, used for grouping rather than decoration:
+ *   .surface        base operational card, lets the texture read faintly through
+ *   .surface-glass  frosted, reserved for key cards that should feel lifted
+ *   .surface-ice    tinted cool, for system, calendar and AI grouping
+ *   .surface-warm   tinted red, for money that is genuinely late
+ */
+/*
+ * Restraint rule for this layer: a surface is a flat colour, a hairline and a
+ * shadow. Gradients are not a texture to be sprinkled on cards. The only two
+ * gradients left in the whole system are the page background, which is the room
+ * everything sits in, and the single lit calendar field on the Overview.
+ */
+@layer components {
+  .surface {
+    background-color: rgba(23, 23, 27, 0.86);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
+  }
+
+  .surface-glass {
+    background-color: rgba(32, 32, 38, 0.66);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    -webkit-backdrop-filter: blur(22px) saturate(130%);
+    backdrop-filter: blur(22px) saturate(130%);
+    box-shadow: 0 30px 60px -32px rgba(0, 0, 0, 0.95);
+  }
+
+  .surface-ice {
+    background-color: rgba(24, 30, 38, 0.9);
+    border: 1px solid rgba(143, 203, 255, 0.18);
+    box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
+  }
+
+  .surface-warm {
+    background-color: rgba(32, 21, 22, 0.9);
+    border: 1px solid rgba(255, 49, 49, 0.2);
+    box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
+  }
+
+  /* Settled money. Green stays utility only and never becomes a brand color. */
+  .surface-ok {
+    background-color: rgba(20, 30, 23, 0.9);
+    border: 1px solid rgba(48, 209, 88, 0.2);
+    box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
+  }
+
+  /*
+   * Cool platinum. The primary ticket summary, and nothing else.
+   *
+   * A flat machined plate rather than a light grey form: no gradient, no gloss,
+   * a faint blue undertone and a near black hairline so the structure inside it
+   * has something to sit on. Near black on #C4CAD2 measures about 10.8:1, so it
+   * stays readable in direct sun on a phone.
+   */
+  .surface-platinum {
+    background-color: #c4cad2;
+    border: 1px solid rgba(14, 14, 16, 0.16);
+    box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
+  }
+
+  /* Solid colour fields. Flat, so the colour itself is the statement. */
+  .field-ice {
+    background-color: #8fcbff;
+    box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
+  }
+
+  .field-red {
+    background-color: #ff3131;
+    box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
+  }
+
+  .field-warn {
+    background-color: #ff9f0a;
+    box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
+  }
+
+  /*
+   * The one lit surface in the product. The calendar anchor keeps a hint of
+   * violet in the top right corner so today reads as light falling on a plate.
+   * Nothing else gets this treatment, which is what keeps it worth looking at.
+   */
+  .field-ice-lit {
+    background-color: #8fcbff;
+    background-image: radial-gradient(
+      130% 140% at 106% -20%,
+      rgba(169, 166, 255, 0.9) 0%,
+      rgba(169, 166, 255, 0) 60%
+    );
+    box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
+  }
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+  /*
+   * Anton sits high in its box. This pulls large numbers back onto the baseline.
+   *
+   * The padding is not decorative. With a line height below 1 the line box is
+   * shorter than the glyphs, so any ancestor that clips overflow shaves the top
+   * and bottom off large money figures. This keeps the glyph inside the box.
+   */
+  .display-tight {
+    line-height: 0.86;
+    letter-spacing: -0.01em;
+    /*
+     * Measured against Anton's real ink, not its em box. At a 0.86 line box the
+     * glyphs sit about 0.07em proud at the top and descenders reach about 0.11em
+     * past the bottom, so anything that clips, including a truncate on the
+     * element itself, shaved the tails off names like Good morning. These values
+     * clear both with a little margin and nothing more.
+     */
+    padding-top: 0.1em;
+    padding-bottom: 0.13em;
+  }
+  /* Numbers that must never wrap, and must never be clipped by a truncate. */
+  .num-safe {
+    white-space: nowrap;
+    overflow: visible;
+  }
+  /*
+   * A controlled forward lean for the one hero figure on the Overview. A real
+   * skew rather than a synthetic italic, so the angle is chosen instead of left
+   * to whatever the browser does to a font with no italic cut.
+   */
+  .display-racing {
+    transform: skewX(-8deg);
+    letter-spacing: -0.015em;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Restrained, state based motion only. */
+@keyframes mt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mt-sheet-up {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes mt-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Page and major card entrance. A short fade with a small lift, never a slide show. */
+@keyframes mt-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mt-pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.animate-rise {
+  animation: mt-rise 0.22s ease-out both;
+}
+.animate-sheet {
+  animation: mt-sheet-up 0.2s ease-out both;
+}
+.animate-fade {
+  animation: mt-fade 0.18s ease-out both;
+}
+.animate-pulse-soft {
+  animation: mt-pulse-soft 1.6s ease-in-out infinite;
+}
+
+/*
+ * Motion budget.
+ *
+ * Moving between sections should feel like the screen was already there. A drill
+ * down into a record is allowed to feel slightly more spatial, because something
+ * genuinely opened. Nothing runs longer than 220ms and nothing loops.
+ */
+/*
+ * `backwards`, not `both`, and the reason matters.
+ *
+ * With `both` the browser keeps the final keyframe applied forever, so every
+ * animated block was left holding `transform: matrix(1,0,0,1,0,0)`. An identity
+ * matrix is still a transform, which makes each block its own stacking context,
+ * which meant a dropdown opened in one block was painted under the block after
+ * it no matter what z index it carried. `backwards` gives the same entrance and
+ * then lets transform return to none.
+ */
+.animate-page > * {
+  animation: mt-enter 0.2s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+/* Two steps only, and both are over inside a fifth of a second. */
+.animate-page > *:nth-child(2) {
+  animation-delay: 0.03s;
+}
+.animate-page > *:nth-child(n + 3) {
+  animation-delay: 0.06s;
+}
+
+/*
+ * Guided entry emphasis.
+ *
+ * Three breaths on arrival, then a ring that simply stays until the control is
+ * used. No looping, no flashing, and the ring alone is enough once the eye has
+ * been brought to it. The colour follows the item's priority through --pulse.
+ */
+@keyframes mt-attention-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--pulse), 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(var(--pulse), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--pulse), 0);
+  }
+}
+
+.attention-pulse {
+  animation: mt-attention-pulse 1.7s ease-out 3;
+  outline: 2px solid rgba(var(--pulse), 0.5);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attention-pulse {
+    animation: none;
+  }
+}
+
+/* Drill down entrance. A record opening, so it settles from a little further. */
+@keyframes mt-record {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-record {
+  animation: mt-record 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* Tab and filter content swap. Softer than a page change. */
+.animate-swap {
+  animation: mt-enter 0.16s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.animate-greeting {
+  animation: mt-fade 0.6s ease-out both;
+}
+
+/*
+ * The collected line draws itself in once when the period changes.
+ * It is keyed on the period so it replays on a change and never loops.
+ */
+@keyframes mt-chart-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.chart-draw {
+  stroke-dasharray: 1;
+  animation: mt-chart-draw 0.85s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.chart-fade {
+  animation: mt-fade 0.85s ease-out both;
+}
+
+/*
+ * Record row response.
+ *
+ * A long operational list has to be followable across its full width without
+ * turning into a spreadsheet, so the row itself answers rather than the cells.
+ * An inset hairline down the leading edge plus a one pixel lift is enough to
+ * lock the eye onto a row; no stripes, no per row card, no colour.
+ */
+.row-hover {
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.row-hover:hover,
+.row-hover:focus-visible {
+  box-shadow:
+    inset 2px 0 0 0 rgba(143, 203, 255, 0.55),
+    0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+/* On a solid colour field the same cue is drawn in near black instead. */
+.row-hover-solid:hover,
+.row-hover-solid:focus-visible {
+  box-shadow: inset 2px 0 0 0 rgba(14, 14, 16, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-draw,
+  .chart-fade {
+    animation: none;
+    stroke-dasharray: none;
+  }
+  .animate-rise,
+  .animate-sheet,
+  .animate-fade,
+  .animate-pulse-soft,
+  .animate-swap,
+  .animate-record,
+  .animate-greeting,
+  .animate-page > * {
+    animation: none;
+  }
+  .row-hover {
+    transition: none;
+  }
+}

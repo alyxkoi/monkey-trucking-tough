@@ -16,6 +16,9 @@ export default {
       fontFamily: {
         heading: ['"Bebas Neue"', 'sans-serif'],
         body: ['"Inter"', 'sans-serif'],
+        display: ['Anton', 'Impact', 'Haettenschweiler', 'sans-serif'],
+        label: ['"Barlow Semi Condensed"', 'Barlow', 'Inter', 'system-ui', 'sans-serif'],
+        "control-body": ['Barlow', 'Inter', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         'h1': ['64px', { lineHeight: '1.05', letterSpacing: '0.02em' }],
@@ -71,6 +74,27 @@ export default {
         concrete: "#F4F2EE",
         asphalt: "#16161A",
         nearblack: "#0E0E10",
+        canvas: "#0E0E10",
+        panel: "#17171A",
+        raised: "#212126",
+        line: "rgba(255,255,255,0.08)",
+        ink: "#F5F5F7",
+        "cc-muted": "#9C9CA6",
+        idle: "#8A8A94",
+        mt: {
+          red: "#FF3131",
+          deep: "#D62D24",
+          tint: "#2A1214",
+        },
+        ice: {
+          DEFAULT: "#8FCBFF",
+          deep: "#5FA9E8",
+          tint: "#131E28",
+          violet: "#A9A6FF",
+        },
+        ok: "#30D158",
+        warn: "#FF9F0A",
+        inactive: "#5A5A61",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background, 0 0% 98%))",
           foreground: "hsl(var(--sidebar-foreground, 240 5.3% 26.1%))",
@@ -86,6 +110,16 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        panel: "18px",
+        block: "22px",
+      },
+      boxShadow: {
+        surface: "0 1px 0 0 rgba(255,255,255,0.045) inset, 0 18px 40px -24px rgba(0,0,0,0.9)",
+        lifted: "0 1px 0 0 rgba(255,255,255,0.06) inset, 0 30px 60px -30px rgba(0,0,0,0.95)",
+        solid: "0 24px 60px -32px rgba(0,0,0,0.85)",
+      },
+      maxWidth: {
+        shell: "1760px",
       },
       keyframes: {
         "accordion-down": {

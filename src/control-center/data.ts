@@ -34,6 +34,7 @@ export type Lead = {
   human_takeover: boolean;
   last_contact_at: string | null;
   lost_reason: string | null;
+  notes: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -88,7 +89,7 @@ export type Job = {
   id: string;
   customer_id: string;
   quote_id: string | null;
-  category: "MATERIAL_DELIVERY" | "DRIVEWAY" | "DIRT_GRADING" | "POND" | "DEMOLITION" | "OTHER";
+  category: "MATERIAL_DELIVERY" | "DRIVEWAY" | "DIRT_GRADING" | "POND" | "LIGHT_CLEARING" | "DEMOLITION" | "OTHER";
   status: "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
   scheduled_date: string;
   scheduled_time: string | null;
@@ -222,7 +223,23 @@ export type ControlSettings = {
   ai_status: "READY" | "SETUP_REQUIRED" | "OFF";
   payment_processor_status: "READY" | "SETUP_REQUIRED" | "OFF";
   printable_logo_status: "READY" | "SETUP_REQUIRED";
+  ai_english: boolean;
+  ai_spanish: boolean;
+  human_takeover_on_reply: boolean;
   updated_at: string;
+};
+
+export type FinancialHistory = {
+  id: string;
+  record_type: "INVOICE" | "PAYMENT" | "WORKER_PAYMENT";
+  record_id: string;
+  event_type: string;
+  reason: string;
+  before_snapshot: Json | null;
+  after_snapshot: Json | null;
+  actor_id: string | null;
+  actor_label: string | null;
+  created_at: string;
 };
 
 export type AutomationRule = {
@@ -275,6 +292,7 @@ type ControlDatabase = {
       worker_payments: Table<WorkerPayment>;
       activity_history: Table<Activity>;
       lead_messages: Table<LeadMessage>;
+      financial_history: Table<FinancialHistory>;
       control_center_settings: Table<ControlSettings>;
       automation_rules: Table<AutomationRule>;
       tracking_links: Table<TrackingLink>;
@@ -312,6 +330,7 @@ export type ControlData = {
   workerPayments: WorkerPayment[];
   activities: Activity[];
   messages: LeadMessage[];
+  financialHistory: FinancialHistory[];
   materials: Material[];
   drivers: Driver[];
   appSettings: AppSettings | null;
@@ -330,7 +349,7 @@ const unwrap = <T,>(result: { data: T | null; error: { message: string; code?: s
 export async function loadControlData(): Promise<ControlData> {
   const [
     customers, leads, quotes, quoteItems, jobs, tickets, ticketItems, ticketHistory, invoices,
-    invoiceTickets, payments, workers, workerPayments, activities, messages,
+    invoiceTickets, payments, workers, workerPayments, activities, messages, financialHistory,
     materials, drivers, appSettings, userRoles, controlSettings, automations, trackingLinks, snoozes,
   ] = await Promise.all([
     controlDb.from("customers").select("*").order("last_activity_at", { ascending: false }),
@@ -348,6 +367,7 @@ export async function loadControlData(): Promise<ControlData> {
     controlDb.from("worker_payments").select("*").order("created_at", { ascending: false }),
     controlDb.from("activity_history").select("*").order("created_at", { ascending: false }).limit(500),
     controlDb.from("lead_messages").select("*").order("created_at"),
+    controlDb.from("financial_history").select("*").order("created_at", { ascending: false }).limit(1000),
     supabase.from("materials").select("*").order("sort_order"),
     supabase.from("drivers").select("*").order("name"),
     supabase.from("app_settings").select("*").limit(1).maybeSingle(),
@@ -374,6 +394,7 @@ export async function loadControlData(): Promise<ControlData> {
     workerPayments: unwrap(workerPayments, "Worker payments") ?? [],
     activities: unwrap(activities, "Activity history") ?? [],
     messages: unwrap(messages, "Messages") ?? [],
+    financialHistory: unwrap(financialHistory, "Financial history") ?? [],
     materials: unwrap(materials, "Materials") ?? [],
     drivers: unwrap(drivers, "Drivers") ?? [],
     appSettings: unwrap(appSettings, "Business settings") as AppSettings | null,
@@ -418,6 +439,18 @@ export const createLead = (input: NewLeadInput) => runRpc<Array<{
   p_campaign: input.campaign ?? "",
   p_need: input.need,
 });
+
+export const findOrCreateCustomer = (input: { name: string; phone: string; email?: string }) =>
+  runRpc<Customer>("find_or_create_customer", {
+    p_name: input.name,
+    p_phone: input.phone,
+    p_email: input.email ?? "",
+  });
+
+export const createQuoteDraft = (leadId: string) =>
+  runRpc<Array<{ id: string; quote_number: string }>>("create_quote_draft_from_lead", {
+    p_lead_id: leadId,
+  });
 
 export type NewJobInput = {
   customerId?: string;
@@ -516,6 +549,57 @@ export const saveQuote = (draft: QuoteDraft) => runRpc<Array<{ id: string; quote
     })),
   },
 );
+
+export const saveQuoteChanges = (quoteId: string, draft: QuoteDraft) => runRpc<void>(
+  "update_quote_draft_atomic",
+  {
+    p_quote_id: quoteId,
+    p_quote: {
+      description: draft.description,
+      address: draft.address,
+      delivery_type: draft.deliveryType,
+      delivery_miles: draft.deliveryMiles ?? "",
+      delivery_fee_per_load: draft.deliveryFeePerLoad,
+      delivery_load_count: draft.deliveryLoadCount,
+      delivery_total: draft.deliveryTotal,
+      materials_subtotal: draft.materialsSubtotal,
+      custom_work_subtotal: draft.customWorkSubtotal,
+      tax_rate: draft.taxRate,
+      tax_applies_to_delivery: draft.taxOnDelivery,
+      custom_work_tax_rule: draft.customWorkTaxRule,
+      tax_amount: draft.taxAmount,
+      grand_total: draft.grandTotal,
+      notes: draft.notes ?? "",
+    },
+    p_items: draft.items.map((item) => ({
+      kind: item.kind,
+      material_id: item.materialId ?? "",
+      description: item.description,
+      loads: item.loads ?? "",
+      yards: item.yards ?? "",
+      is_full_load: item.isFullLoad,
+      rate_used: item.rateUsed,
+      line_total: item.lineTotal,
+    })),
+  },
+);
+
+export const addLeadMessage = async (input: {
+  leadId: string;
+  customerId: string;
+  body: string;
+  deliveryStatus: LeadMessage["delivery_status"];
+}) => {
+  const { error } = await controlDb.from("lead_messages").insert({
+    lead_id: input.leadId,
+    customer_id: input.customerId,
+    sender_type: "HUMAN",
+    body: input.body,
+    delivery_status: input.deliveryStatus,
+  });
+  if (error) throw new Error(error.message);
+  await updateLead(input.leadId, { human_takeover: true, last_contact_at: new Date().toISOString() });
+};
 
 export const updateLead = async (id: string, values: Partial<Lead>) => {
   const { error } = await controlDb.from("leads").update(values).eq("id", id);
