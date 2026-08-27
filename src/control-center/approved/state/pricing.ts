@@ -1,3 +1,5 @@
+import { CURRENT_TAX_RATE_PERCENT, taxRateMultiplier } from '@/lib/tax'
+
 /**
  * PRICING MIRROR OF THE EXISTING TICKET SYSTEM.
  *
@@ -194,8 +196,8 @@ export function deliveryLabel(delivery: DeliverySelection): string {
 
 /* ----------------------------------------------------------------------- tax */
 
-/** 8.25%, the Kaufman rate. */
-export const TAX_RATE = 0.0825
+/** Current operational rate, stored as percentage points. 8.25 means 8.25%. */
+export const TAX_RATE = CURRENT_TAX_RATE_PERCENT
 
 /** Applied to materials plus delivery by default. Settings can switch it to materials only. */
 export const TAX_ON_DELIVERY = true
@@ -375,7 +377,7 @@ export function computeTotals(input: {
   const customTaxed = customWorkTax === 'TAXED'
   const taxable =
     materials + (customTaxed ? custom : 0) + (taxOnDelivery ? delivery : 0)
-  const tax = Math.round(taxable * taxRate * 100) / 100
+  const tax = Math.round(taxable * taxRateMultiplier(taxRate) * 100) / 100
   const total = Math.round((materials + custom + delivery + tax) * 100) / 100
 
   return {

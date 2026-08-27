@@ -1,5 +1,7 @@
 /** Money and time formatting for the Monkey Trucking control center. */
 
+export { formatTaxRate } from '@/lib/tax'
+
 /** Whole dollar money, used for the oversized number modules. */
 export function usd(value: number): string {
   return `$${Math.round(value).toLocaleString('en-US')}`

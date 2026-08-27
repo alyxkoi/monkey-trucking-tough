@@ -27,7 +27,7 @@ export const BUSINESS: BusinessSettings = {
   phone: '',
   email: '',
   address: 'Kaufman, Texas',
-  taxRate: 0.0825,
+  taxRate: 0,
   taxOnDelivery: true,
   defaultDueDays: 3,
   paymentMethods: ['ACH', 'Card', 'Zelle', 'Apple Pay', 'Check', 'Other'],

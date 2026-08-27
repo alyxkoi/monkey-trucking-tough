@@ -14,7 +14,7 @@ import { Stepper, TextArea, TextField } from '@/control-center/approved/componen
 import { Panel } from '@/control-center/approved/components/ui/Panel'
 import { PinnedTotalBar } from '@/control-center/approved/components/ui/PinnedTotalBar'
 import { EmptyState } from '@/control-center/approved/components/ui/States'
-import { usd, usdExact } from '@/control-center/approved/lib/format'
+import { formatTaxRate, usd, usdExact } from '@/control-center/approved/lib/format'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import {
   buildMaterialLine,
@@ -112,7 +112,13 @@ export function TicketBuilder() {
     ticketSettings.delivery_overage_base_fee,
     ticketSettings.delivery_overage_per_mile,
   ].every((value) => Number.isFinite(Number(value))))
-  const taxPricingReady = Boolean(ticketSettings && Number(ticketSettings.tax_rate) > 0)
+  const configuredTaxRate = Number(ticketSettings?.tax_rate)
+  const taxPricingReady = Boolean(
+    ticketSettings
+      && Number.isFinite(configuredTaxRate)
+      && configuredTaxRate >= 0
+      && configuredTaxRate <= 100,
+  )
   const setupProblems = [
     !deliveryPricingReady && 'Delivery pricing is not configured',
     !taxPricingReady && 'Ticket tax is not configured',
@@ -530,7 +536,7 @@ export function TicketBuilder() {
               value={usdExact(totals.delivery)}
             />
             <Row
-              label={`Tax ${(totals.taxRate * 100).toFixed(2)}%`}
+              label={`Tax ${formatTaxRate(totals.taxRate)}`}
               value={usdExact(totals.tax)}
             />
           </dl>

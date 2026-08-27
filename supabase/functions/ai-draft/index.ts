@@ -113,7 +113,8 @@ function materialTool(messages: any[], materials: any[], settings: any) {
   }
   const deliveryTotal = deliveryPerLoad == null ? null : deliveryPerLoad * deliveryLoads
   const taxable = deliveryTotal == null ? null : materialTotal + (settings.tax_applies_to_delivery ? deliveryTotal : 0)
-  const tax = taxable == null ? null : Math.round(taxable * Number(settings.tax_rate) * 100) / 100
+  // app_settings.tax_rate uses percentage points: 8.25 means 8.25%.
+  const tax = taxable == null ? null : Math.round(taxable * (Number(settings.tax_rate) / 100) * 100) / 100
   return {
     status: 'MATERIAL_CALCULATED', material_id: material.id, material_name: material.name,
     yards, full_loads: loads, remainder_yards: remainder,

@@ -1,4 +1,4 @@
-import { usdExact } from '@/control-center/approved/lib/format'
+import { formatTaxRate, usdExact } from '@/control-center/approved/lib/format'
 import { driverName, ticketTotals, totalYards, type Ticket } from '@/control-center/approved/state/ticketsData'
 import { deliveryLabel } from '@/control-center/approved/state/pricing'
 import { TICKET_LOGO_URL } from '@/lib/admin/print'
@@ -27,6 +27,7 @@ export function TicketLabelPreview({
         <img
           src={TICKET_LOGO_URL}
           alt="Monkey Trucking"
+          style={{ filter: 'grayscale(1) contrast(1000%)' }}
           className="mx-auto h-12 w-auto max-w-[190px] object-contain"
         />
         <div className="mt-1 font-label text-[9px] font-bold uppercase tracking-[0.12em]">
@@ -87,7 +88,7 @@ export function TicketLabelPreview({
           label={`Delivery, ${deliveryLabel(ticket.delivery)}`}
           value={usdExact(totals.delivery)}
         />
-        <Row label={`Tax ${(totals.taxRate * 100).toFixed(2)}%`} value={usdExact(totals.tax)} />
+        <Row label={`Tax ${formatTaxRate(totals.taxRate)}`} value={usdExact(totals.tax)} />
       </div>
 
       <div className="mt-2 flex items-end justify-between border-t-2 border-black pt-2">

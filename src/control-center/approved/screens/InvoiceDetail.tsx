@@ -20,7 +20,7 @@ import { EmptyState } from '@/control-center/approved/components/ui/States'
 import { TextArea, TextField } from '@/control-center/approved/components/ui/Field'
 import { StatusPill, type PillTone } from '@/control-center/approved/components/ui/StatusPill'
 import { cn } from '@/control-center/approved/lib/cn'
-import { usd, usdExact } from '@/control-center/approved/lib/format'
+import { formatTaxRate, usd, usdExact } from '@/control-center/approved/lib/format'
 import { smsHref, telHref } from '@/control-center/approved/lib/status'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import { PAYMENT_METHOD_LABEL, invoiceStatus, type InvoiceStatus } from '@/control-center/approved/state/moneyData'
@@ -298,7 +298,7 @@ export function InvoiceDetail() {
                 <Field label="Materials" value={usdExact(sourceBreakdown.materials)} />
                 {sourceBreakdown.custom > 0 && <Field label="Custom work" value={usdExact(sourceBreakdown.custom)} />}
                 <Field label="Delivery" value={usdExact(sourceBreakdown.delivery)} />
-                <Field label={`Tax ${(sourceBreakdown.taxRate * 100).toFixed(2)}%`} value={usdExact(sourceBreakdown.tax)} />
+                <Field label={`Tax ${formatTaxRate(sourceBreakdown.taxRate)}`} value={usdExact(sourceBreakdown.tax)} />
                 <Field label="Source total" value={usdExact(sourceBreakdown.total)} />
               </div>
               <p className="mt-4 text-[13px] leading-snug text-cc-muted">

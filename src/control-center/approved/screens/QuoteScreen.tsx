@@ -14,7 +14,7 @@ import { Panel } from '@/control-center/approved/components/ui/Panel'
 import { PinnedTotalBar } from '@/control-center/approved/components/ui/PinnedTotalBar'
 import { EmptyState } from '@/control-center/approved/components/ui/States'
 import { StatusPill } from '@/control-center/approved/components/ui/StatusPill'
-import { usd, usdExact } from '@/control-center/approved/lib/format'
+import { formatTaxRate, usd, usdExact } from '@/control-center/approved/lib/format'
 import { QUOTE_LABEL, QUOTE_TONE } from '@/control-center/approved/lib/status'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import { deliveryLabel } from '@/control-center/approved/state/pricing'
@@ -258,7 +258,7 @@ export function QuoteScreen() {
                 value={usdExact(totals.delivery)}
               />
               <Row
-                label={`Tax ${(totals.taxRate * 100).toFixed(2)}%`}
+                label={`Tax ${formatTaxRate(totals.taxRate)}`}
                 value={usdExact(totals.tax)}
                 hint={quote.taxOnDelivery ? 'On material and delivery' : 'On material only'}
               />

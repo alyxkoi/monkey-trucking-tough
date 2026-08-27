@@ -9,7 +9,7 @@ import type { MaterialLine } from '@/control-center/approved/state/pricing'
  * The load count leads the row. It used to sit inside a small status pill in the
  * middle of the metadata, which is the wrong place for the number Salvador is
  * actually checking when he scans a ticket: how many loads of what. A full load
- * line gets an icy blue count block, a custom yardage line gets a neutral one, so
+ * line gets a Monkey red count block, a custom yardage line gets a neutral one, so
  * the two pricing modes are told apart down the left edge before anything is read.
  *
  * The same row is used by the ticket builder, the ticket record and the quote, so
@@ -31,7 +31,7 @@ export function MaterialLineRow({
         className={cn(
           'flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl border',
           line.isFullLoad
-            ? 'border-ice/30 bg-ice/[0.1] text-ice'
+            ? 'border-mt-red bg-mt-red text-canvas'
             : 'border-white/10 bg-white/[0.05] text-cc-muted',
         )}
       >

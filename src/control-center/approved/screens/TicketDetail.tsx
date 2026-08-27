@@ -12,7 +12,7 @@ import { Panel } from '@/control-center/approved/components/ui/Panel'
 import { Sheet } from '@/control-center/approved/components/shell/Sheet'
 import { EmptyState } from '@/control-center/approved/components/ui/States'
 import { StatusPill } from '@/control-center/approved/components/ui/StatusPill'
-import { usd, usdExact } from '@/control-center/approved/lib/format'
+import { formatTaxRate, usd, usdExact } from '@/control-center/approved/lib/format'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import { deliveryLabel } from '@/control-center/approved/state/pricing'
 import { driverName, ticketTotals, totalYards } from '@/control-center/approved/state/ticketsData'
@@ -166,7 +166,7 @@ export function TicketDetail() {
                 value={usdExact(totals.delivery)}
               />
               <Row
-                label={`Tax ${(totals.taxRate * 100).toFixed(2)}%`}
+                label={`Tax ${formatTaxRate(totals.taxRate)}`}
                 value={usdExact(totals.tax)}
               />
             </div>

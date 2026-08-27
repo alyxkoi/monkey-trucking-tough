@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Check, Copy, Link2, Pencil, Plus, Printer, Sparkles } from 'lucide-react'
+import { Check, Copy, Link2, Pencil, Plus, Printer, Sparkles, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
-import { PrimaryButton, SecondaryButton } from '@/control-center/approved/components/ui/Button'
+import { BrandButton, PrimaryButton, SecondaryButton } from '@/control-center/approved/components/ui/Button'
 import { RecordHeader } from '@/control-center/approved/components/ui/RecordHeader'
 import { SelectField, Stepper, TextArea, TextField } from '@/control-center/approved/components/ui/Field'
 import { Panel } from '@/control-center/approved/components/ui/Panel'
 import { SegmentControl } from '@/control-center/approved/components/ui/SegmentControl'
 import { StatusPill, type PillTone } from '@/control-center/approved/components/ui/StatusPill'
 import { cn } from '@/control-center/approved/lib/cn'
-import { shortAgo, usd } from '@/control-center/approved/lib/format'
+import { formatTaxRate, shortAgo, usd } from '@/control-center/approved/lib/format'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import { AI_SAMPLES, type AutomationStatus } from '@/control-center/approved/state/automationData'
 import { DELIVERY_OPTIONS, TAX_RATE } from '@/control-center/approved/state/pricing'
@@ -190,9 +190,9 @@ export function SettingsBusiness() {
                 Rate
               </div>
               <div className="mt-1 font-display display-tight tnum text-[36px]">
-                {((sourceData?.appSettings?.tax_rate ?? TAX_RATE) * 100).toFixed(2)}%
+                {formatTaxRate(Number(sourceData?.appSettings?.tax_rate ?? TAX_RATE))}
               </div>
-              <div className="mt-1 text-[14px] text-cc-muted">The Kaufman rate.</div>
+              <div className="mt-1 text-[14px] text-cc-muted">Current operational rate.</div>
             </div>
           </div>
 
@@ -393,6 +393,52 @@ export function SettingsMaterials() {
     }
   }
 
+  const deleteMaterial = async (id: string, materialName: string, isActive: boolean) => {
+    if (!window.confirm(`Delete this material?\n\n${materialName}`)) return
+
+    try {
+      let result: { status: string; ticket_references?: number; quote_references?: number }
+      if (demo.enabled) {
+        const ticketReferences = sourceData?.ticketItems.filter((item) => item.material_id === id).length ?? 0
+        const quoteReferences = sourceData?.quoteItems.filter((item) => item.material_id === id).length ?? 0
+        if (ticketReferences + quoteReferences > 0) {
+          result = { status: 'PROTECTED', ticket_references: ticketReferences, quote_references: quoteReferences }
+        } else {
+          demo.updateData((current) => ({
+            ...current,
+            materials: current.materials.filter((material) => material.id !== id),
+          }))
+          result = { status: 'DELETED' }
+        }
+      } else {
+        const { data, error } = await supabase.rpc('delete_material_if_unused', { p_material_id: id })
+        if (error) throw new Error(error.message)
+        result = data as typeof result
+      }
+
+      if (result.status === 'DELETED') {
+        await refresh()
+        toast.success('Unused material deleted.')
+        return
+      }
+
+      if (result.status === 'PROTECTED') {
+        const references = Number(result.ticket_references ?? 0) + Number(result.quote_references ?? 0)
+        const explanation = `${materialName} is used by ${references} historical record${references === 1 ? '' : 's'} and cannot be deleted without damaging history.`
+        if (isActive && window.confirm(`${explanation}\n\nMake it inactive instead?`)) {
+          await setMaterialActive(id, false)
+        } else {
+          toast.error(`${explanation} Use Inactive instead.`)
+        }
+        return
+      }
+
+      throw new Error('Material no longer exists.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Material could not be deleted.')
+    }
+  }
+
   return (
     <SettingsScreen title="Materials & Delivery">
       <Panel padded={false} title={`${materials.length} materials`}>
@@ -447,17 +493,19 @@ export function SettingsMaterials() {
               </div>
               <div className="flex w-full justify-end gap-2 sm:w-auto">
                 <SecondaryButton size="sm" icon={<Pencil className="h-4 w-4" />} onClick={() => openMaterial(material.id)}>Edit</SecondaryButton>
-                <SecondaryButton size="sm" onClick={() => void setMaterialActive(material.id, !material.is_active)}>
-                  {material.is_active ? 'Make inactive' : 'Reactivate'}
-                </SecondaryButton>
+                {material.is_active ? (
+                  <SecondaryButton size="sm" onClick={() => void setMaterialActive(material.id, false)}>Make inactive</SecondaryButton>
+                ) : (
+                  <BrandButton size="sm" onClick={() => void setMaterialActive(material.id, true)}>Reactivate</BrandButton>
+                )}
+                <SecondaryButton size="sm" icon={<Trash2 className="h-4 w-4" />} onClick={() => void deleteMaterial(material.id, material.name, material.is_active)}>Delete</SecondaryButton>
               </div>
             </div>
           ))}
         </div>
         <p className="border-t border-line px-5 py-3 text-[13px] leading-snug text-cc-muted">
-          This is the one price list. Quotes and Tickets both read it, and there is never a
-          second one. A material that stops being sold is made inactive, never deleted, so
-          old tickets keep their history.
+          This is the one price list. Unused mistakes can be deleted. Materials already used
+          on a Quote or Ticket stay in history and can only be made inactive.
         </p>
       </Panel>
 
@@ -563,7 +611,11 @@ export function SettingsWorkers() {
               <div className="min-w-0 flex-1 text-[16px] font-semibold text-ink">{driver.name}</div>
               <StatusPill tone={driver.is_active ? 'ok' : 'idle'} size="sm">{driver.is_active ? 'Active' : 'Inactive'}</StatusPill>
               <SecondaryButton size="sm" icon={<Pencil className="h-4 w-4" />} onClick={() => openDriver(driver.id)}>Edit</SecondaryButton>
-              <SecondaryButton size="sm" onClick={() => void setDriverActive(driver.id, !driver.is_active)}>{driver.is_active ? 'Make inactive' : 'Reactivate'}</SecondaryButton>
+              {driver.is_active ? (
+                <SecondaryButton size="sm" onClick={() => void setDriverActive(driver.id, false)}>Make inactive</SecondaryButton>
+              ) : (
+                <BrandButton size="sm" onClick={() => void setDriverActive(driver.id, true)}>Reactivate</BrandButton>
+              )}
             </div>
           ))}
           {drivers.length === 0 && (

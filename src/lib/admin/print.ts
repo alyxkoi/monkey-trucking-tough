@@ -32,13 +32,20 @@ const loadTicketLogo = () => {
   return ticketLogoPromise;
 };
 
+export const MONOCHROME_THRESHOLD = 180;
+
+export const forceMonochromePixels = (data: Uint8ClampedArray, threshold = MONOCHROME_THRESHOLD) => {
+  for (let i = 0; i < data.length; i += 4) {
+    const luminance = data[i] * .299 + data[i + 1] * .587 + data[i + 2] * .114;
+    const value = luminance < threshold ? 0 : 255;
+    data[i] = value; data[i + 1] = value; data[i + 2] = value; data[i + 3] = 255;
+  }
+  return data;
+};
+
 const forceBlackAndWhite = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
   const pixels = ctx.getImageData(0, 0, width, height);
-  for (let i = 0; i < pixels.data.length; i += 4) {
-    const luminance = pixels.data[i] * .299 + pixels.data[i + 1] * .587 + pixels.data[i + 2] * .114;
-    const value = luminance < 180 ? 0 : 255;
-    pixels.data[i] = value; pixels.data[i + 1] = value; pixels.data[i + 2] = value; pixels.data[i + 3] = 255;
-  }
+  forceMonochromePixels(pixels.data);
   ctx.putImageData(pixels, 0, 0);
 };
 

@@ -36,7 +36,7 @@ describe('Ticket setup foundation', () => {
     expect(deliveryFeePerLoad({ mode: 'TIER_6_10' })).toBe(100)
     expect(deliveryFeePerLoad({ mode: 'OVER_10', miles: 15 })).toBe(150)
     expect(deliveryFeePerLoad({ mode: 'PICKUP' })).toBe(0)
-    expect(TAX_RATE).toBe(0.0825)
+    expect(TAX_RATE).toBe(0)
     expect(TAX_ON_DELIVERY).toBe(true)
   })
 
@@ -64,7 +64,6 @@ describe('Ticket setup foundation', () => {
     expect(migration).toContain('delivery_tier_3_fee = 100')
     expect(migration).toContain('delivery_overage_base_fee = 100')
     expect(migration).toContain('delivery_overage_per_mile = 10')
-    expect(migration).toContain('tax_rate = 0.0825')
     expect(migration).toContain('tax_applies_to_delivery = true')
     expect(migration).not.toMatch(/update\s+public\.(tickets|ticket_items|ticket_history)/i)
     expect(migration).not.toMatch(/next_ticket_number\s*=/i)

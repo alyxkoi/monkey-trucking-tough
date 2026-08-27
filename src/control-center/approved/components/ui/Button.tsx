@@ -102,6 +102,33 @@ export function SecondaryButton({
   )
 }
 
+/** Existing primary geometry with the approved Monkey red field. */
+export function BrandButton({
+  size = 'md',
+  fullWidth,
+  icon,
+  className,
+  children,
+  ...props
+}: Omit<BaseProps, 'tone'>) {
+  return (
+    <button
+      type="button"
+      {...props}
+      className={cn(
+        BASE,
+        SIZES[size],
+        fullWidth && 'w-full',
+        'border border-mt-red bg-mt-red text-canvas hover:border-mt-deep hover:bg-mt-deep hover:text-white active:bg-[#B92018] active:text-white',
+        className,
+      )}
+    >
+      {icon}
+      {children}
+    </button>
+  )
+}
+
 /** Secondary action rendered as a real link, for tel: and sms: actions. */
 export function ActionLink({
   href,

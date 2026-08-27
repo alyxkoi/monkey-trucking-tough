@@ -68,6 +68,7 @@ import {
   type DeliverySelection,
   type MaterialLine,
 } from './pricing'
+import { formatTaxRate, taxRateMultiplier } from '@/lib/tax'
 import {
   mapActivities,
   mapCustomers,
@@ -350,7 +351,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         custom: 0,
         delivery: entry.draft.delivery_total,
         deliveryPerLoad: entry.draft.delivery_fee_per_load,
-        taxable: entry.draft.tax_amount / (entry.draft.tax_rate || 1),
+        taxable: entry.draft.tax_amount / (taxRateMultiplier(entry.draft.tax_rate) || 1),
         tax: entry.draft.tax_amount,
         total: entry.draft.grand_total,
         taxRate: entry.draft.tax_rate,
@@ -789,7 +790,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         companyAddress: data?.appSettings?.company_address ?? '', companyCityStateZip: data?.appSettings?.company_city_state_zip ?? '', companyPhone: data?.appSettings?.company_phone ?? '',
         ticketNumber: ticket.number as string, createdAt: new Date(ticket.createdAt), customerName: customer?.name ?? '', customerPhone: customer?.phone ?? '', jobSiteAddress: ticket.address,
         items: ticket.materialLines.map((line) => ({ name: line.materialName, detail: line.isFullLoad && line.loads !== null ? `${line.loads} load${line.loads === 1 ? '' : 's'} / ${line.yards} yd` : `${line.yards} yd`, amount: `$${line.lineTotal.toFixed(2)}` })),
-        subtotal: `$${totals.materials.toFixed(2)}`, deliveryLabel: 'Delivery', deliveryAmount: `$${totals.delivery.toFixed(2)}`, taxLabel: `Tax ${(totals.taxRate * 100).toFixed(2)}%`, taxAmount: `$${totals.tax.toFixed(2)}`, total: `$${totals.total.toFixed(2)}`,
+        subtotal: `$${totals.materials.toFixed(2)}`, deliveryLabel: 'Delivery', deliveryAmount: `$${totals.delivery.toFixed(2)}`, taxLabel: `Tax ${formatTaxRate(totals.taxRate)}`, taxAmount: `$${totals.tax.toFixed(2)}`, total: `$${totals.total.toFixed(2)}`,
         driver: data?.drivers.find((driver) => driver.id === ticket.driverId)?.name ?? '', notes: ticket.notes, copies: data?.appSettings?.print_copies ?? 1,
       })
       await outputTicketPng(blob, data?.appSettings?.print_method === 'direct' ? 'direct' : 'share', `${ticket.number}.png`, `Ticket ${ticket.number}`)

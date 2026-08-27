@@ -4,6 +4,7 @@ import type { Job, JobCategory } from './jobsData'
 import type { Invoice, Payment, Worker, WorkerPayment } from './moneyData'
 import type { DeliveryMode, DeliverySelection, Material, MaterialLine } from './pricing'
 import type { Ticket } from './ticketsData'
+import { taxRateMultiplier } from '@/lib/tax'
 
 const at = (value: string | null | undefined) => (value ? new Date(value).getTime() : undefined)
 const requiredAt = (value: string) => new Date(value).getTime()
@@ -169,7 +170,7 @@ export function mapQuotes(data: ControlData): Quote[] {
         custom: Number(row.custom_work_subtotal),
         delivery: Number(row.delivery_total),
         deliveryPerLoad: Number(row.delivery_fee_per_load),
-        taxable: Number(row.tax_amount) / (Number(row.tax_rate) || 1),
+        taxable: Number(row.tax_amount) / (taxRateMultiplier(Number(row.tax_rate)) || 1),
         tax: Number(row.tax_amount),
         total: Number(row.grand_total),
         taxRate: Number(row.tax_rate),
@@ -259,7 +260,7 @@ export function mapTickets(data: ControlData): Ticket[] {
         custom: 0,
         delivery: Number(row.delivery_total),
         deliveryPerLoad: Number(row.delivery_fee_per_load),
-        taxable: Number(row.tax_amount) / (Number(row.tax_rate) || 1),
+        taxable: Number(row.tax_amount) / (taxRateMultiplier(Number(row.tax_rate)) || 1),
         tax: Number(row.tax_amount),
         total: Number(row.grand_total),
         taxRate: Number(row.tax_rate),
