@@ -103,7 +103,7 @@ export function MonthCalendar({
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 border-t border-line px-3 pt-3">
+      <div className="grid grid-cols-7 gap-1 border-t border-line px-1 pt-3 sm:px-3">
         {WEEKDAYS.map((day, index) => (
           <div
             key={`${day}-${index}`}
@@ -114,7 +114,7 @@ export function MonthCalendar({
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-1 px-3 pb-4">
+      <div className="grid grid-cols-7 gap-1 px-1 pb-4 sm:px-3">
         {cells.map((day) => {
           const key = dateKey(day)
           const inMonth = day.getMonth() === month.getMonth()
@@ -128,7 +128,7 @@ export function MonthCalendar({
               type="button"
               onClick={() => onSelect(key)}
               className={cn(
-                'flex min-h-[54px] flex-col items-center justify-start gap-1.5 rounded-xl border p-1.5 transition-colors lg:min-h-[86px] lg:justify-between lg:p-2',
+                'flex min-h-[54px] min-w-11 flex-col items-center justify-start gap-1.5 rounded-xl border p-1.5 transition-colors lg:min-h-[86px] lg:justify-between lg:p-2',
                 isToday && 'border-transparent bg-ice text-canvas',
                 !isToday && isSelected && 'border-ice bg-raised',
                 !isToday && !isSelected && 'border-transparent hover:bg-raised/60',

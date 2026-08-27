@@ -35,6 +35,8 @@ import {
   type QuoteDraft,
 } from '@/control-center/data'
 import { useControlCenter } from '@/control-center/context'
+import { useDemoMode } from '@/control-center/demo/DemoMode'
+import { QA_FIXTURE_USER_ID } from '@/control-center/demo/constants'
 import {
   correctTicket,
   getQueue,
@@ -231,6 +233,7 @@ const fail = (error: unknown) => toast.error(error instanceof Error ? error.mess
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
+  const demo = useDemoMode()
   const { data, loading, error, refresh, pendingTickets, syncing } = useControlCenter()
   const [period, setPeriodState] = useState<Period>('MTD')
   const [moneyLoading, setMoneyLoading] = useState(false)
@@ -308,6 +311,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const databaseTickets = useMemo(() => data ? mapTickets(data) : [], [data])
   const queuedTickets = useMemo<Ticket[]>(() => {
     void pendingVersion
+    if (demo.enabled) return []
     if (!user?.id) return []
     return getQueue(user.id).map((entry) => ({
       id: entry.id,
@@ -348,7 +352,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         customWorkTax: 'PENDING',
       },
     }))
-  }, [pendingVersion, user?.id])
+  }, [demo.enabled, pendingVersion, user?.id])
   const tickets = useMemo(() => [...queuedTickets, ...databaseTickets], [databaseTickets, queuedTickets])
   const invoices = useMemo(() => data ? mapInvoices(data) : [], [data])
   const payments = useMemo(() => data ? mapPayments(data) : [], [data])
@@ -407,30 +411,116 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const launch = useCallback((work: () => Promise<unknown>) => { void work().catch(fail) }, [])
 
   const createCustomer = useCallback(async (input: { name: string; phone: string; email?: string }) => {
+    if (demo.enabled) {
+      const duplicate = findDuplicate(input.phone, input.email)
+      if (duplicate) return duplicate
+      const now = new Date().toISOString()
+      const id = `qa-runtime-customer-${(data?.customers.length ?? 0) + 1}`
+      demo.updateData((current) => ({
+        ...current,
+        customers: [{
+          id,
+          name: input.name.trim(),
+          phone: input.phone.trim() || null,
+          normalized_phone: input.phone.replace(/\D/g, '') || null,
+          email: input.email?.trim() || null,
+          normalized_email: input.email?.trim().toLowerCase() || null,
+          notes: '',
+          is_active: true,
+          last_activity_at: now,
+          created_by: QA_FIXTURE_USER_ID,
+          created_at: now,
+          updated_at: now,
+        }, ...current.customers],
+      }))
+      return { id, name: input.name.trim(), phone: input.phone.trim(), email: input.email?.trim() || undefined, source: 'Other', notes: '', createdAt: Date.now() }
+    }
     const row = await refreshAfter(() => findOrCreateCustomer(input))
     return { id: row.id, name: row.name, phone: row.phone ?? '', email: row.email ?? undefined, source: 'Other', notes: row.notes ?? '', createdAt: new Date(row.created_at).getTime() }
-  }, [refreshAfter])
+  }, [data?.customers.length, demo, findDuplicate, refreshAfter])
   const createLead = useCallback(async (input: NewLeadInput) => {
+    if (demo.enabled) {
+      const duplicate = findDuplicate(input.phone, input.email)
+      const customer = duplicate ?? await createCustomer({ name: input.name, phone: input.phone, email: input.email })
+      const now = new Date().toISOString()
+      const leadId = `qa-runtime-lead-${(data?.leads.length ?? 0) + 1}`
+      demo.updateData((current) => ({
+        ...current,
+        leads: [{
+          id: leadId,
+          customer_id: customer.id,
+          status: 'NEW',
+          source: input.source as ControlData['leads'][number]['source'],
+          campaign: input.campaign?.trim() || null,
+          need: input.need.trim(),
+          human_takeover: false,
+          last_contact_at: null,
+          lost_reason: null,
+          notes: null,
+          created_by: QA_FIXTURE_USER_ID,
+          created_at: now,
+          updated_at: now,
+        }, ...current.leads],
+        customers: current.customers.map((row) => row.id === customer.id ? { ...row, last_activity_at: now, updated_at: now } : row),
+      }))
+      return { leadId, customerId: customer.id, matchedExisting: Boolean(duplicate), customerName: customer.name }
+    }
     const rows = await refreshAfter(() => createLeadRecord({ ...input, source: input.source as Parameters<typeof createLeadRecord>[0]['source'] }))
     const row = rows[0]
     if (!row) throw new Error('Lead creation returned no record')
     return { leadId: row.lead_id, customerId: row.customer_id, matchedExisting: row.matched_existing, customerName: input.name }
-  }, [refreshAfter])
-  const scheduleJob = useCallback((input: ScheduleJobInput) => refreshAfter(() => createJobRecord({ ...input, category: input.category as Parameters<typeof createJobRecord>[0]['category'] })), [refreshAfter])
-  const rescheduleJob = useCallback((id: string, when: { date: string; time?: string; allDay: boolean }) => launch(async () => { await updateJob(id, { scheduled_date: when.date, scheduled_time: when.allDay ? null : when.time ?? null, all_day: when.allDay, change_requested: false }); await refresh() }), [launch, refresh])
-  const completeJob = useCallback((id: string) => launch(async () => { await updateJob(id, { status: 'COMPLETED', completed_at: new Date().toISOString() }); await refresh() }), [launch, refresh])
-  const cancelJob = useCallback((id: string, reason: string) => launch(async () => { await updateJob(id, { status: 'CANCELLED', cancelled_at: new Date().toISOString(), cancellation_reason: reason }); await refresh() }), [launch, refresh])
-  const startJob = useCallback((id: string) => launch(async () => { await updateJob(id, { status: 'IN_PROGRESS' }); await refresh() }), [launch, refresh])
+  }, [createCustomer, data?.leads.length, demo, findDuplicate, refreshAfter])
+  const scheduleJob = useCallback(async (input: ScheduleJobInput) => {
+    if (demo.enabled) {
+      const now = new Date().toISOString()
+      const id = `qa-runtime-job-${(data?.jobs.length ?? 0) + 1}`
+      demo.updateData((current) => ({ ...current, jobs: [...current.jobs, {
+        id, customer_id: input.customerId, quote_id: input.quoteId ?? null, category: input.category,
+        status: 'SCHEDULED', scheduled_date: input.date, scheduled_time: input.allDay ? null : input.time ?? null,
+        all_day: input.allDay, address: input.address, description: input.description, agreed_amount: input.agreedAmount,
+        notes: input.notes ?? null, blocked_reason: null, blocked_at: null, change_requested: false,
+        completed_at: null, cancelled_at: null, cancellation_reason: null, created_by: QA_FIXTURE_USER_ID,
+        created_at: now, updated_at: now,
+      }] }))
+      return id
+    }
+    return refreshAfter(() => createJobRecord({ ...input, category: input.category as Parameters<typeof createJobRecord>[0]['category'] }))
+  }, [data?.jobs.length, demo, refreshAfter])
+  const rescheduleJob = useCallback((id: string, when: { date: string; time?: string; allDay: boolean }) => launch(async () => {
+    if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, jobs: current.jobs.map((row) => row.id === id ? { ...row, scheduled_date: when.date, scheduled_time: when.allDay ? null : when.time ?? null, all_day: when.allDay, change_requested: false, updated_at: now } : row) })); return }
+    await updateJob(id, { scheduled_date: when.date, scheduled_time: when.allDay ? null : when.time ?? null, all_day: when.allDay, change_requested: false }); await refresh()
+  }), [demo, launch, refresh])
+  const completeJob = useCallback((id: string) => launch(async () => {
+    if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, jobs: current.jobs.map((row) => row.id === id ? { ...row, status: 'COMPLETED', completed_at: now, updated_at: now } : row) })); return }
+    await updateJob(id, { status: 'COMPLETED', completed_at: new Date().toISOString() }); await refresh()
+  }), [demo, launch, refresh])
+  const cancelJob = useCallback((id: string, reason: string) => launch(async () => {
+    if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, jobs: current.jobs.map((row) => row.id === id ? { ...row, status: 'CANCELLED', cancelled_at: now, cancellation_reason: reason, updated_at: now } : row) })); return }
+    await updateJob(id, { status: 'CANCELLED', cancelled_at: new Date().toISOString(), cancellation_reason: reason }); await refresh()
+  }), [demo, launch, refresh])
+  const startJob = useCallback((id: string) => launch(async () => {
+    if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, jobs: current.jobs.map((row) => row.id === id ? { ...row, status: 'IN_PROGRESS', blocked_reason: null, blocked_at: null, updated_at: now } : row) })); return }
+    await updateJob(id, { status: 'IN_PROGRESS' }); await refresh()
+  }), [demo, launch, refresh])
   const debounce = useCallback((key: string, work: () => Promise<unknown>) => { window.clearTimeout(noteTimers.current[key]); noteTimers.current[key] = window.setTimeout(() => launch(work), 500) }, [launch])
-  const updateJobNotes = useCallback((id: string, notes: string) => debounce(`job:${id}`, async () => { await updateJob(id, { notes }); await refresh() }), [debounce, refresh])
-  const updateLeadNotes = useCallback((id: string, notes: string) => debounce(`lead:${id}`, async () => { await updateLead(id, { notes }); await refresh() }), [debounce, refresh])
-  const updateCustomerNotes = useCallback((id: string, notes: string) => debounce(`customer:${id}`, async () => { const { error: saveError } = await controlDb.from('customers').update({ notes }).eq('id', id); if (saveError) throw new Error(saveError.message); await refresh() }), [debounce, refresh])
+  const updateJobNotes = useCallback((id: string, notes: string) => debounce(`job:${id}`, async () => { if (demo.enabled) { demo.updateData((current) => ({ ...current, jobs: current.jobs.map((row) => row.id === id ? { ...row, notes, updated_at: new Date().toISOString() } : row) })); return } await updateJob(id, { notes }); await refresh() }), [debounce, demo, refresh])
+  const updateLeadNotes = useCallback((id: string, notes: string) => debounce(`lead:${id}`, async () => { if (demo.enabled) { demo.updateData((current) => ({ ...current, leads: current.leads.map((row) => row.id === id ? { ...row, notes, updated_at: new Date().toISOString() } : row) })); return } await updateLead(id, { notes }); await refresh() }), [debounce, demo, refresh])
+  const updateCustomerNotes = useCallback((id: string, notes: string) => debounce(`customer:${id}`, async () => { if (demo.enabled) { demo.updateData((current) => ({ ...current, customers: current.customers.map((row) => row.id === id ? { ...row, notes, updated_at: new Date().toISOString() } : row) })); return } const { error: saveError } = await controlDb.from('customers').update({ notes }).eq('id', id); if (saveError) throw new Error(saveError.message); await refresh() }), [debounce, demo, refresh])
   const replyToLead = useCallback((id: string, text: string) => {
     const lead = leadById(id)
     if (!lead) return
+    if (demo.enabled) {
+      const now = new Date().toISOString()
+      demo.updateData((current) => ({
+        ...current,
+        messages: [...current.messages, { id: `qa-runtime-message-${current.messages.length + 1}`, lead_id: id, customer_id: lead.customerId, sender_type: 'HUMAN', body: text, delivery_status: 'INTERNAL', provider_message_id: null, created_by: QA_FIXTURE_USER_ID, created_at: now }],
+        leads: current.leads.map((row) => row.id === id ? { ...row, human_takeover: true, last_contact_at: now, updated_at: now } : row),
+      }))
+      return
+    }
     if (data?.controlSettings?.sms_status !== 'READY') { toast.error('SMS setup is required before a reply can be sent.'); return }
     launch(async () => { await addLeadMessage({ leadId: id, customerId: lead.customerId, body: text, deliveryStatus: 'PENDING' }); await refresh() })
-  }, [data?.controlSettings?.sms_status, launch, leadById, refresh])
+  }, [data?.controlSettings?.sms_status, demo, launch, leadById, refresh])
 
   const quoteDraft = useCallback((quote: Quote): QuoteDraft => {
     const totals = computeTotals({ materialLines: quote.materialLines, customLines: quote.customLines, delivery: quote.delivery, deliveryLoads: quote.deliveryLoads, taxRate: quote.taxRate, taxOnDelivery: quote.taxOnDelivery, customWorkTax: quote.customWorkTax })
@@ -457,7 +547,22 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       ],
     }
   }, [])
-  const createQuoteFromLead = useCallback(async (id: string) => { const rows = await refreshAfter(() => createQuoteDraft(id)); return rows[0]?.id ?? '' }, [refreshAfter])
+  const createQuoteFromLead = useCallback(async (id: string) => {
+    if (demo.enabled) {
+      const lead = data?.leads.find((row) => row.id === id)
+      if (!lead) throw new Error('Lead not found')
+      const now = new Date().toISOString()
+      const quoteId = `qa-runtime-quote-${(data?.quotes.length ?? 0) + 1}`
+      const quoteNumber = `Q${1110 + (data?.quotes.length ?? 0)}`
+      demo.updateData((current) => ({
+        ...current,
+        quotes: [{ id: quoteId, quote_number: quoteNumber, customer_id: lead.customer_id, lead_id: id, status: 'DRAFT', description: lead.need, address: '', delivery_type: null, delivery_miles: null, delivery_fee_per_load: 0, delivery_load_count: 0, delivery_total: 0, materials_subtotal: 0, custom_work_subtotal: 0, tax_rate: Number(current.appSettings?.tax_rate ?? 0), tax_applies_to_delivery: current.appSettings?.tax_applies_to_delivery ?? true, custom_work_tax_rule: current.controlSettings?.custom_work_tax_rule ?? 'PENDING', tax_amount: 0, grand_total: 0, notes: null, sent_at: null, accepted_at: null, declined_at: null, voided_at: null, void_reason: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.quotes],
+        leads: current.leads.map((row) => row.id === id ? { ...row, status: 'QUOTED', updated_at: now } : row),
+      }))
+      return quoteId
+    }
+    const rows = await refreshAfter(() => createQuoteDraft(id)); return rows[0]?.id ?? ''
+  }, [data?.leads, data?.quotes.length, demo, refreshAfter])
   const clearQuoteDraft = useCallback((id: string, expected?: Quote) => {
     const current = quoteDraftsRef.current
     if (expected && current[id] !== expected) return
@@ -467,10 +572,43 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setQuoteDrafts(next)
   }, [])
   const saveQuoteDraftNow = useCallback(async (quote: Quote) => {
+    if (demo.enabled) {
+      const draft = quoteDraft({ ...quote, snapshotTotals: undefined })
+      const now = new Date().toISOString()
+      demo.updateData((current) => ({
+        ...current,
+        quotes: current.quotes.map((row) => row.id === quote.id ? {
+          ...row,
+          customer_id: draft.customerId,
+          lead_id: draft.leadId ?? null,
+          description: draft.description,
+          address: draft.address,
+          delivery_type: draft.deliveryType,
+          delivery_miles: draft.deliveryMiles ?? null,
+          delivery_fee_per_load: draft.deliveryFeePerLoad,
+          delivery_load_count: draft.deliveryLoadCount,
+          delivery_total: draft.deliveryTotal,
+          materials_subtotal: draft.materialsSubtotal,
+          custom_work_subtotal: draft.customWorkSubtotal,
+          tax_rate: draft.taxRate,
+          tax_applies_to_delivery: draft.taxOnDelivery,
+          custom_work_tax_rule: draft.customWorkTaxRule,
+          tax_amount: draft.taxAmount,
+          grand_total: draft.grandTotal,
+          updated_at: now,
+        } : row),
+        quoteItems: [
+          ...current.quoteItems.filter((row) => row.quote_id !== quote.id),
+          ...draft.items.map((item, index) => ({ id: `qa-runtime-quote-item-${quote.id}-${index + 1}`, quote_id: quote.id, kind: item.kind, material_id: item.materialId ?? null, description: item.description, loads: item.loads ?? null, yards: item.yards ?? null, is_full_load: item.isFullLoad, rate_used: item.rateUsed, line_total: item.lineTotal, created_at: now })),
+        ],
+      }))
+      clearQuoteDraft(quote.id, quote)
+      return
+    }
     await saveQuoteChanges(quote.id, quoteDraft({ ...quote, snapshotTotals: undefined }))
     await refresh()
     clearQuoteDraft(quote.id, quote)
-  }, [clearQuoteDraft, quoteDraft, refresh])
+  }, [clearQuoteDraft, demo, quoteDraft, refresh])
   const patchQuote = useCallback((id: string, patch: (quote: Quote) => Quote) => {
     const current = quoteDraftsRef.current[id] ?? quoteById(id)
     if (!current || current.status !== 'DRAFT') return
@@ -493,6 +631,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const setQuoteDeliveryLoads = useCallback((id: string, deliveryLoads: number) => patchQuote(id, (quote) => ({ ...quote, deliveryLoads })), [patchQuote])
   const sendQuote = useCallback((id: string) => launch(async () => {
     const current = quoteDraftsRef.current[id] ?? quoteById(id)
+    if (demo.enabled) {
+      if (current?.status === 'DRAFT') {
+        window.clearTimeout(noteTimers.current[`quote:${id}`])
+        await saveQuoteDraftNow(current)
+      }
+      const now = new Date().toISOString()
+      demo.updateData((fixture) => ({ ...fixture, quotes: fixture.quotes.map((row) => row.id === id ? { ...row, status: 'SENT', sent_at: now, updated_at: now } : row) }))
+      clearQuoteDraft(id)
+      toast.info('Quote marked sent in demo. SMS remains setup-required.')
+      return
+    }
     if (current?.status === 'DRAFT') {
       window.clearTimeout(noteTimers.current[`quote:${id}`])
       await saveQuoteChanges(id, quoteDraft({ ...current, snapshotTotals: undefined }))
@@ -501,9 +650,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     clearQuoteDraft(id)
     await refresh()
     if (data?.controlSettings?.sms_status !== 'READY') toast.info('Quote marked sent. Customer delivery is setup-required until SMS is connected.')
-  }), [clearQuoteDraft, data?.controlSettings?.sms_status, launch, quoteById, quoteDraft, refresh])
-  const acceptQuote = useCallback((id: string) => launch(async () => { await updateQuote(id, { status: 'ACCEPTED', accepted_at: new Date().toISOString() }); await refresh() }), [launch, refresh])
-  const declineQuote = useCallback((id: string) => launch(async () => { await updateQuote(id, { status: 'DECLINED', declined_at: new Date().toISOString() }); await refresh() }), [launch, refresh])
+  }), [clearQuoteDraft, data?.controlSettings?.sms_status, demo, launch, quoteById, quoteDraft, refresh, saveQuoteDraftNow])
+  const acceptQuote = useCallback((id: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, quotes: current.quotes.map((row) => row.id === id ? { ...row, status: 'ACCEPTED', accepted_at: now, updated_at: now } : row) })); return } await updateQuote(id, { status: 'ACCEPTED', accepted_at: new Date().toISOString() }); await refresh() }), [demo, launch, refresh])
+  const declineQuote = useCallback((id: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, quotes: current.quotes.map((row) => row.id === id ? { ...row, status: 'DECLINED', declined_at: now, updated_at: now } : row) })); return } await updateQuote(id, { status: 'DECLINED', declined_at: new Date().toISOString() }); await refresh() }), [demo, launch, refresh])
 
   const toTicketDraft = useCallback((input: SaveTicketInput): TicketDraft => {
     const customer = customerById(input.customerId)
@@ -521,14 +670,47 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
   }, [customerById, data?.appSettings?.tax_applies_to_delivery, data?.appSettings?.tax_rate])
   const saveTicket = useCallback(async (input: SaveTicketInput) => {
+    if (demo.enabled) {
+      const draft = toTicketDraft(input)
+      const now = new Date().toISOString()
+      const id = `qa-runtime-ticket-${(data?.tickets.length ?? 0) + 1}`
+      demo.updateData((current) => ({
+        ...current,
+        tickets: [{ id, ticket_number: '', client_request_id: `qa-runtime-request-${current.tickets.length + 1}`, customer_id: input.customerId, job_id: input.jobId ?? null, customer_name: draft.customer_name, customer_phone: draft.customer_phone, job_site_address: draft.job_site_address, driver_id: draft.driver_id, delivery_type: draft.delivery_type, delivery_miles: draft.delivery_miles, delivery_fee_per_load: draft.delivery_fee_per_load, load_count: draft.load_count, delivery_total: draft.delivery_total, materials_subtotal: draft.materials_subtotal, tax_rate: draft.tax_rate, tax_applies_to_delivery: draft.tax_applies_to_delivery, tax_amount: draft.tax_amount, grand_total: draft.grand_total, notes: draft.notes, payment_status: 'unpaid', status: 'pending', printed_at: null, voided_at: null, void_reason: null, voided_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.tickets],
+        ticketItems: [...current.ticketItems, ...draft.items.map((item, index) => ({ id: `qa-runtime-ticket-item-${current.ticketItems.length + index + 1}`, ticket_id: id, material_id: item.material_id, material_name: item.material_name, yards: item.yards, is_full_load: item.is_full_load, loads: item.loads ?? null, rate_used: item.rate_used, line_total: item.line_total, superseded_at: null, created_at: now }))],
+      }))
+      return id
+    }
     if (!user?.id) throw new Error('Sign in is required')
     const result = await saveTicketRecord(toTicketDraft(input), user.id, { customerId: input.customerId, jobId: input.jobId })
     setPendingVersion((value) => value + 1)
     if (!result.queued) await refresh()
     return result.queued ? result.requestId : result.ticket.id
-  }, [refresh, toTicketDraft, user?.id])
-  const updateTicket = useCallback(async (id: string, input: SaveTicketInput, note: string) => { await correctTicket(id, note, toTicketDraft(input)); await refresh() }, [refresh, toTicketDraft])
-  const voidTicket = useCallback((id: string, reason: string) => launch(async () => { await voidTicketRecord(id, reason); await refresh() }), [launch, refresh])
+  }, [data?.tickets.length, demo, refresh, toTicketDraft, user?.id])
+  const updateTicket = useCallback(async (id: string, input: SaveTicketInput, note: string) => {
+    if (demo.enabled) {
+      const draft = toTicketDraft(input)
+      const now = new Date().toISOString()
+      demo.updateData((current) => {
+        const before = current.tickets.find((row) => row.id === id) ?? null
+        return {
+          ...current,
+          tickets: current.tickets.map((row) => row.id === id ? { ...row, customer_id: input.customerId, job_id: input.jobId ?? null, customer_name: draft.customer_name, customer_phone: draft.customer_phone, job_site_address: draft.job_site_address, driver_id: draft.driver_id, delivery_type: draft.delivery_type, delivery_miles: draft.delivery_miles, delivery_fee_per_load: draft.delivery_fee_per_load, load_count: draft.load_count, delivery_total: draft.delivery_total, materials_subtotal: draft.materials_subtotal, tax_rate: draft.tax_rate, tax_applies_to_delivery: draft.tax_applies_to_delivery, tax_amount: draft.tax_amount, grand_total: draft.grand_total, notes: draft.notes, updated_at: now } : row),
+          // ControlData mirrors the live loader, which returns only current item
+          // snapshots. The before snapshot remains in ticketHistory just as it
+          // would after the atomic correction RPC.
+          ticketItems: [...current.ticketItems.filter((row) => row.ticket_id !== id), ...draft.items.map((item, index) => ({ id: `qa-runtime-ticket-correction-item-${current.ticketItems.length + index + 1}`, ticket_id: id, material_id: item.material_id, material_name: item.material_name, yards: item.yards, is_full_load: item.is_full_load, loads: item.loads ?? null, rate_used: item.rate_used, line_total: item.line_total, superseded_at: null, created_at: now }))],
+          ticketHistory: [{ id: `qa-runtime-ticket-history-${current.ticketHistory.length + 1}`, ticket_id: id, event_type: 'corrected', reason: note, before_snapshot: before, after_snapshot: draft, actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now }, ...current.ticketHistory],
+        }
+      })
+      return
+    }
+    await correctTicket(id, note, toTicketDraft(input)); await refresh()
+  }, [demo, refresh, toTicketDraft])
+  const voidTicket = useCallback((id: string, reason: string) => launch(async () => {
+    if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => { const before = current.tickets.find((row) => row.id === id) ?? null; return { ...current, tickets: current.tickets.map((row) => row.id === id ? { ...row, status: 'void', voided_at: now, void_reason: reason, voided_by: QA_FIXTURE_USER_ID, updated_at: now } : row), ticketHistory: [{ id: `qa-runtime-ticket-history-${current.ticketHistory.length + 1}`, ticket_id: id, event_type: 'voided', reason, before_snapshot: before, after_snapshot: null, actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now }, ...current.ticketHistory] } }); return }
+    await voidTicketRecord(id, reason); await refresh()
+  }), [demo, launch, refresh])
   const printTicket = useCallback((id: string) => {
     const ticket = ticketById(id); if (!ticket || !ticket.number) return
     const customer = customerById(ticket.customerId); const totals = ticketTotals(ticket)
@@ -542,38 +724,96 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         driver: data?.drivers.find((driver) => driver.id === ticket.driverId)?.name ?? '', notes: ticket.notes, copies: data?.appSettings?.print_copies ?? 1,
       })
       await outputTicketPng(blob, data?.appSettings?.print_method === 'direct' ? 'direct' : 'share', `${ticket.number}.png`, `Ticket ${ticket.number}`)
+      if (demo.enabled) {
+        const now = new Date().toISOString()
+        demo.updateData((current) => ({ ...current, tickets: current.tickets.map((row) => row.id === id ? { ...row, printed_at: now, updated_at: now } : row) }))
+        return
+      }
       await supabase.from('tickets').update({ printed_at: new Date().toISOString() }).eq('id', id)
       await refresh()
     })
-  }, [customerById, data, launch, refresh, ticketById])
+  }, [customerById, data, demo, launch, refresh, ticketById])
 
-  const createInvoiceFromJob = useCallback((id: string) => refreshAfter(() => createInvoiceFromJobRecord(id)), [refreshAfter])
-  const createInvoiceFromTicket = useCallback((id: string) => refreshAfter(() => createInvoiceFromTicketRecord(id)), [refreshAfter])
-  const sendInvoice = useCallback((id: string) => launch(async () => { const due = new Date(); due.setDate(due.getDate() + (data?.controlSettings?.default_invoice_due_days ?? 3)); await updateInvoice(id, { status: 'SENT', issued_at: new Date().toISOString(), due_at: due.toISOString() }); await refresh(); if (data?.controlSettings?.sms_status !== 'READY') toast.info('Invoice marked sent. Customer delivery is setup-required until SMS is connected.') }), [data?.controlSettings, launch, refresh])
+  const createInvoiceFromJob = useCallback(async (id: string) => {
+    if (demo.enabled) {
+      const job = data?.jobs.find((row) => row.id === id)
+      if (!job) throw new Error('Job not found')
+      const now = new Date().toISOString()
+      const invoiceId = `qa-runtime-invoice-${(data?.invoices.length ?? 0) + 1}`
+      demo.updateData((current) => ({ ...current, invoices: [{ id: invoiceId, invoice_number: String(1100 + current.invoices.length), customer_id: job.customer_id, job_id: id, quote_id: job.quote_id, standalone_ticket_id: null, amount_source: job.quote_id ? 'QUOTE' : 'JOB', description: job.description, amount: job.agreed_amount, status: 'DRAFT', issued_at: null, due_at: null, paid_at: null, disputed: false, dispute_note: null, payment_claimed_at: null, payment_claim_method: null, payment_claim_note: null, voided_at: null, void_reason: null, voided_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.invoices] }))
+      return invoiceId
+    }
+    return refreshAfter(() => createInvoiceFromJobRecord(id))
+  }, [data?.invoices.length, data?.jobs, demo, refreshAfter])
+  const createInvoiceFromTicket = useCallback(async (id: string) => {
+    if (demo.enabled) {
+      const ticket = data?.tickets.find((row) => row.id === id)
+      if (!ticket || ticket.status === 'void' || ticket.job_id) throw new Error('Only a finalized standalone ticket can create an invoice')
+      const now = new Date().toISOString()
+      const invoiceId = `qa-runtime-invoice-${(data?.invoices.length ?? 0) + 1}`
+      demo.updateData((current) => ({ ...current, invoices: [{ id: invoiceId, invoice_number: String(1100 + current.invoices.length), customer_id: ticket.customer_id ?? '', job_id: null, quote_id: null, standalone_ticket_id: id, amount_source: 'TICKET', description: `Direct material order ${ticket.ticket_number}`, amount: Number(ticket.grand_total), status: 'DRAFT', issued_at: null, due_at: null, paid_at: null, disputed: false, dispute_note: null, payment_claimed_at: null, payment_claim_method: null, payment_claim_note: null, voided_at: null, void_reason: null, voided_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.invoices], invoiceTickets: [...current.invoiceTickets, { invoice_id: invoiceId, ticket_id: id, created_at: now }] }))
+      return invoiceId
+    }
+    return refreshAfter(() => createInvoiceFromTicketRecord(id))
+  }, [data?.invoices.length, data?.tickets, demo, refreshAfter])
+  const sendInvoice = useCallback((id: string) => launch(async () => {
+    const due = new Date(); due.setDate(due.getDate() + (data?.controlSettings?.default_invoice_due_days ?? 3))
+    if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, invoices: current.invoices.map((row) => row.id === id ? { ...row, status: 'SENT', issued_at: now, due_at: due.toISOString(), updated_at: now } : row) })); toast.info('Invoice marked sent in demo. SMS remains setup-required.'); return }
+    await updateInvoice(id, { status: 'SENT', issued_at: new Date().toISOString(), due_at: due.toISOString() }); await refresh(); if (data?.controlSettings?.sms_status !== 'READY') toast.info('Invoice marked sent. Customer delivery is setup-required until SMS is connected.')
+  }), [data?.controlSettings, demo, launch, refresh])
   const resendInvoice = useCallback((_id: string) => toast.info('SMS setup is required before an invoice can be resent.'), [])
-  const voidInvoice = useCallback((id: string, reason: string) => launch(async () => { await voidFinancialRecord('INVOICE', id, reason); await refresh() }), [launch, refresh])
-  const recordPayment = useCallback((input: { invoiceId: string; amount: number; method: PaymentMethod; receivedAt: number; note: string }) => launch(async () => { await recordPaymentRecord(input.invoiceId, input.method, input.note); await refresh() }), [launch, refresh])
-  const addHourlyWorkerPay = useCallback((input: { workerId: string; periodStart: string; periodEnd: string; hours: number; rate: number }) => launch(async () => { await createWorkerPayment({ ...input, amount: input.hours * input.rate, source: 'MANUAL' }); await refresh() }), [launch, refresh])
-  const addDriverWorkerPay = useCallback((input: { workerId: string; periodStart: string; periodEnd: string; amount: number; attachmentName: string }) => launch(async () => { await createWorkerPayment({ workerId: input.workerId, periodStart: input.periodStart, periodEnd: input.periodEnd, amount: input.amount, source: 'DRIVER_INVOICE', attachmentPath: input.attachmentName }); await refresh() }), [launch, refresh])
-  const confirmWorkerPayDetails = useCallback((id: string) => launch(async () => { await confirmWorkerPayment(id); await refresh() }), [launch, refresh])
-  const markWorkerPayPaid = useCallback((id: string) => launch(async () => { await markWorkerPaymentPaid(id); await refresh() }), [launch, refresh])
-  const voidWorkerPayment = useCallback((id: string, reason: string) => launch(async () => { await voidFinancialRecord('WORKER_PAYMENT', id, reason); await refresh() }), [launch, refresh])
-  const voidPayment = useCallback((id: string, reason: string) => launch(async () => { await voidFinancialRecord('PAYMENT', id, reason); await refresh() }), [launch, refresh])
+  const voidInvoice = useCallback((id: string, reason: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, invoices: current.invoices.map((row) => row.id === id ? { ...row, status: 'VOID', voided_at: now, void_reason: reason, voided_by: QA_FIXTURE_USER_ID, updated_at: now } : row), financialHistory: [{ id: `qa-runtime-financial-${current.financialHistory.length + 1}`, record_type: 'INVOICE', record_id: id, event_type: 'VOIDED', reason, before_snapshot: null, after_snapshot: null, actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now }, ...current.financialHistory] })); return } await voidFinancialRecord('INVOICE', id, reason); await refresh() }), [demo, launch, refresh])
+  const recordPayment = useCallback((input: { invoiceId: string; amount: number; method: PaymentMethod; receivedAt: number; note: string }) => launch(async () => {
+    if (demo.enabled) { const now = new Date(input.receivedAt).toISOString(); demo.updateData((current) => { const invoice = current.invoices.find((row) => row.id === input.invoiceId); if (!invoice) return current; const paymentId = `qa-runtime-payment-${current.payments.length + 1}`; return { ...current, payments: [{ id: paymentId, invoice_id: input.invoiceId, customer_id: invoice.customer_id, amount: input.amount, method: input.method, confirmed_by: 'HUMAN', note: input.note || null, received_at: now, recorded_by: QA_FIXTURE_USER_ID, recorded_at: now, voided_at: null, void_reason: null, voided_by: null }, ...current.payments], invoices: current.invoices.map((row) => row.id === input.invoiceId ? { ...row, status: 'PAID', paid_at: now, payment_claimed_at: null, updated_at: now } : row), financialHistory: [{ id: `qa-runtime-financial-${current.financialHistory.length + 1}`, record_type: 'PAYMENT', record_id: paymentId, event_type: 'RECORDED', reason: 'Full outstanding balance recorded in demo', before_snapshot: null, after_snapshot: { amount: input.amount }, actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now }, ...current.financialHistory] } }); return }
+    await recordPaymentRecord(input.invoiceId, input.method, input.note); await refresh()
+  }), [demo, launch, refresh])
+  const addHourlyWorkerPay = useCallback((input: { workerId: string; periodStart: string; periodEnd: string; hours: number; rate: number }) => launch(async () => {
+    if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, workerPayments: [{ id: `qa-runtime-worker-pay-${current.workerPayments.length + 1}`, worker_id: input.workerId, period_start: input.periodStart, period_end: input.periodEnd, hours: input.hours, rate: input.rate, amount: input.hours * input.rate, status: 'PENDING', source: 'MANUAL', attachment_path: null, confirmed_at: null, paid_at: null, voided_at: null, void_reason: null, voided_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.workerPayments] })); return }
+    await createWorkerPayment({ ...input, amount: input.hours * input.rate, source: 'MANUAL' }); await refresh()
+  }), [demo, launch, refresh])
+  const addDriverWorkerPay = useCallback((input: { workerId: string; periodStart: string; periodEnd: string; amount: number; attachmentName: string }) => launch(async () => {
+    if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, workerPayments: [{ id: `qa-runtime-worker-pay-${current.workerPayments.length + 1}`, worker_id: input.workerId, period_start: input.periodStart, period_end: input.periodEnd, hours: null, rate: null, amount: input.amount, status: 'PENDING', source: 'DRIVER_INVOICE', attachment_path: input.attachmentName, confirmed_at: null, paid_at: null, voided_at: null, void_reason: null, voided_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.workerPayments] })); return }
+    await createWorkerPayment({ workerId: input.workerId, periodStart: input.periodStart, periodEnd: input.periodEnd, amount: input.amount, source: 'DRIVER_INVOICE', attachmentPath: input.attachmentName }); await refresh()
+  }), [demo, launch, refresh])
+  const confirmWorkerPayDetails = useCallback((id: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, workerPayments: current.workerPayments.map((row) => row.id === id ? { ...row, status: 'CONFIRMED', confirmed_at: now, updated_at: now } : row) })); return } await confirmWorkerPayment(id); await refresh() }), [demo, launch, refresh])
+  const markWorkerPayPaid = useCallback((id: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, workerPayments: current.workerPayments.map((row) => row.id === id ? { ...row, status: 'PAID', paid_at: now, updated_at: now } : row) })); return } await markWorkerPaymentPaid(id); await refresh() }), [demo, launch, refresh])
+  const voidWorkerPayment = useCallback((id: string, reason: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, workerPayments: current.workerPayments.map((row) => row.id === id ? { ...row, status: 'VOID', voided_at: now, void_reason: reason, voided_by: QA_FIXTURE_USER_ID, updated_at: now } : row) })); return } await voidFinancialRecord('WORKER_PAYMENT', id, reason); await refresh() }), [demo, launch, refresh])
+  const voidPayment = useCallback((id: string, reason: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, payments: current.payments.map((row) => row.id === id ? { ...row, voided_at: now, void_reason: reason, voided_by: QA_FIXTURE_USER_ID } : row) })); return } await voidFinancialRecord('PAYMENT', id, reason); await refresh() }), [demo, launch, refresh])
 
   const snoozeAttention = useCallback((id: string) => {
-    const item = derivedAttention.find((entry) => entry.id === id); if (!item || !user?.id) return
+    const item = derivedAttention.find((entry) => entry.id === id); if (!item || (!user?.id && !demo.enabled)) return
     const returns = new Date(); if (returns.getHours() >= 7) returns.setDate(returns.getDate() + 1); returns.setHours(7, 0, 0, 0)
     setLastAction({ item, outcome: 'snoozed' })
+    if (demo.enabled) {
+      demo.updateData((current) => ({ ...current, snoozes: [...current.snoozes.filter((row) => row.fingerprint !== id), { id: `qa-runtime-snooze-${current.snoozes.length + 1}`, user_id: QA_FIXTURE_USER_ID, fingerprint: id, returns_at: returns.toISOString(), created_at: new Date().toISOString() }] }))
+      return
+    }
     launch(async () => { await persistSnooze(user.id, id, returns.toISOString()); await refresh() })
-  }, [derivedAttention, launch, refresh, user?.id])
-  const unsnoozeAttention = useCallback((id: string) => launch(async () => { if (!user?.id) return; const { error: updateError } = await controlDb.from('attention_snoozes').update({ returns_at: new Date().toISOString() }).eq('user_id', user.id).eq('fingerprint', id); if (updateError) throw new Error(updateError.message); await refresh() }), [launch, refresh, user?.id])
+  }, [demo, derivedAttention, launch, refresh, user?.id])
+  const unsnoozeAttention = useCallback((id: string) => launch(async () => { if (demo.enabled) { demo.updateData((current) => ({ ...current, snoozes: current.snoozes.filter((row) => row.fingerprint !== id) })); return } if (!user?.id) return; const { error: updateError } = await controlDb.from('attention_snoozes').update({ returns_at: new Date().toISOString() }).eq('user_id', user.id).eq('fingerprint', id); if (updateError) throw new Error(updateError.message); await refresh() }), [demo, launch, refresh, user?.id])
   const undoLastAction = useCallback(() => { if (lastAction) unsnoozeAttention(lastAction.item.id); setLastAction(null) }, [lastAction, unsnoozeAttention])
+
+  const cycleSync = useCallback(() => {
+    if (!demo.enabled) { window.dispatchEvent(new Event('online')); return }
+    const now = new Date().toISOString()
+    demo.updateData((current) => {
+      let next = Number(current.appSettings?.next_ticket_number ?? 1)
+      const tickets = current.tickets.map((row) => {
+        if (row.status !== 'pending') return row
+        const ticketNumber = `${current.appSettings?.ticket_prefix ?? 'MT'}${next}`
+        next += 1
+        return { ...row, ticket_number: ticketNumber, status: 'saved', updated_at: now }
+      })
+      return { ...current, tickets, appSettings: current.appSettings ? { ...current.appSettings, next_ticket_number: next, updated_at: now } : null }
+    })
+    setLastSyncAt(Date.now())
+  }, [demo])
 
   const value = useMemo<AppStateValue>(() => ({
     period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, openCount: attention.length,
     showAllAttention, toggleShowAllAttention: () => setShowAllAttention((current) => !current), snoozeAttention, unsnoozeAttention, lastAction, undoLastAction,
-    booting: loading, moneyLoading, sync: !online ? 'offline' : syncing ? 'syncing' : 'synced', queued: pendingTickets, lastSyncAt,
-    cycleSync: () => window.dispatchEvent(new Event('online')),
+    booting: loading, moneyLoading, sync: demo.enabled && pendingTickets > 0 ? 'offline' : !online ? 'offline' : syncing ? 'syncing' : 'synced', queued: pendingTickets, lastSyncAt,
+    cycleSync,
     newSheetOpen, setNewSheetOpen, newLeadSheetOpen, setNewLeadSheetOpen, newJobSheetOpen, setNewJobSheetOpen, pinnedBarActive, setPinnedBarActive,
     customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer,
     jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes,
@@ -582,7 +822,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     createInvoiceFromJob, createInvoiceFromTicket, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment,
     findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote,
     communicationReady: data?.controlSettings?.sms_status === 'READY', sourceData: data,
-  }), [period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, showAllAttention, snoozeAttention, unsnoozeAttention, lastAction, undoLastAction, loading, moneyLoading, online, syncing, pendingTickets, lastSyncAt, newSheetOpen, newLeadSheetOpen, newJobSheetOpen, pinnedBarActive, customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer, jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes, tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, printTicket, invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor, createInvoiceFromJob, createInvoiceFromTicket, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment, findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote, data])
+  }), [period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, showAllAttention, snoozeAttention, unsnoozeAttention, lastAction, undoLastAction, loading, moneyLoading, demo.enabled, online, syncing, pendingTickets, lastSyncAt, cycleSync, newSheetOpen, newLeadSheetOpen, newJobSheetOpen, pinnedBarActive, customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer, jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes, tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, printTicket, invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor, createInvoiceFromJob, createInvoiceFromTicket, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment, findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote, data])
 
   if (loading && !data) {
     return <div className="min-h-screen" aria-label="Loading Control Center" />

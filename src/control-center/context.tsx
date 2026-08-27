@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { flushQueue, getPendingCount } from "@/lib/admin/tickets";
 import { invoiceStatus, loadControlData, type ControlData } from "./data";
+import { useDemoMode } from "./demo/DemoMode";
 
 export type NewAction = "menu" | "lead" | "job" | "payment" | null;
 export type AttentionItem = {
@@ -154,10 +155,12 @@ function deriveAttention(data: ControlData): AttentionItem[] {
 
 export function ControlCenterProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const demo = useDemoMode();
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ["admin", "control-center"],
     queryFn: loadControlData,
+    enabled: !demo.enabled,
     retry: false,
   });
   const [action, setAction] = useState<NewAction>(null);
@@ -165,6 +168,7 @@ export function ControlCenterProvider({ children }: { children: ReactNode }) {
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
+    if (demo.enabled) return;
     if (!user?.id) return;
     const sync = async () => {
       setSyncing(true);
@@ -187,21 +191,27 @@ export function ControlCenterProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("mt-queue-change", update);
       window.clearInterval(interval);
     };
-  }, [queryClient, user?.id]);
+  }, [demo.enabled, queryClient, user?.id]);
+
+  const activeData = demo.enabled ? demo.data : query.data ?? null;
+  const fixturePending = demo.enabled
+    ? demo.data?.tickets.filter((ticket) => ticket.status.toLowerCase() === "pending").length ?? 0
+    : pendingTickets;
 
   const value = useMemo<ControlContextValue>(() => ({
-    data: query.data ?? null,
-    loading: query.isLoading,
-    error: query.error instanceof Error ? query.error : null,
+    data: activeData,
+    loading: demo.enabled ? demo.data === null : query.isLoading,
+    error: demo.enabled ? null : query.error instanceof Error ? query.error : null,
     refresh: async () => {
+      if (demo.enabled) return;
       await queryClient.invalidateQueries({ queryKey: ["admin"] });
     },
-    attention: query.data ? deriveAttention(query.data) : [],
+    attention: activeData ? deriveAttention(activeData) : [],
     action,
     setAction,
-    pendingTickets,
-    syncing,
-  }), [action, pendingTickets, query.data, query.error, query.isLoading, queryClient, syncing]);
+    pendingTickets: fixturePending,
+    syncing: demo.enabled ? false : syncing,
+  }), [action, activeData, demo.data, demo.enabled, fixturePending, query.error, query.isLoading, queryClient, syncing]);
 
   return <ControlContext.Provider value={value}>{children}</ControlContext.Provider>;
 }

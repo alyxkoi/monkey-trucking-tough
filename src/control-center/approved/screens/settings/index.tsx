@@ -21,6 +21,8 @@ import {
 } from '@/control-center/approved/state/settingsData'
 import { controlDb } from '@/control-center/data'
 import { useControlCenter } from '@/control-center/context'
+import { useDemoMode } from '@/control-center/demo/DemoMode'
+import { QA_FIXTURE_USER_ID } from '@/control-center/demo/constants'
 import { supabase } from '@/integrations/supabase/client'
 import { outputTicketPng, renderTicketPng } from '@/lib/admin/print'
 
@@ -89,6 +91,7 @@ const AUTOMATION_LABEL: Record<AutomationStatus, string> = {
 export function SettingsBusiness() {
   const { sourceData } = useAppState()
   const { refresh } = useControlCenter()
+  const demo = useDemoMode()
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -118,6 +121,16 @@ export function SettingsBusiness() {
     if (!sourceData?.appSettings || !sourceData.controlSettings) return
     setSaving(true)
     try {
+      if (demo.enabled) {
+        const now = new Date().toISOString()
+        demo.updateData((current) => ({
+          ...current,
+          appSettings: current.appSettings ? { ...current.appSettings, company_name: name.trim(), company_phone: phone.trim(), company_address: address.trim(), tax_applies_to_delivery: taxOnDelivery, updated_at: now } : null,
+          controlSettings: current.controlSettings ? { ...current.controlSettings, company_email: email.trim() || null, default_invoice_due_days: dueDays, custom_work_tax_rule: customWorkTax === 'NOT_TAXED' ? 'EXEMPT' : customWorkTax, updated_at: now } : null,
+        }))
+        toast.success('Business settings saved in demo memory.')
+        return
+      }
       const [business, control] = await Promise.all([
         supabase.from('app_settings').update({
           company_name: name.trim(),
@@ -386,6 +399,7 @@ export function SettingsWorkers() {
 export function SettingsCommunication() {
   const { sourceData } = useAppState()
   const { refresh } = useControlCenter()
+  const demo = useDemoMode()
   const [number, setNumber] = useState('')
   const [english, setEnglish] = useState(true)
   const [spanish, setSpanish] = useState(true)
@@ -406,6 +420,12 @@ export function SettingsCommunication() {
   const save = async () => {
     setSaving(true)
     try {
+      if (demo.enabled) {
+        const now = new Date().toISOString()
+        demo.updateData((current) => ({ ...current, controlSettings: current.controlSettings ? { ...current.controlSettings, business_number: number.trim() || null, ai_english: english, ai_spanish: spanish, human_takeover_on_reply: takeover, updated_at: now } : null }))
+        toast.success('Communication settings saved in demo memory.')
+        return
+      }
       const { error } = await controlDb.from('control_center_settings').update({
         business_number: number.trim() || null,
         ai_english: english,
@@ -544,6 +564,7 @@ export function SettingsCommunication() {
 export function SettingsTracking() {
   const { sourceData } = useAppState()
   const { refresh } = useControlCenter()
+  const demo = useDemoMode()
   const [source, setSource] = useState(LINK_SOURCES[0])
   const [campaign, setCampaign] = useState('')
   const [destination, setDestination] = useState('monkeytrucking.llc')
@@ -562,6 +583,13 @@ export function SettingsTracking() {
     setSaving(true)
     try {
       const uniqueSlug = `${slug(source)}-${slug(campaign)}-${Date.now().toString(36)}`
+      if (demo.enabled) {
+        const now = new Date().toISOString()
+        demo.updateData((current) => ({ ...current, trackingLinks: [{ id: `qa-runtime-link-${current.trackingLinks.length + 1}`, source, campaign: campaign.trim(), destination: destination.trim(), slug: uniqueSlug, visits: 0, leads: 0, customers: 0, created_by: QA_FIXTURE_USER_ID, created_at: now }, ...current.trackingLinks] }))
+        setCampaign('')
+        toast.success('Tracking link created in demo memory.')
+        return
+      }
       const { error } = await controlDb.from('tracking_links').insert({
         source,
         campaign: campaign.trim(),
@@ -668,6 +696,7 @@ export function SettingsTracking() {
 export function SettingsUsers() {
   const { sourceData } = useAppState()
   const { user: currentUser, signOut } = useAuth()
+  const demo = useDemoMode()
   const users = sourceData?.userRoles ?? []
 
   return (
@@ -675,8 +704,8 @@ export function SettingsUsers() {
       <Panel padded={false} title="Who can get in">
         <div className="divide-y divide-line border-t border-line">
           {users.map((user) => {
-            const isCurrent = user.user_id === currentUser?.id
-            const name = isCurrent ? currentUser?.email?.split('@')[0] || 'Current user' : `${user.role} account`
+            const isCurrent = demo.enabled ? user.user_id === QA_FIXTURE_USER_ID : user.user_id === currentUser?.id
+            const name = demo.enabled && isCurrent ? 'Salvador' : isCurrent ? currentUser?.email?.split('@')[0] || 'Current user' : `${user.role} account`
             return <div key={user.id} className="flex items-center gap-4 px-5 py-4">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-raised font-label text-[15px] font-semibold text-ice">
                 {name.charAt(0).toUpperCase()}
@@ -698,7 +727,7 @@ export function SettingsUsers() {
           workers never get an account.
         </p>
       </Panel>
-      <div className="lg:hidden">
+      <div className={demo.enabled ? 'hidden' : 'lg:hidden'}>
         <SecondaryButton onClick={() => void signOut()}>Sign out</SecondaryButton>
       </div>
     </SettingsScreen>
@@ -710,6 +739,7 @@ export function SettingsUsers() {
 export function SettingsPrinting() {
   const { sync, queued, lastSyncAt, tickets, sourceData } = useAppState()
   const { refresh } = useControlCenter()
+  const demo = useDemoMode()
   const [method, setMethod] = useState<'SHARE_SHEET' | 'DIRECT'>('SHARE_SHEET')
   const [copies, setCopies] = useState(1)
   const [testPrint, setTestPrint] = useState<'IDLE' | 'SENT' | 'BUSY'>('IDLE')
@@ -726,6 +756,12 @@ export function SettingsPrinting() {
     if (!sourceData?.appSettings) return
     setSaving(true)
     try {
+      if (demo.enabled) {
+        const now = new Date().toISOString()
+        demo.updateData((current) => ({ ...current, appSettings: current.appSettings ? { ...current.appSettings, print_method: method === 'DIRECT' ? 'direct' : 'share', print_copies: copies, updated_at: now } : null }))
+        toast.success('Printing settings saved in demo memory.')
+        return
+      }
       const { error } = await supabase.from('app_settings').update({
         print_method: method === 'DIRECT' ? 'direct' : 'share',
         print_copies: copies,

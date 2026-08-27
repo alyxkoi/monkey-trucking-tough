@@ -28,14 +28,14 @@ export function SearchField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="min-w-0 flex-1 bg-transparent text-[16px] text-ink placeholder:text-cc-muted focus:outline-none"
+        className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-ink placeholder:text-cc-muted focus:outline-none"
       />
       {value && (
         <button
           type="button"
           onClick={() => onChange('')}
           aria-label="Clear search"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-cc-muted transition-colors hover:text-ink"
+          className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-cc-muted transition-colors hover:text-ink"
         >
           <X className="h-4 w-4" strokeWidth={2} />
         </button>

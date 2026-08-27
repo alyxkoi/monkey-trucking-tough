@@ -25,6 +25,8 @@ import {
   type MaterialLine,
 } from '@/control-center/approved/state/pricing'
 import { DRIVERS, driverName } from '@/control-center/approved/state/ticketsData'
+import { useDemoMode } from '@/control-center/demo/DemoMode'
+import { QA_MISSING_DELIVERY_CUSTOMER_ID, QA_MISSING_DELIVERY_MATERIAL_ID } from '@/control-center/demo/constants'
 
 /**
  * Ticket builder.
@@ -37,6 +39,7 @@ export function TicketBuilder() {
   const { ticketId } = useParams()
   const [params] = useSearchParams()
   const navigate = useNavigate()
+  const demo = useDemoMode()
   const {
     customers,
     customerById,
@@ -51,13 +54,15 @@ export function TicketBuilder() {
 
   const editing = ticketId ? ticketById(ticketId) : undefined
   const fromJob = params.get('job') ? jobById(params.get('job') as string) : undefined
+  const missingDeliveryFixture = demo.enabled && params.get('fixture') === 'missing-delivery'
+  const missingDeliveryMaterial = missingDeliveryFixture ? materialById(QA_MISSING_DELIVERY_MATERIAL_ID) : undefined
 
   const [customerId, setCustomerId] = useState(
-    editing?.customerId ?? fromJob?.customerId ?? '',
+    editing?.customerId ?? fromJob?.customerId ?? (missingDeliveryFixture ? QA_MISSING_DELIVERY_CUSTOMER_ID : ''),
   )
   const [driverId, setDriverId] = useState(editing?.driverId ?? DRIVERS[0]?.id ?? '')
-  const [address, setAddress] = useState(editing?.address ?? fromJob?.address ?? '')
-  const [lines, setLines] = useState<MaterialLine[]>(editing?.materialLines ?? [])
+  const [address, setAddress] = useState(editing?.address ?? fromJob?.address ?? (missingDeliveryFixture ? '2290 County Road 4104, Kaufman' : ''))
+  const [lines, setLines] = useState<MaterialLine[]>(editing?.materialLines ?? (missingDeliveryMaterial ? [buildMaterialLine('qa-missing-delivery-line', missingDeliveryMaterial, { isFullLoad: true, loads: 1 })] : []))
   const [delivery, setDelivery] = useState<DeliverySelection>(
     editing?.delivery ?? { mode: 'UNSET' },
   )

@@ -4,6 +4,7 @@ import { cn } from '@/control-center/approved/lib/cn'
 import { SECTIONS, sectionForPath } from './nav'
 import { initialsFor, useAuth } from '@/hooks/useAuth'
 import { useAdminAccess } from '@/hooks/admin/useAdminAccess'
+import { useDemoMode } from '@/control-center/demo/DemoMode'
 
 /**
  * Persistent desktop navigation.
@@ -17,9 +18,10 @@ import { useAdminAccess } from '@/hooks/admin/useAdminAccess'
 export function SideNav() {
   const { pathname } = useLocation()
   const { user, signOut } = useAuth()
+  const demo = useDemoMode()
   const access = useAdminAccess(user?.id)
   const current = sectionForPath(pathname)
-  const accountName = String(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Account')
+  const accountName = demo.enabled ? 'Salvador' : String(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Account')
 
   return (
     <aside className="relative hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[248px] lg:shrink-0 lg:flex-col lg:border-r lg:border-white/[0.07] lg:bg-[#121216]/80 lg:backdrop-blur-xl">
@@ -80,15 +82,15 @@ export function SideNav() {
       <div className="border-t border-white/[0.07] p-3">
         <div className="flex items-center gap-3 rounded-xl px-3 py-2.5">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-mt-red/30 bg-mt-red/[0.12] font-label text-[14px] font-semibold text-mt-red">
-            {initialsFor(user)}
+            {demo.enabled ? 'SA' : initialsFor(user)}
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[14px] font-semibold text-ink">{accountName}</div>
             <div className="font-label text-[11px] uppercase tracking-[0.16em] text-cc-muted">
-              {access.roles.includes('admin') ? 'Admin' : 'Staff'}
+              {demo.enabled || access.roles.includes('admin') ? 'Admin' : 'Staff'}
             </div>
           </div>
-          <button
+          {!demo.enabled && <button
             type="button"
             aria-label="Sign out"
             title="Sign out"
@@ -96,7 +98,7 @@ export function SideNav() {
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-cc-muted transition-colors hover:bg-white/[0.07] hover:text-ink"
           >
             <LogOut className="h-4 w-4" strokeWidth={2.2} />
-          </button>
+          </button>}
         </div>
       </div>
     </aside>

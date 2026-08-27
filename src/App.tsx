@@ -7,6 +7,7 @@ import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import ScrollToTop from "@/components/ScrollToTop";
 import Layout from "@/components/Layout";
 import { AuthProvider } from "@/hooks/useAuth";
+import { DemoModeProvider } from "@/control-center/demo/DemoMode";
 import Index from "./pages/Index"; // keep eager — it's the LCP page
 
 // Lazy-load secondary routes so their bundles + images don't ship with the homepage
@@ -64,11 +65,12 @@ const RouteFallback = () => (
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
+    <DemoModeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
           <ScrollToTop />
           <Suspense fallback={<RouteFallback />}>
             <Routes>
@@ -115,10 +117,10 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
-        </AuthProvider>
-      </BrowserRouter>
-
-    </TooltipProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </DemoModeProvider>
   </QueryClientProvider>
 );
 

@@ -7,6 +7,10 @@ import type { Ticket } from './ticketsData'
 
 const at = (value: string | null | undefined) => (value ? new Date(value).getTime() : undefined)
 const requiredAt = (value: string) => new Date(value).getTime()
+const metadata = (value: ControlData['activities'][number]['metadata']) =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
 
 export function deliveryFromDatabase(type: string | null, miles?: number | null): DeliverySelection {
   const mode: DeliveryMode =
@@ -92,7 +96,7 @@ export function mapLeads(data: ControlData): Lead[] {
       lastActivityAt: Math.max(requiredAt(row.updated_at), latestMessageAt),
       needsSalvador: Boolean(lastCustomer && (!lastHuman || lastCustomer.at > lastHuman.at) && !row.human_takeover),
       aiPaused: row.human_takeover,
-      notes: '',
+      notes: row.notes ?? '',
       lostReason: row.lost_reason ?? undefined,
       quoteId: quote?.id,
       messages,
@@ -160,7 +164,14 @@ function jobCategory(category: ControlData['jobs'][number]['category']): JobCate
 }
 
 export function mapJobs(data: ControlData): Job[] {
-  return data.jobs.map((row) => ({
+  return data.jobs.map((row) => {
+    const photos = data.activities
+      .filter((entry) => entry.entity_type === 'JOB' && entry.entity_id === row.id)
+      .flatMap((entry) => {
+        const value = metadata(entry.metadata).photos
+        return Array.isArray(value) ? value.filter((photo): photo is string => typeof photo === 'string') : []
+      })
+    return {
     id: row.id,
     customerId: row.customer_id,
     quoteId: row.quote_id ?? undefined,
@@ -173,7 +184,7 @@ export function mapJobs(data: ControlData): Job[] {
     description: row.description,
     agreedAmount: Number(row.agreed_amount),
     notes: row.notes ?? '',
-    photos: [],
+    photos,
     invoiceId: data.invoices.find((invoice) => invoice.job_id === row.id && invoice.status !== 'VOID')?.id,
     changeRequested: row.change_requested,
     blocked: row.blocked_reason ?? undefined,
@@ -182,7 +193,8 @@ export function mapJobs(data: ControlData): Job[] {
     completedAt: at(row.completed_at),
     cancelledAt: at(row.cancelled_at),
     cancelReason: row.cancellation_reason ?? undefined,
-  }))
+    }
+  })
 }
 
 export function mapTickets(data: ControlData): Ticket[] {
@@ -213,7 +225,7 @@ export function mapTickets(data: ControlData): Ticket[] {
       taxOnDelivery: row.tax_applies_to_delivery ?? false,
       notes: row.notes ?? '',
       status: row.status.toLowerCase() === 'void' ? 'VOID' : 'SAVED',
-      sync: 'SYNCED',
+      sync: row.status.toLowerCase() === 'pending' ? 'PENDING' : 'SYNCED',
       createdAt: requiredAt(row.created_at),
       printedAt: at(row.printed_at),
       printCount: row.printed_at ? 1 : 0,
@@ -262,7 +274,9 @@ export function mapInvoices(data: ControlData): Invoice[] {
       method: (row.payment_claim_method ?? 'OTHER') as Payment['method'],
       note: row.payment_claim_note ?? '',
     } : undefined,
-    followUps: [],
+    followUps: data.activities
+      .filter((entry) => entry.entity_type === 'INVOICE' && entry.entity_id === row.id && /follow.?up/i.test(entry.event_type))
+      .map((entry) => ({ at: requiredAt(entry.created_at), label: entry.summary })),
     history: financialHistory(data, 'INVOICE', row.id),
     voidedBy: row.voided_by ?? undefined,
   }))
@@ -343,12 +357,21 @@ export function mapActivities(data: ControlData): Activity[] {
   }
   return data.activities
     .filter((row) => Boolean(row.customer_id))
-    .map((row) => ({
-      id: row.id,
-      customerId: row.customer_id as string,
-      kind: kind(row.entity_type),
-      at: requiredAt(row.created_at),
-      title: row.summary,
-      ref: row.entity_id ?? undefined,
-    }))
+    .map((row) => {
+      const details = metadata(row.metadata)
+      const photos = Array.isArray(details.photos)
+        ? details.photos.filter((photo): photo is string => typeof photo === 'string')
+        : undefined
+      return {
+        id: row.id,
+        customerId: row.customer_id as string,
+        kind: kind(row.entity_type),
+        at: requiredAt(row.created_at),
+        title: row.summary,
+        body: typeof details.body === 'string' ? details.body : undefined,
+        amount: typeof details.amount === 'number' ? details.amount : undefined,
+        photos,
+        ref: row.entity_id ?? undefined,
+      }
+    })
 }
