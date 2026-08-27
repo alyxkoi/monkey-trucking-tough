@@ -1,4 +1,3 @@
-@import "./control-center/approved/approved.css";
 
 /* Fonts are loaded via <link rel="preconnect"> + <link rel="stylesheet"> in index.html to avoid render-blocking @import. */
 
