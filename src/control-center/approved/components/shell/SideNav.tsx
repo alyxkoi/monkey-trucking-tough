@@ -6,6 +6,7 @@ import { initialsFor, useAuth } from '@/hooks/useAuth'
 import { useAdminAccess } from '@/hooks/admin/useAdminAccess'
 import { useDemoMode } from '@/control-center/demo/DemoMode'
 import { preloadMainAdminRoute, type MainAdminSectionKey } from '@/control-center/adminRouteLoaders'
+import monkeyTruckingLogo from '@/assets/monkey-trucking-logo.webp'
 
 /**
  * Persistent desktop navigation.
@@ -32,15 +33,17 @@ export function SideNav() {
         className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-mt-red via-mt-red/45 to-transparent"
       />
 
-      <div className="flex items-start gap-3 border-b border-white/[0.07] px-6 py-7">
-        <span className="mt-1.5 h-3.5 w-3.5 shrink-0 bg-mt-red" />
+      <div className="border-b border-white/[0.07] px-6 py-5">
         <div className="min-w-0">
-          <div className="font-display display-tight text-[24px] leading-[0.92]">
-            MONKEY
-            <br />
-            TRUCKING
-          </div>
-          <div className="mt-2.5 font-label text-[11px] font-semibold uppercase tracking-[0.24em] text-cc-muted">
+          <img
+            src={monkeyTruckingLogo}
+            alt="Monkey Trucking"
+            width={132}
+            height={66}
+            decoding="async"
+            className="h-auto w-[132px] max-w-full object-contain object-left"
+          />
+          <div className="mt-1.5 font-label text-[11px] font-semibold uppercase tracking-[0.24em] text-cc-muted">
             Control Center
           </div>
         </div>

@@ -42,8 +42,30 @@ describe('Ticket setup foundation', () => {
 
   it('reconciles only current master data and never touches ticket history or numbering', () => {
     const migration = read('supabase/migrations/20260827200000_ticket_setup_foundation.sql')
+    const normalized = migration.replace(/\s+/g, ' ')
+    const approvedRows = [
+      `(1, 'Commercial Crushed Concrete Clean', 20::numeric, 350::numeric)`,
+      `(2, 'Select Fill and Cushion Sand', 20::numeric, 350::numeric)`,
+      `(3, '3x4 Crushed Concrete', 35::numeric, 700::numeric)`,
+      `(4, 'Flexbase First Class 1" or 3"', 38::numeric, 720::numeric)`,
+      `(5, 'Mason Sand', 45::numeric, 820::numeric)`,
+      `(6, 'Millings Asphalt 1/2" Minus', 45::numeric, 840::numeric)`,
+      `(7, 'Native Gravel 3/8"-1"', 53::numeric, 980::numeric)`,
+      `(8, 'Concrete Sand Mix Native Gravel', 55::numeric, 1040::numeric)`,
+      `(9, 'Decomposed Granite', 65::numeric, 1200::numeric)`,
+      `(10, 'Limestone 1"-1 1/2"', 95::numeric, 1700::numeric)`,
+    ]
+
+    approvedRows.forEach((row) => expect(normalized).toContain(row))
     expect(migration).toContain("lower(btrim(name)) = lower(btrim(v_material.name))")
     expect(migration).toContain('full_load_yards = 20')
+    expect(migration).toContain('delivery_tier_1_fee = 0')
+    expect(migration).toContain('delivery_tier_2_fee = 60')
+    expect(migration).toContain('delivery_tier_3_fee = 100')
+    expect(migration).toContain('delivery_overage_base_fee = 100')
+    expect(migration).toContain('delivery_overage_per_mile = 10')
+    expect(migration).toContain('tax_rate = 0.0825')
+    expect(migration).toContain('tax_applies_to_delivery = true')
     expect(migration).not.toMatch(/update\s+public\.(tickets|ticket_items|ticket_history)/i)
     expect(migration).not.toMatch(/next_ticket_number\s*=/i)
     expect(migration).not.toMatch(/insert\s+into\s+public\.drivers/i)

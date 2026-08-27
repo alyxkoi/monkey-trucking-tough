@@ -9,6 +9,7 @@ import { useAppState } from '@/control-center/approved/state/AppState'
 import { CURRENT_USER } from '@/control-center/approved/state/moneyData'
 import { sectionForPath } from './nav'
 import { useAuth } from '@/hooks/useAuth'
+import monkeyTruckingLogo from '@/assets/monkey-trucking-logo.webp'
 
 /**
  * Hysteresis. Two thresholds, never one.
@@ -96,7 +97,7 @@ export function TopBar() {
           // which is what makes the threshold behaviour testable.
           data-floating={floating}
           className={cn(
-            'pointer-events-auto flex h-16 w-full items-center justify-between gap-4 rounded-2xl border px-3 transition-[background-color,border-color,box-shadow] duration-300 ease-out sm:h-[72px] sm:px-4 lg:h-20 lg:px-5',
+            'pointer-events-auto flex h-16 w-full items-center justify-between gap-2 rounded-2xl border px-3 transition-[background-color,border-color,box-shadow] duration-300 ease-out sm:h-[72px] sm:gap-4 sm:px-4 lg:h-20 lg:px-5',
             floating
               ? 'border-white/10 bg-[#101014]/80 shadow-lifted backdrop-blur-xl'
               : 'border-transparent bg-transparent',
@@ -106,21 +107,31 @@ export function TopBar() {
             A thin red rule ties the date to the title so they read as one block
             rather than two stacked lines, and gives the header its start point.
           */}
-          <div className="flex min-w-0 items-stretch gap-3">
-            <span className="w-[3px] shrink-0 rounded-full bg-mt-red" />
-            <div className="min-w-0">
-              <div className="font-label text-[11px] font-semibold uppercase leading-none tracking-[0.26em] text-cc-muted sm:text-[12px]">
-                {today.full}
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <img
+              src={monkeyTruckingLogo}
+              alt="Monkey Trucking"
+              width={132}
+              height={66}
+              decoding="async"
+              className="h-auto w-[52px] shrink-0 object-contain sm:w-[68px] lg:hidden"
+            />
+            <div className="flex min-w-0 items-stretch gap-2 sm:gap-3">
+              <span className="w-[3px] shrink-0 rounded-full bg-mt-red" />
+              <div className="min-w-0">
+                <div className="font-label text-[11px] font-semibold uppercase leading-none tracking-[0.26em] text-cc-muted sm:text-[12px]">
+                  {today.full}
+                </div>
+                <h1 className="display-racing -ml-1 mt-1 truncate pl-1 font-display display-tight text-[22px] sm:text-[28px] lg:text-[32px]">
+                  {isOverview ? (
+                    <span className="animate-greeting">
+                      {greeting()}, <span className="text-mt-red">{userName}</span>
+                    </span>
+                  ) : (
+                    title
+                  )}
+                </h1>
               </div>
-              <h1 className="display-racing -ml-1 mt-1 truncate pl-1 font-display display-tight text-[24px] sm:text-[28px] lg:text-[32px]">
-                {isOverview ? (
-                  <span className="animate-greeting">
-                    {greeting()}, <span className="text-mt-red">{userName}</span>
-                  </span>
-                ) : (
-                  title
-                )}
-              </h1>
             </div>
           </div>
 
