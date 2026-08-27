@@ -69,11 +69,12 @@ export function LeadDetail() {
   const activities = activitiesForCustomer(lead.customerId).slice(0, 3)
   const savedDraft = sourceData?.aiDrafts.find((draft) => draft.lead_id === lead.id && draft.status === 'DRAFT')
   const latestAiAudit = sourceData?.aiAuditLogs.find((entry) => entry.lead_id === lead.id)
+  const aiReady = sourceData?.aiIntegration.status === 'READY'
   const displayedDecision = aiResult?.decision ?? (savedDraft?.decision as unknown as AiDecision | undefined)
   const displayedDraft = aiResult?.draft.body ?? savedDraft?.body ?? ''
 
   const generateDraft = async () => {
-    if (!sourceData) return
+    if (!sourceData || !aiReady) return
     setAiLoading(true)
     setAiError('')
     try {
@@ -251,12 +252,14 @@ export function LeadDetail() {
                     OpenAI intelligence · draft only
                   </div>
                   <p className="mt-1 text-[13px] leading-snug text-cc-muted">
-                    Reviews the real conversation and prepares a draft. Nothing is sent.
+                    {aiReady
+                      ? 'Reviews the real conversation and prepares a draft. Nothing is sent.'
+                      : sourceData?.aiIntegration.message ?? 'AI draft setup is required. Core lead records remain available.'}
                   </p>
                 </div>
                 <SecondaryButton
                   size="sm"
-                  disabled={!sourceData || aiLoading || lead.aiPaused}
+                  disabled={!sourceData || !aiReady || aiLoading || lead.aiPaused}
                   onClick={() => void generateDraft()}
                   icon={<Sparkles className="h-4 w-4" />}
                 >

@@ -414,10 +414,11 @@ export function SettingsCommunication() {
   const settings = sourceData?.controlSettings
   const automations = sourceData?.automations ?? []
   const previews = useMemo(() => sourceData ? buildAutomationPreviews(sourceData) : [], [sourceData])
+  const aiIntegration = sourceData?.aiIntegration
 
   const generatePreview = async (ruleId: string) => {
     const preview = previews.find((item) => item.ruleId === ruleId)
-    if (!preview) return
+    if (!preview || aiIntegration?.status !== 'READY') return
     setPreviewLoading(ruleId)
     setPreviewError((current) => ({ ...current, [ruleId]: '' }))
     try {
@@ -483,9 +484,11 @@ export function SettingsCommunication() {
           <StatusRow label="Calling" value={setupLabel(settings?.calling_status)} tone={setupTone(settings?.calling_status)} line={settings?.calling_status === 'READY' ? 'Connected.' : 'Not connected.'} />
           <StatusRow
             label="AI replies"
-            value="Draft ready"
-            tone="ice"
-            line="OpenAI drafts and dry runs are available internally. No customer transport is enabled."
+            value={aiIntegration?.status === 'READY' ? 'Draft ready' : aiIntegration?.status === 'ERROR' ? 'Error' : 'Setup required'}
+            tone={aiIntegration?.status === 'READY' ? 'ice' : aiIntegration?.status === 'ERROR' ? 'now' : 'warn'}
+            line={aiIntegration?.status === 'READY'
+              ? 'OpenAI drafts and dry runs are available internally. No customer transport is enabled.'
+              : aiIntegration?.message ?? 'AI draft schema is not installed. Core Control Center data is unaffected.'}
           />
         </div>
       </Panel>
@@ -576,7 +579,7 @@ export function SettingsCommunication() {
                           <div className="mt-4">
                             <SecondaryButton
                               size="sm"
-                              disabled={!preview.subjectId || previewLoading === rule.id}
+                              disabled={!preview.subjectId || aiIntegration?.status !== 'READY' || previewLoading === rule.id}
                               onClick={() => void generatePreview(rule.id)}
                               icon={<Sparkles className="h-4 w-4" />}
                             >

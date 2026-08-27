@@ -568,6 +568,7 @@ export function createQaFixtureData(reference = new Date()): ControlData {
     aiConversationStates: [],
     aiAuditLogs: [],
     aiDrafts: [],
+    aiIntegration: { status: 'READY', message: null },
   }
 }
 

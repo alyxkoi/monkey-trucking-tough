@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { buildAutomationPreviews } from '@/control-center/ai/automationDryRun'
 import { evaluateConversation, validateCustomerDraft } from '@/control-center/ai/decision'
 import { createQaFixtureData } from '@/control-center/demo/qaFixtures'
+import { classifyAiIntegrationResults } from '@/control-center/data'
 
 const reference = new Date('2026-08-26T12:00:00-05:00')
 const customer = (body: string) => ({ sender_type: 'CUSTOMER' as const, body })
@@ -97,6 +98,32 @@ describe('Phase 06 OpenAI intelligence safety contracts', () => {
     expect(edge).not.toContain("from('payments').insert")
     expect(migration).toContain("status in ('DRAFT','DISCARDED')")
     expect(migration).not.toMatch(/update\s+public\.(tickets|ticket_items|app_settings)/i)
+  })
+
+  it('isolates missing AI schema from the strict Control Center boot path', () => {
+    const missing = { data: null, error: { code: 'PGRST205', message: "Could not find the table 'public.ai_drafts' in the schema cache" } }
+    const result = classifyAiIntegrationResults({
+      conversationStates: missing,
+      auditLogs: missing,
+      drafts: missing,
+    })
+    expect(result.integration.status).toBe('SETUP_REQUIRED')
+    expect(result.conversationStates).toEqual([])
+    expect(result.auditLogs).toEqual([])
+    expect(result.drafts).toEqual([])
+
+    const loader = read('src/control-center/data.ts')
+    expect(loader).toContain('const optionalAiPromise = loadOptionalAiData()')
+    expect(loader).not.toContain('unwrap(aiConversationStates')
+    expect(loader).not.toContain('unwrap(aiAuditLogs')
+    expect(loader).not.toContain('unwrap(aiDrafts')
+  })
+
+  it('surfaces non-schema AI errors without converting them into setup state', () => {
+    const denied = { data: null, error: { code: '42501', message: 'permission denied' } }
+    const result = classifyAiIntegrationResults({ conversationStates: denied, auditLogs: denied, drafts: denied })
+    expect(result.integration.status).toBe('ERROR')
+    expect(result.integration.message).toMatch(/permission denied/)
   })
 
   it('rejects unsafe customer draft output', () => {

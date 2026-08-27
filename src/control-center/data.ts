@@ -324,6 +324,11 @@ export type AiDraftRow = {
   created_at: string;
 };
 
+export type AiIntegrationState = {
+  status: "READY" | "SETUP_REQUIRED" | "ERROR";
+  message: string | null;
+};
+
 type ControlDatabase = {
   public: {
     Tables: {
@@ -392,6 +397,7 @@ export type ControlData = {
   aiConversationStates: AiConversationState[];
   aiAuditLogs: AiAuditLog[];
   aiDrafts: AiDraftRow[];
+  aiIntegration: AiIntegrationState;
 };
 
 const unwrap = <T,>(result: { data: T | null; error: { message: string; code?: string } | null }, label: string): T => {
@@ -399,12 +405,78 @@ const unwrap = <T,>(result: { data: T | null; error: { message: string; code?: s
   return result.data as T;
 };
 
+type OptionalQueryResult<T> = {
+  data: T | null;
+  error: { message: string; code?: string } | null;
+};
+
+const AI_SCHEMA_MISSING_CODES = new Set(["42P01", "PGRST205"]);
+
+export function classifyAiIntegrationResults(input: {
+  conversationStates: OptionalQueryResult<AiConversationState[]>;
+  auditLogs: OptionalQueryResult<AiAuditLog[]>;
+  drafts: OptionalQueryResult<AiDraftRow[]>;
+}): {
+  conversationStates: AiConversationState[];
+  auditLogs: AiAuditLog[];
+  drafts: AiDraftRow[];
+  integration: AiIntegrationState;
+} {
+  const results = [input.conversationStates, input.auditLogs, input.drafts];
+  const errors = results.flatMap((result) => result.error ? [result.error] : []);
+  if (errors.length === 0) {
+    return {
+      conversationStates: input.conversationStates.data ?? [],
+      auditLogs: input.auditLogs.data ?? [],
+      drafts: input.drafts.data ?? [],
+      integration: { status: "READY", message: null },
+    };
+  }
+
+  const setupRequired = errors.every((error) => AI_SCHEMA_MISSING_CODES.has(error.code ?? ""));
+  return {
+    conversationStates: [],
+    auditLogs: [],
+    drafts: [],
+    integration: {
+      status: setupRequired ? "SETUP_REQUIRED" : "ERROR",
+      message: setupRequired
+        ? "Apply the Phase 06 AI draft migration before using OpenAI drafts."
+        : `AI data could not be loaded: ${errors[0].message}`,
+    },
+  };
+}
+
+async function loadOptionalAiData() {
+  try {
+    const [conversationStates, auditLogs, drafts] = await Promise.all([
+      controlDb.from("ai_conversation_state").select("*"),
+      controlDb.from("ai_audit_logs").select("*").order("created_at", { ascending: false }).limit(500),
+      controlDb.from("ai_drafts").select("*").order("created_at", { ascending: false }).limit(500),
+    ]);
+    return classifyAiIntegrationResults({ conversationStates, auditLogs, drafts });
+  } catch (error) {
+    return {
+      conversationStates: [],
+      auditLogs: [],
+      drafts: [],
+      integration: {
+        status: "ERROR" as const,
+        message: `AI data could not be loaded: ${error instanceof Error ? error.message : "Unknown optional integration error"}`,
+      },
+    };
+  }
+}
+
 export async function loadControlData(): Promise<ControlData> {
+  // Optional integrations start in parallel, but their failures are isolated.
+  // Core business queries below remain strict and still fail the shell when real
+  // business data, authorization, or RLS cannot be loaded safely.
+  const optionalAiPromise = loadOptionalAiData();
   const [
     customers, leads, quotes, quoteItems, jobs, tickets, ticketItems, ticketHistory, invoices,
     invoiceTickets, payments, workers, workerPayments, activities, messages, financialHistory,
     materials, drivers, appSettings, userRoles, controlSettings, automations, trackingLinks, snoozes,
-    aiConversationStates, aiAuditLogs, aiDrafts,
   ] = await Promise.all([
     controlDb.from("customers").select("*").order("last_activity_at", { ascending: false }),
     controlDb.from("leads").select("*").order("created_at", { ascending: false }),
@@ -430,10 +502,8 @@ export async function loadControlData(): Promise<ControlData> {
     controlDb.from("automation_rules").select("*").order("name"),
     controlDb.from("tracking_links").select("*").order("created_at", { ascending: false }),
     controlDb.from("attention_snoozes").select("*"),
-    controlDb.from("ai_conversation_state").select("*"),
-    controlDb.from("ai_audit_logs").select("*").order("created_at", { ascending: false }).limit(500),
-    controlDb.from("ai_drafts").select("*").order("created_at", { ascending: false }).limit(500),
   ]);
+  const optionalAi = await optionalAiPromise;
 
   return {
     customers: unwrap(customers, "Customers") ?? [],
@@ -460,9 +530,10 @@ export async function loadControlData(): Promise<ControlData> {
     automations: unwrap(automations, "Automation rules") ?? [],
     trackingLinks: unwrap(trackingLinks, "Tracking links") ?? [],
     snoozes: unwrap(snoozes, "Attention snoozes") ?? [],
-    aiConversationStates: unwrap(aiConversationStates, "AI conversation state") ?? [],
-    aiAuditLogs: unwrap(aiAuditLogs, "AI audit logs") ?? [],
-    aiDrafts: unwrap(aiDrafts, "AI drafts") ?? [],
+    aiConversationStates: optionalAi.conversationStates,
+    aiAuditLogs: optionalAi.auditLogs,
+    aiDrafts: optionalAi.drafts,
+    aiIntegration: optionalAi.integration,
   };
 }
 
