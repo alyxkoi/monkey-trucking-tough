@@ -8,7 +8,7 @@ VITE_DEMO_MODE=true
 
 Open `/admin`, then use the small **Enable demo data** control. Fixture state lives only in React memory for the current browser tab. It never calls the Control Center query, Supabase mutations, the production ticket queue, or local ticket storage. **Reset demo** restores the same IDs, names, amounts, messages, and relative dates. **Use real data** removes the session flag and remounts the normal authenticated data path.
 
-The fixture clock anchors records to the current local QA day so “today” and “tomorrow” remain testable. A reset on the same day is byte-for-byte deterministic.
+The fixture clock anchors records to the local day when the browser session starts so “today” and “tomorrow” remain testable. That reference is pinned for the session, so every reset is byte-for-byte deterministic even if QA crosses midnight.
 
 ## Named scenarios
 

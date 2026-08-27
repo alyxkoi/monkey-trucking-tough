@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Database, RotateCcw, X } from 'lucide-react'
 import type { ControlData } from '@/control-center/data'
 
@@ -101,11 +101,12 @@ function DemoControls({ value }: { value: DemoModeValue }) {
 export function DemoModeProvider({ children }: { children: ReactNode }) {
   const [enabled, setEnabled] = useState(readEnabled)
   const [data, setData] = useState<ControlData | null>(null)
+  const fixtureReference = useRef(new Date())
 
   const loadFixture = useCallback(async () => {
     if (!DEMO_CAPABLE) return
     const { createQaFixtureData } = await import('./qaFixtures')
-    setData(createQaFixtureData())
+    setData(createQaFixtureData(fixtureReference.current))
   }, [])
 
   useEffect(() => {
