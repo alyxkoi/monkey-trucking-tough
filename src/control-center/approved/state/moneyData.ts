@@ -66,7 +66,7 @@ export type Invoice = {
   voidedBy?: string
 }
 
-export type PaymentMethod = 'ACH' | 'CARD' | 'ZELLE' | 'APPLE_PAY' | 'CHECK' | 'OTHER'
+export type PaymentMethod = 'ACH' | 'CARD' | 'ZELLE' | 'APPLE_PAY' | 'CHECK' | 'OTHER' | 'STRIPE'
 
 export const PAYMENT_METHODS: PaymentMethod[] = [
   'ACH',
@@ -84,6 +84,7 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   APPLE_PAY: 'Apple Pay',
   CHECK: 'Check',
   OTHER: 'Other',
+  STRIPE: 'Stripe',
 }
 
 export type Payment = {

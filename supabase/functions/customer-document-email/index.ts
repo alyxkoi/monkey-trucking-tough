@@ -58,10 +58,19 @@ function paymentMethodName(method: string): string {
   return labels[method] ?? method.replaceAll('_', ' ')
 }
 
-async function requireStaff(service: any, req: Request) {
+async function requireStaff(
+  service: any,
+  req: Request,
+  serviceKey: string,
+  template: CustomerEmailTemplate,
+  internal: boolean,
+) {
   const authHeader = req.headers.get('Authorization')
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : ''
   if (!token) throw new ResponseError(401, 'Sign in is required')
+  // Stripe's verified webhook may request only the already-idempotent Payment
+  // receipt. No other template or arbitrary record operation accepts service auth.
+  if (internal && template === 'PAYMENT_RECEIVED' && token === serviceKey) return { id: null }
   const { data: authData, error: authError } = await service.auth.getUser(token)
   if (authError || !authData.user) throw new ResponseError(401, 'Your session is no longer valid')
   const { data: role } = await service.from('user_roles').select('role').eq('user_id', authData.user.id).in('role', ['admin', 'staff']).maybeSingle()
@@ -73,7 +82,7 @@ class ResponseError extends Error {
   constructor(public status: number, message: string) { super(message) }
 }
 
-async function makeDocumentToken(service: any, type: 'QUOTE' | 'INVOICE', id: string, actorId: string) {
+async function makeDocumentToken(service: any, type: 'QUOTE' | 'INVOICE', id: string, actorId: string | null) {
   const token = await secureToken()
   const row = {
     document_type: type,
@@ -87,7 +96,7 @@ async function makeDocumentToken(service: any, type: 'QUOTE' | 'INVOICE', id: st
   return { id: data.id as string, raw: token.raw }
 }
 
-async function quoteEmail(service: any, quoteId: string, actorId: string, resend: boolean) {
+async function quoteEmail(service: any, quoteId: string, actorId: string | null, resend: boolean) {
   const { data: quote, error } = await service.from('quotes').select('*').eq('id', quoteId).single()
   if (error || !quote) throw new ResponseError(404, 'Quote not found')
   if (!quoteCanBeEmailed(quote.status, resend)) throw new ResponseError(409, resend ? 'This quote cannot be resent in its current state' : 'Only a draft quote can be sent')
@@ -114,10 +123,13 @@ async function quoteEmail(service: any, quoteId: string, actorId: string, resend
   return { customer, email, documentToken, dueAt: null }
 }
 
-async function invoiceEmail(service: any, invoiceId: string, actorId: string, resend: boolean) {
+async function invoiceEmail(service: any, invoiceId: string, actorId: string | null, resend: boolean) {
   const { data: invoice, error } = await service.from('invoices').select('*').eq('id', invoiceId).single()
   if (error || !invoice) throw new ResponseError(404, 'Invoice not found')
   if (!invoiceCanBeEmailed(invoice.status, resend)) throw new ResponseError(409, resend ? 'This invoice cannot be resent in its current state' : 'Only a draft invoice can be sent')
+  if (!Number.isFinite(Number(invoice.amount)) || Number(invoice.amount) <= 0) {
+    throw new ResponseError(422, 'Enter and confirm a positive Invoice amount before sending')
+  }
   const [{ data: customer }, { data: settings }, { data: job }, { data: links }] = await Promise.all([
     service.from('customers').select('id,name,email').eq('id', invoice.customer_id).single(),
     service.from('control_center_settings').select('default_invoice_due_days').eq('id', 1).maybeSingle(),
@@ -144,7 +156,7 @@ async function invoiceEmail(service: any, invoiceId: string, actorId: string, re
   return { customer, email, documentToken, dueAt }
 }
 
-async function paymentEmail(service: any, paymentId: string, actorId: string) {
+async function paymentEmail(service: any, paymentId: string, actorId: string | null) {
   const { data: payment, error } = await service.from('payments').select('*').eq('id', paymentId).single()
   if (error || !payment) throw new ResponseError(404, 'Payment not found')
   if (!verifiedPaymentCanReceiveReceipt(payment)) throw new ResponseError(409, 'Only a recorded, verified payment can send a receipt')
@@ -210,13 +222,14 @@ Deno.serve(async (req) => {
   const service = createClient(url, serviceKey)
 
   try {
-    const user = await requireStaff(service, req)
     const body = await req.json()
     const template = body?.template as CustomerEmailTemplate
     const recordId = typeof body?.recordId === 'string' ? body.recordId : ''
     const resend = body?.resend === true
     const requestId = typeof body?.requestId === 'string' ? body.requestId : undefined
+    const internal = body?.internal === true
     if (!['QUOTE_READY', 'INVOICE_READY', 'PAYMENT_RECEIVED'].includes(template) || !recordId) throw new ResponseError(400, 'A valid template and record are required')
+    const user = await requireStaff(service, req, serviceKey, template, internal)
     const idempotencyKey = customerEmailIdempotencyKey({ template, recordId, resend, requestId })
 
     const { data: completedSend } = await service.from('email_send_log')

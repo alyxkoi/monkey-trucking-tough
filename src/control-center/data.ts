@@ -145,8 +145,13 @@ export type Payment = {
   invoice_id: string;
   customer_id: string;
   amount: number;
-  method: "ACH" | "CARD" | "ZELLE" | "APPLE_PAY" | "CHECK" | "OTHER";
+  method: "ACH" | "CARD" | "ZELLE" | "APPLE_PAY" | "CHECK" | "OTHER" | "STRIPE";
   confirmed_by: "HUMAN" | "PROCESSOR";
+  payment_source?: "MANUAL" | "STRIPE" | null;
+  provider_payment_method_type?: string | null;
+  stripe_checkout_session_id?: string | null;
+  stripe_payment_intent_id?: string | null;
+  stripe_event_id?: string | null;
   note: string | null;
   received_at: string;
   recorded_by: string | null;
@@ -329,6 +334,17 @@ export type AiIntegrationState = {
   message: string | null;
 };
 
+export type StripeWebhookIssue = {
+  provider_event_id: string;
+  event_type: string;
+  invoice_id: string | null;
+  payment_id: string | null;
+  status: "FAILED" | "RECONCILIATION_REQUIRED";
+  error_message: string | null;
+  received_at: string;
+  updated_at: string;
+};
+
 type ControlDatabase = {
   public: {
     Tables: {
@@ -352,6 +368,7 @@ type ControlDatabase = {
       ai_conversation_state: Table<AiConversationState>;
       ai_audit_logs: Table<AiAuditLog>;
       ai_drafts: Table<AiDraftRow>;
+      stripe_webhook_events: Table<StripeWebhookIssue>;
     };
     Views: { [_ in never]: never };
     Functions: { [_ in never]: never };
@@ -398,6 +415,8 @@ export type ControlData = {
   aiAuditLogs: AiAuditLog[];
   aiDrafts: AiDraftRow[];
   aiIntegration: AiIntegrationState;
+  stripeIssues: StripeWebhookIssue[];
+  stripeIntegration: AiIntegrationState;
 };
 
 const unwrap = <T,>(result: { data: T | null; error: { message: string; code?: string } | null }, label: string): T => {
@@ -468,11 +487,41 @@ async function loadOptionalAiData() {
   }
 }
 
+async function loadOptionalStripeData(): Promise<{ issues: StripeWebhookIssue[]; integration: AiIntegrationState }> {
+  try {
+    const result = await controlDb.from("stripe_webhook_events")
+      .select("provider_event_id,event_type,invoice_id,payment_id,status,error_message,received_at,updated_at")
+      .in("status", ["FAILED", "RECONCILIATION_REQUIRED"])
+      .order("received_at", { ascending: false })
+      .limit(100);
+    if (!result.error) return { issues: result.data ?? [], integration: { status: "READY", message: null } };
+    const setupRequired = AI_SCHEMA_MISSING_CODES.has(result.error.code ?? "");
+    return {
+      issues: [],
+      integration: {
+        status: setupRequired ? "SETUP_REQUIRED" : "ERROR",
+        message: setupRequired
+          ? "Apply the Phase 06 Stripe Checkout migration before enabling online payment."
+          : `Stripe reconciliation data could not be loaded: ${result.error.message}`,
+      },
+    };
+  } catch (error) {
+    return {
+      issues: [],
+      integration: {
+        status: "ERROR",
+        message: `Stripe reconciliation data could not be loaded: ${error instanceof Error ? error.message : "Unknown optional integration error"}`,
+      },
+    };
+  }
+}
+
 export async function loadControlData(): Promise<ControlData> {
   // Optional integrations start in parallel, but their failures are isolated.
   // Core business queries below remain strict and still fail the shell when real
   // business data, authorization, or RLS cannot be loaded safely.
   const optionalAiPromise = loadOptionalAiData();
+  const optionalStripePromise = loadOptionalStripeData();
   const [
     customers, leads, quotes, quoteItems, jobs, tickets, ticketItems, ticketHistory, invoices,
     invoiceTickets, payments, workers, workerPayments, activities, messages, financialHistory,
@@ -504,6 +553,7 @@ export async function loadControlData(): Promise<ControlData> {
     controlDb.from("attention_snoozes").select("*"),
   ]);
   const optionalAi = await optionalAiPromise;
+  const optionalStripe = await optionalStripePromise;
 
   return {
     customers: unwrap(customers, "Customers") ?? [],
@@ -534,6 +584,8 @@ export async function loadControlData(): Promise<ControlData> {
     aiAuditLogs: optionalAi.auditLogs,
     aiDrafts: optionalAi.drafts,
     aiIntegration: optionalAi.integration,
+    stripeIssues: optionalStripe.issues,
+    stripeIntegration: optionalStripe.integration,
   };
 }
 
@@ -763,6 +815,17 @@ export const createInvoiceFromJob = (jobId: string) =>
 
 export const createInvoiceFromTicket = (ticketId: string) =>
   runRpc<string>("create_invoice_from_standalone_ticket", { p_ticket_id: ticketId });
+
+export const completeJobAndPrepareInvoice = (jobId: string) =>
+  runRpc<string>("complete_job_and_prepare_invoice", { p_job_id: jobId });
+
+export const reviseDraftInvoice = (invoiceId: string, amount: number, description: string, reason: string) =>
+  runRpc<void>("revise_draft_invoice", {
+    p_invoice_id: invoiceId,
+    p_amount: amount,
+    p_description: description,
+    p_reason: reason,
+  });
 
 export const recordPayment = (invoiceId: string, method: Payment["method"], note: string, receivedAt = new Date().toISOString()) =>
   runRpc<string>("record_invoice_payment_full", {

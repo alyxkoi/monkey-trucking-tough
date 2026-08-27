@@ -574,6 +574,8 @@ export function createQaFixtureData(reference = new Date()): ControlData {
     aiAuditLogs: [],
     aiDrafts: [],
     aiIntegration: { status: 'READY', message: null },
+    stripeIssues: [],
+    stripeIntegration: { status: 'READY', message: null },
   }
 }
 

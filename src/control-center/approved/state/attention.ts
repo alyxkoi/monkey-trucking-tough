@@ -24,6 +24,7 @@ export type Priority = 'NOW' | 'TODAY' | 'FOLLOW_UP'
  */
 export const ATTENTION_RANK = {
   work_blocked: 10,
+  stripe_reconciliation: 15,
   customer_waiting: 20,
   ai_failure: 25,
   new_lead: 30,
@@ -103,6 +104,7 @@ export function deriveAttention(input: {
   invoices: Invoice[]
   customers: Customer[]
   aiFailures?: { id: string; customerId?: string; automationRuleId?: string; at: number; error: string }[]
+  stripeFailures?: { id: string; invoiceId?: string; at: number; error: string }[]
   today: string
   at?: number
 }): AttentionItem[] {
@@ -110,6 +112,23 @@ export function deriveAttention(input: {
   const name = (customerId: string) =>
     input.customers.find((customer) => customer.id === customerId)?.name ?? 'Unknown'
   const items: AttentionItem[] = []
+
+  input.stripeFailures?.forEach((failure) => {
+    const receiptFailure = /receipt|email/i.test(failure.error)
+    items.push({
+      id: `stripe-reconciliation:${failure.id}`,
+      priority: 'NOW',
+      kind: 'stripe_reconciliation',
+      title: receiptFailure ? 'Payment receipt email needs retry' : 'Stripe payment requires reconciliation',
+      context: failure.error || 'Stripe received a payment signal that needs a person to verify the financial record.',
+      since: failure.at,
+      action: {
+        label: failure.invoiceId ? 'Open Invoice' : 'Open Money',
+        to: failure.invoiceId ? `/admin/money/invoices/${failure.invoiceId}` : '/admin/money',
+      },
+      recommend: 'none',
+    })
+  })
 
   input.aiFailures?.forEach((failure) => {
     items.push({

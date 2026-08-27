@@ -282,9 +282,11 @@ export function JobDetail() {
           {job.status === 'COMPLETED' && (
             <NextStep
               line={
-                existingInvoice
-                  ? 'The bill for this work has already gone out.'
-                  : 'Send the bill for this completed work.'
+                existingInvoice?.status === 'DRAFT'
+                  ? 'The draft bill is ready. Review the amount and customer details before sending it.'
+                  : existingInvoice
+                    ? 'The bill for this work has already gone out.'
+                    : 'Prepare the bill for this completed work, then review it before sending.'
               }
               action={
                 <PrimaryButton
@@ -294,7 +296,7 @@ export function JobDetail() {
                     if (id) navigate(`/admin/money/invoices/${id}`)
                   }}
                 >
-                  {existingInvoice ? 'View Invoice' : 'Create Invoice'}
+                  {existingInvoice?.status === 'DRAFT' ? 'Review Invoice' : existingInvoice ? 'View Invoice' : 'Review Invoice'}
                 </PrimaryButton>
               }
             />

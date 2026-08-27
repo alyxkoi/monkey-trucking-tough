@@ -71,7 +71,7 @@ async function invoiceBreakdown(service: any, invoice: any) {
 
 async function resolveInvoice(service: any, token: any) {
   const { data: invoice } = await service.from('invoices').select('*').eq('id', token.invoice_id).maybeSingle()
-  if (!invoice || invoice.status === 'VOID') return unavailable()
+  if (!invoice || !['SENT', 'PAID'].includes(invoice.status)) return unavailable()
   const [{ data: customer }, { data: job }, { data: links }, { data: payments }, breakdown] = await Promise.all([
     service.from('customers').select('name').eq('id', invoice.customer_id).single(),
     invoice.job_id ? service.from('jobs').select('description,address').eq('id', invoice.job_id).maybeSingle() : Promise.resolve({ data: null }),

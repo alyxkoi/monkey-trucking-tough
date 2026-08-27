@@ -258,6 +258,26 @@ export function SettingsBusiness() {
               ))}
             </div>
           </div>
+          <div className="border-t border-line pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="font-label text-[12px] font-semibold uppercase tracking-[0.16em] text-cc-muted">
+                  Online invoice payment
+                </div>
+                <p className="mt-1 text-[14px] leading-snug text-cc-muted">
+                  Stripe-hosted Checkout on secure sent Invoices. Manual payment methods stay available.
+                </p>
+              </div>
+              <StatusPill
+                tone={sourceData?.controlSettings?.payment_processor_status === 'READY' && sourceData?.stripeIntegration.status === 'READY' ? 'ok' : 'warn'}
+                size="sm"
+              >
+                {sourceData?.controlSettings?.payment_processor_status === 'READY' && sourceData?.stripeIntegration.status === 'READY'
+                  ? 'Ready'
+                  : 'Setup required'}
+              </StatusPill>
+            </div>
+          </div>
         </div>
       </Panel>
 

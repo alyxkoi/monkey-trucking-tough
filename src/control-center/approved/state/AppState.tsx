@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client'
 import {
   addLeadMessage,
   confirmWorkerPayment,
+  completeJobAndPrepareInvoice,
   controlDb,
   createInvoiceFromJob as createInvoiceFromJobRecord,
   createInvoiceFromTicket as createInvoiceFromTicketRecord,
@@ -25,6 +26,7 @@ import {
   findOrCreateCustomer,
   markWorkerPaymentPaid,
   recordPayment as recordPaymentRecord,
+  reviseDraftInvoice,
   saveQuoteChanges,
   sendCustomerEmail,
   snoozeAttention as persistSnooze,
@@ -198,6 +200,7 @@ export type AppStateValue = {
   workerPaymentsFor: (workerId: string) => WorkerPayment[]
   createInvoiceFromJob: (jobId: string) => Promise<string>
   createInvoiceFromTicket: (ticketId: string) => Promise<string>
+  reviseInvoice: (invoiceId: string, input: { amount: number; description: string; reason: string }) => Promise<void>
   sendInvoice: (invoiceId: string) => void
   resendInvoice: (invoiceId: string) => void
   voidInvoice: (invoiceId: string, reason: string) => void
@@ -398,7 +401,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         at: new Date(entry.created_at).getTime(),
         error: entry.error_message ?? 'OpenAI could not produce a safe structured draft.',
       })),
-  }), [customers, data?.aiAuditLogs, invoices, jobs, leads, quotes])
+    stripeFailures: (data?.stripeIssues ?? []).map((entry) => ({
+      id: entry.provider_event_id,
+      invoiceId: entry.invoice_id ?? undefined,
+      at: new Date(entry.received_at).getTime(),
+      error: entry.error_message ?? 'Stripe payment confirmation needs manual reconciliation.',
+    })),
+  }), [customers, data?.aiAuditLogs, data?.stripeIssues, invoices, jobs, leads, quotes])
   const snoozes = useMemo(() => new Map((data?.snoozes ?? []).map((row) => [row.fingerprint, new Date(row.returns_at).getTime()])), [data?.snoozes])
   const attention = useMemo(() => derivedAttention.filter((item) => (snoozes.get(item.id) ?? 0) <= Date.now()), [derivedAttention, snoozes])
   const snoozedItems = useMemo(() => derivedAttention.filter((item) => (snoozes.get(item.id) ?? 0) > Date.now()).map((item) => ({ item, returnsAt: snoozes.get(item.id) as number })), [derivedAttention, snoozes])
@@ -516,8 +525,32 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     await updateJob(id, { scheduled_date: when.date, scheduled_time: when.allDay ? null : when.time ?? null, all_day: when.allDay, change_requested: false }); await refresh()
   }), [demo, launch, refresh])
   const completeJob = useCallback((id: string) => launch(async () => {
-    if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, jobs: current.jobs.map((row) => row.id === id ? { ...row, status: 'COMPLETED', completed_at: now, updated_at: now } : row) })); return }
-    await updateJob(id, { status: 'COMPLETED', completed_at: new Date().toISOString() }); await refresh()
+    if (demo.enabled) {
+      const now = new Date().toISOString()
+      demo.updateData((current) => {
+        const job = current.jobs.find((row) => row.id === id)
+        if (!job) return current
+        const alreadyInvoiced = current.invoices.some((invoice) => invoice.job_id === id && invoice.status !== 'VOID')
+        const quote = job.quote_id ? current.quotes.find((row) => row.id === job.quote_id) : undefined
+        const invoiceId = `qa-runtime-invoice-${current.invoices.length + 1}`
+        return {
+          ...current,
+          jobs: current.jobs.map((row) => row.id === id ? { ...row, status: 'COMPLETED', completed_at: now, updated_at: now } : row),
+          invoices: alreadyInvoiced ? current.invoices : [{
+            id: invoiceId, invoice_number: String(1100 + current.invoices.length), customer_id: job.customer_id,
+            job_id: id, quote_id: job.quote_id, standalone_ticket_id: null,
+            amount_source: job.quote_id ? 'QUOTE' : 'JOB', description: job.description,
+            amount: quote?.grand_total ?? job.agreed_amount, status: 'DRAFT', issued_at: null, due_at: null,
+            paid_at: null, disputed: false, dispute_note: null, payment_claimed_at: null,
+            payment_claim_method: null, payment_claim_note: null, voided_at: null, void_reason: null,
+            voided_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now,
+          }, ...current.invoices],
+        }
+      })
+      return
+    }
+    await completeJobAndPrepareInvoice(id)
+    await refresh()
   }), [demo, launch, refresh])
   const cancelJob = useCallback((id: string, reason: string) => launch(async () => {
     if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => { const job = current.jobs.find((row) => row.id === id); return { ...current, jobs: current.jobs.map((row) => row.id === id ? { ...row, status: 'CANCELLED', cancelled_at: now, cancellation_reason: reason, updated_at: now } : row), activities: [{ id: `qa-runtime-activity-${current.activities.length + 1}`, customer_id: job?.customer_id ?? null, entity_type: 'JOB', entity_id: id, event_type: 'CANCELLED', summary: `Job cancelled: ${reason}`, metadata: { reason }, actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now }, ...current.activities] } }); return }
@@ -774,13 +807,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (demo.enabled) {
       const job = data?.jobs.find((row) => row.id === id)
       if (!job) throw new Error('Job not found')
+      const quote = job.quote_id ? data?.quotes.find((row) => row.id === job.quote_id) : undefined
       const now = new Date().toISOString()
       const invoiceId = `qa-runtime-invoice-${(data?.invoices.length ?? 0) + 1}`
-      demo.updateData((current) => ({ ...current, invoices: [{ id: invoiceId, invoice_number: String(1100 + current.invoices.length), customer_id: job.customer_id, job_id: id, quote_id: job.quote_id, standalone_ticket_id: null, amount_source: job.quote_id ? 'QUOTE' : 'JOB', description: job.description, amount: job.agreed_amount, status: 'DRAFT', issued_at: null, due_at: null, paid_at: null, disputed: false, dispute_note: null, payment_claimed_at: null, payment_claim_method: null, payment_claim_note: null, voided_at: null, void_reason: null, voided_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.invoices] }))
+      demo.updateData((current) => ({ ...current, invoices: [{ id: invoiceId, invoice_number: String(1100 + current.invoices.length), customer_id: job.customer_id, job_id: id, quote_id: job.quote_id, standalone_ticket_id: null, amount_source: job.quote_id ? 'QUOTE' : 'JOB', description: job.description, amount: quote?.grand_total ?? job.agreed_amount, status: 'DRAFT', issued_at: null, due_at: null, paid_at: null, disputed: false, dispute_note: null, payment_claimed_at: null, payment_claim_method: null, payment_claim_note: null, voided_at: null, void_reason: null, voided_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.invoices] }))
       return invoiceId
     }
     return refreshAfter(() => createInvoiceFromJobRecord(id))
-  }, [data?.invoices.length, data?.jobs, demo, refreshAfter])
+  }, [data?.invoices.length, data?.jobs, data?.quotes, demo, refreshAfter])
   const createInvoiceFromTicket = useCallback(async (id: string) => {
     if (demo.enabled) {
       const ticket = data?.tickets.find((row) => row.id === id)
@@ -792,6 +826,26 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
     return refreshAfter(() => createInvoiceFromTicketRecord(id))
   }, [data?.invoices.length, data?.tickets, demo, refreshAfter])
+  const reviseInvoice = useCallback(async (id: string, input: { amount: number; description: string; reason: string }) => {
+    if (demo.enabled) {
+      const now = new Date().toISOString()
+      demo.updateData((current) => ({
+        ...current,
+        invoices: current.invoices.map((row) => row.id === id && row.status === 'DRAFT'
+          ? { ...row, amount: input.amount, description: input.description, updated_at: now }
+          : row),
+        financialHistory: [{
+          id: `qa-runtime-financial-${current.financialHistory.length + 1}`,
+          record_type: 'INVOICE', record_id: id, event_type: 'DRAFT_REVISED', reason: input.reason,
+          before_snapshot: null, after_snapshot: { amount: input.amount, description: input.description },
+          actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now,
+        }, ...current.financialHistory],
+      }))
+      return
+    }
+    await reviseDraftInvoice(id, input.amount, input.description, input.reason)
+    await refresh()
+  }, [demo, refresh])
   const sendInvoice = useCallback((id: string) => launch(async () => {
     if (emailSendingFor === id) return
     const due = new Date(); due.setDate(due.getDate() + (data?.controlSettings?.default_invoice_due_days ?? 3))
@@ -893,10 +947,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes,
     tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, printTicket,
     invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor,
-    createInvoiceFromJob, createInvoiceFromTicket, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment,
+    createInvoiceFromJob, createInvoiceFromTicket, reviseInvoice, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment,
     findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote,
     communicationReady: data?.controlSettings?.sms_status === 'READY', emailSendingFor, sourceData: data,
-  }), [period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, showAllAttention, snoozeAttention, unsnoozeAttention, lastAction, undoLastAction, loading, moneyLoading, demo.enabled, online, syncing, pendingTickets, lastSyncAt, cycleSync, newSheetOpen, newLeadSheetOpen, newJobSheetOpen, pinnedBarActive, customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer, jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes, tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, printTicket, invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor, createInvoiceFromJob, createInvoiceFromTicket, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment, findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote, emailSendingFor, data])
+  }), [period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, showAllAttention, snoozeAttention, unsnoozeAttention, lastAction, undoLastAction, loading, moneyLoading, demo.enabled, online, syncing, pendingTickets, lastSyncAt, cycleSync, newSheetOpen, newLeadSheetOpen, newJobSheetOpen, pinnedBarActive, customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer, jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes, tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, printTicket, invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor, createInvoiceFromJob, createInvoiceFromTicket, reviseInvoice, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment, findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote, emailSendingFor, data])
 
   if (loading && !data) {
     return <div className="min-h-screen" aria-label="Loading Control Center" />

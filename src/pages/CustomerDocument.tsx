@@ -104,10 +104,56 @@ export function PublicInvoice() {
   const [document, setDocument] = useState<InvoiceDocument | null>(null)
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
-  useEffect(() => { void (async () => { const { data, error } = await supabase.functions.invoke('customer-document', { body: { action: 'VIEW', documentType: 'INVOICE', token } }); if (error || !data?.available || data.document?.type !== 'INVOICE') setMessage(data?.message ?? 'This link is no longer available.'); else setDocument(data.document); setLoading(false) })() }, [token])
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const checkoutState = new URLSearchParams(window.location.search).get('checkout')
+  const paymentConfirmed = document?.status === 'PAID'
+  const hasDocument = Boolean(document)
+
+  const load = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true)
+    const { data, error } = await supabase.functions.invoke('customer-document', {
+      body: { action: 'VIEW', documentType: 'INVOICE', token },
+    })
+    if (error || !data?.available || data.document?.type !== 'INVOICE') {
+      setMessage(data?.message ?? 'This link is no longer available.')
+      if (showLoading) setDocument(null)
+      if (showLoading) setLoading(false)
+      return null
+    }
+    setDocument(data.document)
+    setMessage('')
+    if (showLoading) setLoading(false)
+    return data.document as InvoiceDocument
+  }, [token])
+
+  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    if (checkoutState !== 'success' || !hasDocument || paymentConfirmed) return
+    let attempts = 0
+    const timer = window.setInterval(() => {
+      attempts += 1
+      void load(false)
+      if (attempts >= 8) window.clearInterval(timer)
+    }, 1800)
+    return () => window.clearInterval(timer)
+  }, [checkoutState, hasDocument, paymentConfirmed, load])
+
+  const pay = async () => {
+    setCheckoutLoading(true)
+    setMessage('')
+    const { data, error } = await supabase.functions.invoke('stripe-checkout', { body: { token } })
+    if (error || !data?.available || typeof data.checkoutUrl !== 'string') {
+      setMessage(data?.error ?? 'Online payment is temporarily unavailable. Please try again later.')
+      setCheckoutLoading(false)
+      return
+    }
+    window.location.assign(data.checkoutUrl)
+  }
+
   if (loading) return <Loading />
   if (!document) return <Failure message={message || 'This link is no longer available.'} />
   const paid = document.status === 'PAID' && document.amountDue <= 0
+  const payable = document.status === 'SENT' && document.amountDue > 0 && !document.disputed
   return (
     <DocumentShell>
       <div className="text-center"><p className="text-[11px] font-bold uppercase tracking-[.2em] text-[#8FCBFF]">Invoice {document.number}</p><h1 className="mt-2 text-4xl font-black uppercase tracking-[-.04em] sm:text-5xl">{paid ? 'Payment receipt' : 'Your invoice'}</h1><p className="mt-3 text-sm text-[#9b9da3]">Prepared for {document.customerName}</p></div>
@@ -115,7 +161,12 @@ export function PublicInvoice() {
       <section className="mt-7"><h2 className="text-xl font-bold">Invoice summary</h2><p className="mt-1 text-sm text-[#7f8289]">{document.description}</p><div className="mt-4 rounded-2xl border border-white/10 bg-[#121316] px-5">{document.job && <DetailRow label="Job" value={<span>{document.job.description}<small className="mt-1 block font-normal text-[#8e9198]">{document.job.address}</small></span>} />}{document.items.map((item) => <DetailRow key={item.id} label={item.kind === 'CUSTOM_WORK' ? 'Work' : item.kind === 'MATERIAL' ? 'Material' : 'Work'} value={<span>{item.description}<small className="mt-1 block font-normal text-[#8e9198]">{[item.yards != null ? `${Number(item.yards)} yd` : '', item.loads != null ? `${item.loads} load${item.loads === 1 ? '' : 's'}` : '', money(item.line_total)].filter(Boolean).join(' · ')}</small></span>} />)}{document.ticketNumbers.length > 0 && <DetailRow label="Tickets" value={document.ticketNumbers.join(' · ')} />}</div></section>
       <section className="mt-6 rounded-2xl border border-white/10 bg-[#15161a] px-5"><DetailRow label="Issued" value={date(document.issuedAt)} />{!paid && <DetailRow label="Due" value={date(document.dueAt)} />}{document.sourceTotals?.materials_subtotal != null && <DetailRow label="Material" value={money(document.sourceTotals.materials_subtotal)} />}{Number(document.sourceTotals?.custom_work_subtotal ?? 0) > 0 && <DetailRow label="Custom work" value={money(Number(document.sourceTotals?.custom_work_subtotal))} />}{Number(document.sourceTotals?.delivery_total ?? 0) > 0 && <DetailRow label="Delivery" value={money(Number(document.sourceTotals?.delivery_total))} />}{document.sourceTotals?.tax_amount != null && <DetailRow label={`Tax ${(Number(document.sourceTotals.tax_rate ?? 0) * 100).toFixed(2)}%`} value={money(Number(document.sourceTotals.tax_amount))} />}<DetailRow label="Invoice total" value={<strong className="text-xl">{money(document.amount)}</strong>} /></section>
       {paid && document.payments.map((payment) => <section key={payment.id} className="mt-6 rounded-2xl border border-[#78D69A]/25 bg-[#121316] px-5"><DetailRow label="Payment method" value={payment.method.replaceAll('_', ' ')} /><DetailRow label="Payment date" value={date(payment.received_at)} /><DetailRow label="Amount received" value={money(payment.amount)} /></section>)}
-      {!paid && <p className="mt-7 text-center text-sm leading-relaxed text-[#8e9198]">This invoice is for review only. Payment instructions are handled directly by Monkey Trucking.</p>}
+      {checkoutState === 'success' && !paid && <section className="mt-6 rounded-2xl border border-[#8FCBFF]/30 bg-[#8FCBFF]/10 p-5 text-center"><p className="font-bold text-[#d9edff]">Your payment is being confirmed.</p><p className="mt-2 text-sm text-[#9fb5c7]">This page will update as soon as confirmation is complete. You can safely refresh it too.</p></section>}
+      {checkoutState === 'cancelled' && !paid && <section className="mt-6 rounded-2xl border border-white/10 bg-[#15161a] p-5 text-center"><p className="font-bold">Checkout was closed.</p><p className="mt-2 text-sm text-[#9b9da3]">Nothing was charged here and this invoice is still unpaid. You can try again whenever you are ready.</p></section>}
+      {document.disputed && !paid && <section className="mt-6 rounded-2xl border border-[#FFB45B]/30 bg-[#FFB45B]/10 p-5 text-center"><p className="font-bold text-[#ffd6a6]">Payment is paused while this invoice is reviewed.</p><p className="mt-2 text-sm text-[#b9a38b]">Please contact Monkey Trucking if you have questions about the amount.</p></section>}
+      {message && <p role="alert" className="mt-5 rounded-xl border border-[#ff003c]/25 bg-[#ff003c]/10 px-4 py-3 text-center text-sm text-[#ffc2d0]">{message}</p>}
+      {payable && <button type="button" disabled={checkoutLoading} onClick={() => void pay()} className="mt-7 min-h-12 w-full rounded-xl bg-[#ff003c] px-6 py-4 text-sm font-extrabold uppercase tracking-[.1em] text-white transition hover:bg-[#d90033] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8FCBFF] disabled:cursor-wait disabled:opacity-65">{checkoutLoading ? 'Opening secure checkout…' : 'Pay invoice'}</button>}
+      {paid && <p className="mt-7 text-center text-sm leading-relaxed text-[#8e9198]">Keep this page as your Monkey Trucking payment receipt.</p>}
     </DocumentShell>
   )
 }

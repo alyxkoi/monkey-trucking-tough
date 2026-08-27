@@ -129,9 +129,11 @@ describe('transactional workflow safety', () => {
     expect(publicEdge).toContain(".eq('token_hash', hash).eq('document_type', documentType)")
   })
 
-  it('adds no fake online payment flow to the public invoice', () => {
+  it('keeps online payment server-authoritative on the secure public invoice', () => {
     const page = source('src/pages/CustomerDocument.tsx')
-    expect(page).not.toMatch(/Pay Now|card form|Stripe|ACH flow/i)
-    expect(page).toContain('This invoice is for review only')
+    expect(page).toContain("supabase.functions.invoke('stripe-checkout', { body: { token } })")
+    expect(page).not.toMatch(/body:\s*\{[^}]*amount/i)
+    expect(page).not.toMatch(/card number|card form/i)
+    expect(page).not.toContain("status: 'PAID'")
   })
 })

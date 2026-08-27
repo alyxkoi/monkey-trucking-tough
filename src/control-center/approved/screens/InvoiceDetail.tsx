@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { MessageSquare, Phone } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { RecordPaymentSheet } from '@/control-center/approved/components/money/MoneySheets'
 import { ReviewRequestPanel } from '@/control-center/approved/components/automation/FollowUpState'
 import { ChangeHistory, VoidReasonSheet } from '@/control-center/approved/components/money/VoidReasonSheet'
@@ -16,12 +17,14 @@ import {
 import { RecordHeader } from '@/control-center/approved/components/ui/RecordHeader'
 import { Panel, PanelTitle } from '@/control-center/approved/components/ui/Panel'
 import { EmptyState } from '@/control-center/approved/components/ui/States'
+import { TextArea, TextField } from '@/control-center/approved/components/ui/Field'
 import { StatusPill, type PillTone } from '@/control-center/approved/components/ui/StatusPill'
 import { cn } from '@/control-center/approved/lib/cn'
 import { usd, usdExact } from '@/control-center/approved/lib/format'
 import { smsHref, telHref } from '@/control-center/approved/lib/status'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import { PAYMENT_METHOD_LABEL, invoiceStatus, type InvoiceStatus } from '@/control-center/approved/state/moneyData'
+import { quoteTotals } from '@/control-center/approved/state/salesData'
 import { ticketTotals } from '@/control-center/approved/state/ticketsData'
 
 const TONE: Record<InvoiceStatus, PillTone> = {
@@ -83,6 +86,7 @@ export function InvoiceDetail() {
     paymentsForInvoice,
     sendInvoice,
     resendInvoice,
+    reviseInvoice,
     voidInvoice,
     voidPayment,
     emailSendingFor,
@@ -90,6 +94,9 @@ export function InvoiceDetail() {
   const [paymentSheet, setPaymentSheet] = useState(false)
   const [voidOpen, setVoidOpen] = useState(false)
   const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null)
+  const [editingDraft, setEditingDraft] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
+  const [draftEdit, setDraftEdit] = useState({ invoiceId: '', amount: '', description: '', reason: '' })
 
   const { entry, recommend, markActed } = useAttentionEntry()
   const invoice = invoiceById(invoiceId)
@@ -113,6 +120,21 @@ export function InvoiceDetail() {
   const tickets = invoice.ticketIds
     .map((id) => ticketById(id))
     .filter((ticket): ticket is NonNullable<typeof ticket> => Boolean(ticket))
+  const sourceBreakdown = quote
+    ? quoteTotals(quote)
+    : invoice.amountSource === 'TICKET' && tickets[0]
+      ? ticketTotals(tickets[0])
+      : null
+  const editAmount = draftEdit.invoiceId === invoice.id ? draftEdit.amount : String(invoice.amount)
+  const editDescription = draftEdit.invoiceId === invoice.id ? draftEdit.description : invoice.description
+  const editReason = draftEdit.invoiceId === invoice.id ? draftEdit.reason : ''
+  const setEdit = (values: Partial<typeof draftEdit>) => setDraftEdit((current) => ({
+    invoiceId: invoice.id,
+    amount: current.invoiceId === invoice.id ? current.amount : String(invoice.amount),
+    description: current.invoiceId === invoice.id ? current.description : invoice.description,
+    reason: current.invoiceId === invoice.id ? current.reason : '',
+    ...values,
+  }))
 
   return (
     <div className="animate-page space-y-5 lg:space-y-6">
@@ -174,7 +196,9 @@ export function InvoiceDetail() {
                 <p className="mt-2.5 max-w-[46ch] text-[14px] leading-snug text-cc-muted">
                   {invoice.amountSource === 'TICKET'
                     ? 'Direct material order. This is the finalised ticket total, because there is no job or quote behind it.'
-                    : 'The agreed amount from the job. Tickets are attached as delivery proof and never change this figure.'}
+                    : invoice.amountSource === 'QUOTE'
+                      ? 'The accepted Quote snapshot is the commercial source. Tickets are delivery proof and never replace this figure.'
+                      : 'The agreed amount from the direct job. Tickets are delivery proof and never replace this figure.'}
                 </p>
               </div>
 
@@ -268,6 +292,23 @@ export function InvoiceDetail() {
             )}
           </Panel>
 
+          {sourceBreakdown && (
+            <Panel title="Source breakdown">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Materials" value={usdExact(sourceBreakdown.materials)} />
+                {sourceBreakdown.custom > 0 && <Field label="Custom work" value={usdExact(sourceBreakdown.custom)} />}
+                <Field label="Delivery" value={usdExact(sourceBreakdown.delivery)} />
+                <Field label={`Tax ${(sourceBreakdown.taxRate * 100).toFixed(2)}%`} value={usdExact(sourceBreakdown.tax)} />
+                <Field label="Source total" value={usdExact(sourceBreakdown.total)} />
+              </div>
+              <p className="mt-4 text-[13px] leading-snug text-cc-muted">
+                {invoice.amountSource === 'QUOTE'
+                  ? 'Snapshot from the accepted Quote. A draft edit changes only this Invoice and records a reason.'
+                  : 'Snapshot from the finalized standalone Ticket.'}
+              </p>
+            </Panel>
+          )}
+
           {payments.length > 0 && (
             <Panel title={<PanelTitle tone="ok">Payments</PanelTitle>} variant="ok" padded={false}>
               <div className="divide-y divide-white/[0.07] border-t border-white/[0.07]">
@@ -280,7 +321,7 @@ export function InvoiceDetail() {
                       <span className="mt-0.5 block text-[14px] text-cc-muted">
                         {payment.voidedAt
                           ? `Voided by ${payment.voidedBy}, ${payment.voidReason}`
-                          : `Received ${stamp(payment.receivedAt)}, confirmed by a person`}
+                          : `Received ${stamp(payment.receivedAt)}, ${payment.confirmedBy === 'PROCESSOR' ? 'verified by Stripe' : 'confirmed by a person'}`}
                       </span>
                     </span>
                     {!payment.voidedAt && (
@@ -307,13 +348,48 @@ export function InvoiceDetail() {
         <div className="min-w-0 space-y-5 lg:col-span-5 lg:space-y-6 2xl:col-span-4">
           {status === 'DRAFT' && (
             <NextStep
-              line="Review it, then send the bill. Sending sets the due date three days out."
+              line={invoice.amount > 0
+                ? 'Review it, then send the bill. Sending sets the due date from the current business setting.'
+                : 'This direct Job has no confirmed amount yet. Enter the agreed Invoice amount before sending.'}
               action={
-                <PrimaryButton disabled={emailSendingFor === invoice.id} tone="onSolid" onClick={() => sendInvoice(invoice.id)}>
-                  {emailSendingFor === invoice.id ? 'Sending…' : 'Send Invoice'}
-                </PrimaryButton>
+                <>
+                  <PrimaryButton disabled={emailSendingFor === invoice.id || invoice.amount <= 0} tone="onSolid" onClick={() => sendInvoice(invoice.id)}>
+                    {emailSendingFor === invoice.id ? 'Sending…' : 'Send Invoice'}
+                  </PrimaryButton>
+                  <SecondaryButton tone="onSolid" onClick={() => setEditingDraft((open) => !open)}>
+                    {editingDraft ? 'Close Edit' : 'Edit Draft'}
+                  </SecondaryButton>
+                </>
               }
             />
+          )}
+
+          {status === 'DRAFT' && editingDraft && (
+            <Panel title="Edit draft">
+              <div className="space-y-4">
+                <TextField label="Invoice amount" inputMode="decimal" value={editAmount} onChange={(value) => setEdit({ amount: value })} />
+                <TextArea label="Description" rows={3} value={editDescription} onChange={(value) => setEdit({ description: value })} />
+                <TextArea label="Reason for change" rows={2} value={editReason} onChange={(value) => setEdit({ reason: value })} placeholder="Confirmed agreed amount with customer" />
+                <PrimaryButton
+                  disabled={savingDraft || !Number.isFinite(Number(editAmount)) || Number(editAmount) <= 0 || !editDescription.trim() || !editReason.trim()}
+                  onClick={async () => {
+                    setSavingDraft(true)
+                    try {
+                      await reviseInvoice(invoice.id, { amount: Number(editAmount), description: editDescription.trim(), reason: editReason.trim() })
+                      setEditingDraft(false)
+                      setDraftEdit({ invoiceId: '', amount: '', description: '', reason: '' })
+                      toast.success('Draft invoice updated.')
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : 'Draft invoice could not be updated.')
+                    } finally {
+                      setSavingDraft(false)
+                    }
+                  }}
+                >
+                  {savingDraft ? 'Saving…' : 'Save Draft'}
+                </PrimaryButton>
+              </div>
+            </Panel>
           )}
           {(status === 'SENT' || status === 'OVERDUE') && (
             <NextStep
@@ -440,9 +516,12 @@ export function InvoiceDetail() {
 
           {customer && (
             <Panel title="Customer">
-              <QuietButton size="sm" onClick={() => navigate(`/admin/customers/${customer.id}`)}>
-                Open {customer.name}
-              </QuietButton>
+              <div className="space-y-3">
+                <Field label="Email" value={customer.email || 'Email required before sending'} />
+                <QuietButton size="sm" onClick={() => navigate(`/admin/customers/${customer.id}`)}>
+                  Open {customer.name}
+                </QuietButton>
+              </div>
             </Panel>
           )}
         </div>
