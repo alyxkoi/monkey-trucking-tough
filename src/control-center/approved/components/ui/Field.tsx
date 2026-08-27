@@ -99,7 +99,7 @@ export function SelectField<T extends string>({
       {label && <FieldLabel>{label}</FieldLabel>}
       <select
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => onChange(event.target.value as NoInfer<T>)}
         className={cn(CONTROL, 'h-12 appearance-none')}
       >
         {options.map((option) => (
