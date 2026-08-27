@@ -701,7 +701,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           // snapshots. The before snapshot remains in ticketHistory just as it
           // would after the atomic correction RPC.
           ticketItems: [...current.ticketItems.filter((row) => row.ticket_id !== id), ...draft.items.map((item, index) => ({ id: `qa-runtime-ticket-correction-item-${current.ticketItems.length + index + 1}`, ticket_id: id, material_id: item.material_id, material_name: item.material_name, yards: item.yards, is_full_load: item.is_full_load, loads: item.loads ?? null, rate_used: item.rate_used, line_total: item.line_total, superseded_at: null, created_at: now }))],
-          ticketHistory: [{ id: `qa-runtime-ticket-history-${current.ticketHistory.length + 1}`, ticket_id: id, event_type: 'corrected', reason: note, before_snapshot: before, after_snapshot: draft, actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now }, ...current.ticketHistory],
+          ticketHistory: [{ id: `qa-runtime-ticket-history-${current.ticketHistory.length + 1}`, ticket_id: id, event_type: 'corrected', reason: note, before_snapshot: before, after_snapshot: draft as unknown as Json, actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now }, ...current.ticketHistory],
         }
       })
       return
