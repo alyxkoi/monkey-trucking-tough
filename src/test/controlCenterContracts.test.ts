@@ -36,6 +36,12 @@ describe("Phase 05 Control Center contracts", () => {
     expect(read("src/lib/admin/tickets.ts")).toContain('rawRpc("create_ticket_compat_atomic"');
   });
 
+  it("allocates demo MT numbers in offline queue creation order", () => {
+    const state = read("src/control-center/approved/state/AppState.tsx");
+    expect(state).toContain(".sort((a, b) => a.created_at.localeCompare(b.created_at)");
+    expect(state).toContain("allocated.set(row.id");
+  });
+
   it("keeps ticket and invoice amount sources separate", () => {
     const migration = read("supabase/migrations/20260826230000_phase05_control_center.sql");
     expect(migration).toContain("v_job.agreed_amount");
@@ -52,6 +58,33 @@ describe("Phase 05 Control Center contracts", () => {
     expect(migration).toContain("financial_history");
     expect(migration).toContain("create_worker_payment_pending");
     expect(migration).toContain("mark_worker_payment_paid");
+  });
+
+  it("requires reasons for Job and Worker Pay cancellation paths", () => {
+    const job = read("src/control-center/approved/screens/JobDetail.tsx");
+    const money = read("src/control-center/approved/screens/Money.tsx");
+    expect(job).toContain('label="Cancellation reason"');
+    expect(job).toContain("cancelJob(job.id, cancelReason.trim())");
+    expect(job).not.toContain("cancelJob(job.id, 'Cancelled by Salvador')");
+    expect(money).toContain('title="Void worker payment"');
+    expect(money).toContain("voidWorkerPayment(voidingPaymentId, reason)");
+  });
+
+  it("does not permit a historical Ticket correction without a reason", () => {
+    const builder = read("src/control-center/approved/screens/TicketBuilder.tsx");
+    expect(builder).toContain("editing && editNote.trim().length === 0");
+    expect(builder).toContain("updateTicket(editing.id, input, editNote.trim())");
+    expect(builder).not.toContain("'Edited after it was finalised'");
+  });
+
+  it("keeps local payment dates stable and reopens an invoice when its payment is voided", () => {
+    const sheets = read("src/control-center/approved/components/money/MoneySheets.tsx");
+    const state = read("src/control-center/approved/state/AppState.tsx");
+    expect(sheets).toContain("receivedAt: parseDateKey(date).getTime()");
+    expect(sheets).not.toContain("receivedAt: new Date(date).getTime()");
+    expect(state).toContain("status: 'SENT', paid_at: null");
+    expect(state).toContain("record_type: 'PAYMENT'");
+    expect(state).toContain("event_type: 'VOIDED'");
   });
 
   it("keeps material-line loads separate from independently editable delivery loads on Quotes", () => {

@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { deriveAttention } from '@/control-center/approved/state/attention'
-import { dateKey } from '@/control-center/approved/state/jobsData'
+import { dateKey, parseDateKey } from '@/control-center/approved/state/jobsData'
 import { collectedSeries, computeMoney } from '@/control-center/approved/state/moneyData'
 import {
   mapCustomers,
@@ -30,6 +30,10 @@ describe('Phase 06 deterministic QA fixture layer', () => {
     const second = createQaFixtureData(reference)
     expect(fixtureSignature(first)).toBe(fixtureSignature(second))
     expect(JSON.stringify(first)).toBe(JSON.stringify(second))
+  })
+
+  it('round trips date-only values without shifting a day in local time', () => {
+    expect(dateKey(parseDateKey('2026-08-26'))).toBe('2026-08-26')
   })
 
   it('preserves separate material loads and delivery loads on the mixed ticket', () => {

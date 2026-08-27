@@ -495,7 +495,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     await updateJob(id, { status: 'COMPLETED', completed_at: new Date().toISOString() }); await refresh()
   }), [demo, launch, refresh])
   const cancelJob = useCallback((id: string, reason: string) => launch(async () => {
-    if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, jobs: current.jobs.map((row) => row.id === id ? { ...row, status: 'CANCELLED', cancelled_at: now, cancellation_reason: reason, updated_at: now } : row) })); return }
+    if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => { const job = current.jobs.find((row) => row.id === id); return { ...current, jobs: current.jobs.map((row) => row.id === id ? { ...row, status: 'CANCELLED', cancelled_at: now, cancellation_reason: reason, updated_at: now } : row), activities: [{ id: `qa-runtime-activity-${current.activities.length + 1}`, customer_id: job?.customer_id ?? null, entity_type: 'JOB', entity_id: id, event_type: 'CANCELLED', summary: `Job cancelled: ${reason}`, metadata: { reason }, actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now }, ...current.activities] } }); return }
     await updateJob(id, { status: 'CANCELLED', cancelled_at: new Date().toISOString(), cancellation_reason: reason }); await refresh()
   }), [demo, launch, refresh])
   const startJob = useCallback((id: string) => launch(async () => {
@@ -776,9 +776,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     await createWorkerPayment({ workerId: input.workerId, periodStart: input.periodStart, periodEnd: input.periodEnd, amount: input.amount, source: 'DRIVER_INVOICE', attachmentPath: input.attachmentName }); await refresh()
   }), [demo, launch, refresh])
   const confirmWorkerPayDetails = useCallback((id: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, workerPayments: current.workerPayments.map((row) => row.id === id ? { ...row, status: 'CONFIRMED', confirmed_at: now, updated_at: now } : row) })); return } await confirmWorkerPayment(id); await refresh() }), [demo, launch, refresh])
-  const markWorkerPayPaid = useCallback((id: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, workerPayments: current.workerPayments.map((row) => row.id === id ? { ...row, status: 'PAID', paid_at: now, updated_at: now } : row) })); return } await markWorkerPaymentPaid(id); await refresh() }), [demo, launch, refresh])
-  const voidWorkerPayment = useCallback((id: string, reason: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, workerPayments: current.workerPayments.map((row) => row.id === id ? { ...row, status: 'VOID', voided_at: now, void_reason: reason, voided_by: QA_FIXTURE_USER_ID, updated_at: now } : row) })); return } await voidFinancialRecord('WORKER_PAYMENT', id, reason); await refresh() }), [demo, launch, refresh])
-  const voidPayment = useCallback((id: string, reason: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, payments: current.payments.map((row) => row.id === id ? { ...row, voided_at: now, void_reason: reason, voided_by: QA_FIXTURE_USER_ID } : row) })); return } await voidFinancialRecord('PAYMENT', id, reason); await refresh() }), [demo, launch, refresh])
+  const markWorkerPayPaid = useCallback((id: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => { const payment = current.workerPayments.find((row) => row.id === id); return { ...current, workerPayments: current.workerPayments.map((row) => row.id === id ? { ...row, status: 'PAID', paid_at: now, updated_at: now } : row), financialHistory: [{ id: `qa-runtime-financial-${current.financialHistory.length + 1}`, record_type: 'WORKER_PAYMENT', record_id: id, event_type: 'PAID', reason: 'Salvador explicitly marked the worker paid', before_snapshot: payment, after_snapshot: payment ? { ...payment, status: 'PAID', paid_at: now } : null, actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now }, ...current.financialHistory] } }); return } await markWorkerPaymentPaid(id); await refresh() }), [demo, launch, refresh])
+  const voidWorkerPayment = useCallback((id: string, reason: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => { const payment = current.workerPayments.find((row) => row.id === id); return { ...current, workerPayments: current.workerPayments.map((row) => row.id === id ? { ...row, status: 'VOID', voided_at: now, void_reason: reason, voided_by: QA_FIXTURE_USER_ID, updated_at: now } : row), financialHistory: [{ id: `qa-runtime-financial-${current.financialHistory.length + 1}`, record_type: 'WORKER_PAYMENT', record_id: id, event_type: 'VOIDED', reason, before_snapshot: payment, after_snapshot: null, actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now }, ...current.financialHistory] } }); return } await voidFinancialRecord('WORKER_PAYMENT', id, reason); await refresh() }), [demo, launch, refresh])
+  const voidPayment = useCallback((id: string, reason: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => { const payment = current.payments.find((row) => row.id === id); return { ...current, payments: current.payments.map((row) => row.id === id ? { ...row, voided_at: now, void_reason: reason, voided_by: QA_FIXTURE_USER_ID } : row), invoices: current.invoices.map((row) => row.id === payment?.invoice_id ? { ...row, status: 'SENT', paid_at: null, updated_at: now } : row), financialHistory: [{ id: `qa-runtime-financial-${current.financialHistory.length + 1}`, record_type: 'PAYMENT', record_id: id, event_type: 'VOIDED', reason, before_snapshot: payment, after_snapshot: null, actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now }, ...current.financialHistory] } }); return } await voidFinancialRecord('PAYMENT', id, reason); await refresh() }), [demo, launch, refresh])
 
   const snoozeAttention = useCallback((id: string) => {
     const item = derivedAttention.find((entry) => entry.id === id); if (!item || (!user?.id && !demo.enabled)) return
@@ -798,11 +798,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     const now = new Date().toISOString()
     demo.updateData((current) => {
       let next = Number(current.appSettings?.next_ticket_number ?? 1)
+      const allocated = new Map<string, string>()
+      current.tickets
+        .filter((row) => row.status === 'pending')
+        .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+        .forEach((row) => {
+          allocated.set(row.id, `${current.appSettings?.ticket_prefix ?? 'MT'}${next}`)
+          next += 1
+        })
       const tickets = current.tickets.map((row) => {
-        if (row.status !== 'pending') return row
-        const ticketNumber = `${current.appSettings?.ticket_prefix ?? 'MT'}${next}`
-        next += 1
-        return { ...row, ticket_number: ticketNumber, status: 'saved', updated_at: now }
+        const ticketNumber = allocated.get(row.id)
+        return ticketNumber
+          ? { ...row, ticket_number: ticketNumber, status: 'saved', updated_at: now }
+          : row
       })
       return { ...current, tickets, appSettings: current.appSettings ? { ...current.appSettings, next_ticket_number: next, updated_at: now } : null }
     })

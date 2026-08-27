@@ -5,7 +5,7 @@ import { SelectField, TextArea, TextField } from '@/control-center/approved/comp
 import { Sheet } from '@/control-center/approved/components/shell/Sheet'
 import { usd, usdExact } from '@/control-center/approved/lib/format'
 import { useAppState } from '@/control-center/approved/state/AppState'
-import { dateKey } from '@/control-center/approved/state/jobsData'
+import { dateKey, parseDateKey } from '@/control-center/approved/state/jobsData'
 import {
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABEL,
@@ -73,7 +73,7 @@ export function RecordPaymentSheet({
                 invoiceId: invoice.id,
                 amount: value,
                 method,
-                receivedAt: new Date(date).getTime(),
+                receivedAt: parseDateKey(date).getTime(),
                 note,
               })
               onClose()

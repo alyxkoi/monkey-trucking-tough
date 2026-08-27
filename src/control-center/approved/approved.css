@@ -348,6 +348,12 @@
   }
 }
 
+@media (max-width: 1023px) {
+  body:has(.cc-pinned-total) .qa-fixture-control {
+    display: none;
+  }
+}
+
 /* Drill down entrance. A record opening, so it settles from a little further. */
 @keyframes mt-record {
   from {

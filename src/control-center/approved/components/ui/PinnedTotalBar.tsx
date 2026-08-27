@@ -37,7 +37,7 @@ export function PinnedTotalBar({
   return (
     <div
       className={cn(
-        'z-30 border-t border-line bg-raised',
+        'cc-pinned-total z-30 border-t border-line bg-raised',
         // Fixed above the mobile tab bar, sticky on desktop. Either way the running
         // total and the confirming action never scroll away.
         pinned &&

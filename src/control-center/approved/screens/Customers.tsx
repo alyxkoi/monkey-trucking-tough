@@ -174,6 +174,7 @@ function SortMenu({ value, onChange }: { value: Sort; onChange: (value: Sort) =>
     <div ref={boxRef} className="relative z-40 shrink-0">
       <button
         type="button"
+        aria-label={`Sort customers: ${current.label}`}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((was) => !was)}

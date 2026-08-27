@@ -452,7 +452,7 @@ export function createQaFixtureData(reference = new Date()): ControlData {
 
   const workerPayments: WorkerPayment[] = [
     workerPayment('qa-worker-pay-hourly', 'qa-worker-miguel', 'PENDING', 'MANUAL', 792, day(-8), day(-2), at(-1), { hours: 36, rate: 22 }),
-    workerPayment('qa-worker-pay-driver', 'qa-worker-luis', 'CONFIRMED', 'DRIVER_INVOICE', 1180, day(-8), day(-2), at(0, 6), { attachment_path: 'luis-driver-invoice-week-34.jpg', confirmed_at: at(0, 7) }),
+    workerPayment('qa-worker-pay-driver', 'qa-worker-luis', 'PENDING', 'DRIVER_INVOICE', 1180, day(-8), day(-2), at(0, 6), { attachment_path: 'luis-driver-invoice-week-34.jpg' }),
     workerPayment('qa-worker-pay-paid', 'qa-worker-salvador', 'PAID', 'DRIVER_INVOICE', 1320, day(-15), day(-9), at(-8), { attachment_path: 'salvador-driver-invoice-week-33.jpg', paid_at: at(-7), confirmed_at: at(-8) }),
   ]
 

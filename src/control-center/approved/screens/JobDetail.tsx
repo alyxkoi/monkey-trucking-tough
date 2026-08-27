@@ -78,6 +78,7 @@ export function JobDetail() {
   } = useAppState()
   const [rescheduling, setRescheduling] = useState(false)
   const [confirmingCancel, setConfirmingCancel] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
 
   const { entry, recommend, markActed } = useAttentionEntry()
   const job = jobById(jobId)
@@ -330,17 +331,32 @@ export function JobDetail() {
                     <p className="text-[14px] leading-snug text-cc-muted">
                       Cancelling keeps the record and the reason. Nothing is deleted.
                     </p>
+                    <TextArea
+                      label="Cancellation reason"
+                      value={cancelReason}
+                      onChange={setCancelReason}
+                      rows={2}
+                      placeholder="Customer changed plans, weather, access issue"
+                    />
                     <div className="flex flex-wrap gap-2">
                       <SecondaryButton
                         size="sm"
+                        disabled={cancelReason.trim().length === 0}
                         onClick={() => {
-                          cancelJob(job.id, 'Cancelled by Salvador')
+                          cancelJob(job.id, cancelReason.trim())
+                          setCancelReason('')
                           setConfirmingCancel(false)
                         }}
                       >
                         Cancel the job
                       </SecondaryButton>
-                      <QuietButton size="sm" onClick={() => setConfirmingCancel(false)}>
+                      <QuietButton
+                        size="sm"
+                        onClick={() => {
+                          setCancelReason('')
+                          setConfirmingCancel(false)
+                        }}
+                      >
                         Keep it
                       </QuietButton>
                     </div>

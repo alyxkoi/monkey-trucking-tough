@@ -178,6 +178,7 @@ export function TicketBuilder() {
       return
     }
     setAttempted(false)
+    if (editing && editNote.trim().length === 0) return
     const input = {
       customerId,
       jobId,
@@ -191,7 +192,7 @@ export function TicketBuilder() {
     setSaving(true)
     try {
       if (editing) {
-        await updateTicket(editing.id, input, editNote.trim() || 'Edited after it was finalised')
+        await updateTicket(editing.id, input, editNote.trim())
         navigate(`/admin/tickets/${editing.id}`)
         return
       }
@@ -485,6 +486,7 @@ export function TicketBuilder() {
               value={editNote}
               onChange={setEditNote}
               placeholder="Recorded in the ticket history"
+              hint="Required. The reason stays with the historical correction."
             />
           )}
         </FormSection>
@@ -524,7 +526,10 @@ export function TicketBuilder() {
               : `${lines.length} material ${lines.length === 1 ? 'line' : 'lines'}, ${deliveryLoads} ${deliveryLoads === 1 ? 'load' : 'loads'}`
         }
         action={
-          <PrimaryButton onClick={save} disabled={saving}>
+          <PrimaryButton
+            onClick={save}
+            disabled={saving || Boolean(editing && editNote.trim().length === 0)}
+          >
             {saving ? 'Saving' : editing ? 'Save Changes' : 'Save Ticket'}
           </PrimaryButton>
         }

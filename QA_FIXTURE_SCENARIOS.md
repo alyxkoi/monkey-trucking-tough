@@ -35,7 +35,7 @@ The fixture clock anchors records to the local day when the browser session star
 | Dwayne Roth | Money, Needs Attention | Customer says Zelle was sent, invoice stays unpaid, and Verify Payment attention appears. |
 | Kaufman Feed paid invoice | Money | Paid invoice and confirmed Check payment. |
 | Miguel Santos | Money → Worker Pay | Pending hourly pay; not included in paid worker totals. |
-| Luis Ramirez | Money → Worker Pay | Driver invoice extracted and confirmed, but not marked paid. |
+| Luis Ramirez | Money → Worker Pay | Driver invoice extracted and waiting for Salvador to confirm the detected details; it is not paid. |
 | Salvador Alvarez worker payment | Money → Worker Pay | Completed worker payment; this is the only fixture worker pay that counts as paid. |
 | Angela Price | Customers | Completed and paid work eligible for review-request UI. External sending remains setup-required. |
 | Parker Family Farm | Customers | Prior paid work more than 60 days ago, eligible for reactivation. |

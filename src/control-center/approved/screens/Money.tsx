@@ -6,7 +6,8 @@ import {
   HourlyPaySheet,
   RecordPaymentSheet,
 } from '@/control-center/approved/components/money/MoneySheets'
-import { PrimaryButton, SecondaryButton } from '@/control-center/approved/components/ui/Button'
+import { VoidReasonSheet } from '@/control-center/approved/components/money/VoidReasonSheet'
+import { PrimaryButton, QuietButton, SecondaryButton } from '@/control-center/approved/components/ui/Button'
 import { NumberModule } from '@/control-center/approved/components/ui/NumberModule'
 import { Panel } from '@/control-center/approved/components/ui/Panel'
 import { SegmentControl } from '@/control-center/approved/components/ui/SegmentControl'
@@ -290,10 +291,11 @@ function PaymentList() {
 }
 
 function WorkerPay() {
-  const { workers, workerPaymentsFor, confirmWorkerPayDetails, markWorkerPayPaid } =
+  const { workers, workerPaymentsFor, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment } =
     useAppState()
   const [hourlySheet, setHourlySheet] = useState(false)
   const [driverSheet, setDriverSheet] = useState(false)
+  const [voidingPaymentId, setVoidingPaymentId] = useState<string | null>(null)
 
   const monthStart = new Date()
   monthStart.setDate(1)
@@ -343,7 +345,7 @@ function WorkerPay() {
             ) : (
               <div className="divide-y divide-line border-t border-line">
                 {records.map((entry) => (
-                  <div key={entry.id} className="flex items-center gap-4 px-5 py-3.5">
+                  <div key={entry.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:gap-4">
                     <span className="min-w-0 flex-1">
                       <span className="block font-label text-[13px] uppercase tracking-[0.08em] text-ink">
                         {entry.periodStart} to {entry.periodEnd}
@@ -355,12 +357,13 @@ function WorkerPay() {
                       </span>
                     </span>
 
-                    {entry.voidedAt ? (
-                      <StatusPill tone="idle" size="sm" className="shrink-0">
-                        Void
-                      </StatusPill>
-                    ) : entry.status === 'PENDING' ? (
-                      <div className="flex shrink-0 items-center gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+                      {entry.voidedAt ? (
+                        <StatusPill tone="idle" size="sm" className="shrink-0">
+                          Void
+                        </StatusPill>
+                      ) : entry.status === 'PENDING' ? (
+                        <>
                         <StatusPill tone="warn" size="sm">
                           {entry.source === 'DRIVER_INVOICE' ? 'Check the numbers' : 'Not paid'}
                         </StatusPill>
@@ -376,23 +379,30 @@ function WorkerPay() {
                             Mark paid
                           </SecondaryButton>
                         )}
-                      </div>
-                    ) : entry.status === 'CONFIRMED' ? (
-                      <div className="flex shrink-0 items-center gap-2.5">
+                        </>
+                      ) : entry.status === 'CONFIRMED' ? (
+                        <>
                         <StatusPill tone="warn" size="sm">
                           Not paid
                         </StatusPill>
                         <SecondaryButton size="sm" onClick={() => markWorkerPayPaid(entry.id)}>
                           Mark paid
                         </SecondaryButton>
-                      </div>
-                    ) : (
-                      <StatusPill tone="ok" size="sm" className="shrink-0">
-                        Paid
-                      </StatusPill>
-                    )}
+                        </>
+                      ) : (
+                        <StatusPill tone="ok" size="sm" className="shrink-0">
+                          Paid
+                        </StatusPill>
+                      )}
 
-                    <span className="w-[86px] shrink-0 text-right font-display display-tight tnum text-[20px]">
+                      {!entry.voidedAt && (
+                        <QuietButton size="sm" onClick={() => setVoidingPaymentId(entry.id)}>
+                          Void
+                        </QuietButton>
+                      )}
+                    </div>
+
+                    <span className="shrink-0 font-display display-tight tnum text-[20px] sm:w-[86px] sm:text-right">
                       {usdExact(entry.amount)}
                     </span>
                   </div>
@@ -410,6 +420,17 @@ function WorkerPay() {
 
       <HourlyPaySheet open={hourlySheet} onClose={() => setHourlySheet(false)} />
       <DriverInvoiceSheet open={driverSheet} onClose={() => setDriverSheet(false)} />
+      <VoidReasonSheet
+        open={voidingPaymentId !== null}
+        onClose={() => setVoidingPaymentId(null)}
+        onConfirm={(reason) => {
+          if (voidingPaymentId) voidWorkerPayment(voidingPaymentId, reason)
+        }}
+        title="Void worker payment"
+        line="The pay record stays in history and stops contributing to paid Worker Pay totals."
+        placeholder="Wrong worker, amount or pay period"
+        confirmLabel="Void this worker payment"
+      />
     </div>
   )
 }
