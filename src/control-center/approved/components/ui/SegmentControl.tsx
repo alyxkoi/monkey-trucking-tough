@@ -19,7 +19,7 @@ export function SegmentControl<T extends string>({
 }: {
   options: SegmentOption<T>[]
   value: T
-  onChange: (value: T) => void
+  onChange: (value: NoInfer<T>) => void
   size?: 'sm' | 'md'
   fullWidth?: boolean
   className?: string

@@ -1,94 +1,92 @@
-@layer base {
-  .control-center-root {
-    position: relative;
-    isolation: isolate;
-    color-scheme: dark;
-    @apply text-ink font-control-body antialiased;
-    font-size: 16px;
-    overflow-x: hidden;
-    min-height: 100vh;
-    -webkit-tap-highlight-color: transparent;
-    background-color: #0c080a;
-    background-image:
-      radial-gradient(1200px 820px at 8% -14%, rgba(143, 203, 255, 0.055), transparent 64%),
-      radial-gradient(1500px 980px at 48% 24%, rgba(198, 204, 216, 0.05), transparent 72%),
-      radial-gradient(1500px 1050px at 92% 116%, rgba(92, 15, 25, 0.13), transparent 74%),
-      linear-gradient(
-        180deg,
-        #1c1c23 0%,
-        #1a1a21 38%,
-        #18181e 66%,
-        #151116 77%,
-        #10090d 90%,
-        #0c080a 100%
-      );
-    background-attachment: fixed;
-    background-repeat: no-repeat;
-  }
-
-  /*
-   * Faint dotted platinum texture. One pixel dots on a 24px grid, faded out
-   * through the platinum field, then eased away with the lower burgundy descent.
-   */
-  .control-center-root::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background-image: radial-gradient(rgba(214, 220, 232, 0.05) 1px, transparent 1px);
-    background-size: 24px 24px;
-    -webkit-mask-image: linear-gradient(
+.control-center-root {
+  position: relative;
+  isolation: isolate;
+  color-scheme: dark;
+  @apply text-ink font-control-body antialiased;
+  font-size: 16px;
+  overflow-x: hidden;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+  background-color: #0c080a;
+  background-image:
+    radial-gradient(1200px 820px at 8% -14%, rgba(143, 203, 255, 0.055), transparent 64%),
+    radial-gradient(1500px 980px at 48% 24%, rgba(198, 204, 216, 0.05), transparent 72%),
+    radial-gradient(1500px 1050px at 92% 116%, rgba(92, 15, 25, 0.13), transparent 74%),
+    linear-gradient(
       180deg,
-      #000 0%,
-      rgba(0, 0, 0, 0.9) 62%,
-      rgba(0, 0, 0, 0.42) 80%,
-      transparent 100%
+      #1c1c23 0%,
+      #1a1a21 38%,
+      #18181e 66%,
+      #151116 77%,
+      #10090d 90%,
+      #0c080a 100%
     );
-    mask-image: linear-gradient(
-      180deg,
-      #000 0%,
-      rgba(0, 0, 0, 0.9) 62%,
-      rgba(0, 0, 0, 0.42) 80%,
-      transparent 100%
-    );
-  }
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
 
-  .control-center-root > * {
-    position: relative;
-    z-index: 1;
-  }
+/*
+ * Faint dotted platinum texture. One pixel dots on a 24px grid, faded out
+ * through the platinum field, then eased away with the lower burgundy descent.
+ */
+.control-center-root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(214, 220, 232, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    #000 0%,
+    rgba(0, 0, 0, 0.9) 62%,
+    rgba(0, 0, 0, 0.42) 80%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    #000 0%,
+    rgba(0, 0, 0, 0.9) 62%,
+    rgba(0, 0, 0, 0.42) 80%,
+    transparent 100%
+  );
+}
 
-  /* Outdoor and iPhone rule: form text never drops below 16px. */
-  .control-center-root input,
-  .control-center-root select,
-  .control-center-root textarea {
-    font-size: 16px;
-  }
+.control-center-root > * {
+  position: relative;
+  z-index: 1;
+}
 
-  .control-center-root button {
-    -webkit-tap-highlight-color: transparent;
-  }
+/* Outdoor and iPhone rule: form text never drops below 16px. */
+.control-center-root input,
+.control-center-root select,
+.control-center-root textarea {
+  font-size: 16px;
+}
 
-  .control-center-root ::selection {
-    background: #ff3131;
-    color: #0e0e10;
-  }
+.control-center-root button {
+  -webkit-tap-highlight-color: transparent;
+}
 
-  .control-center-root ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-  .control-center-root ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .control-center-root ::-webkit-scrollbar-thumb {
-    background: #2c2c31;
-    border-radius: 999px;
-  }
-  .control-center-root ::-webkit-scrollbar-thumb:hover {
-    background: #3a3a41;
-  }
+.control-center-root ::selection {
+  background: #ff3131;
+  color: #0e0e10;
+}
+
+.control-center-root ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.control-center-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.control-center-root ::-webkit-scrollbar-thumb {
+  background: #2c2c31;
+  border-radius: 999px;
+}
+.control-center-root ::-webkit-scrollbar-thumb:hover {
+  background: #3a3a41;
 }
 
 /*
@@ -106,139 +104,135 @@
  * gradients left in the whole system are the page background, which is the room
  * everything sits in, and the single lit calendar field on the Overview.
  */
-@layer components {
-  .surface {
-    background-color: rgba(18, 18, 22, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
-  }
-
-  .surface-glass {
-    background-color: rgba(20, 20, 25, 0.82);
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    -webkit-backdrop-filter: blur(22px) saturate(130%);
-    backdrop-filter: blur(22px) saturate(130%);
-    box-shadow: 0 30px 60px -32px rgba(0, 0, 0, 0.95);
-  }
-
-  .surface-ice {
-    background-color: rgba(24, 30, 38, 0.9);
-    border: 1px solid rgba(143, 203, 255, 0.18);
-    box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
-  }
-
-  .surface-warm {
-    background-color: rgba(32, 21, 22, 0.9);
-    border: 1px solid rgba(255, 49, 49, 0.2);
-    box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
-  }
-
-  /* Settled money. Green stays utility only and never becomes a brand color. */
-  .surface-ok {
-    background-color: rgba(20, 30, 23, 0.9);
-    border: 1px solid rgba(48, 209, 88, 0.2);
-    box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
-  }
-
-  /*
-   * Cool platinum. The primary ticket summary, and nothing else.
-   *
-   * A flat machined plate rather than a light grey form: no gradient, no gloss,
-   * a faint blue undertone and a near black hairline so the structure inside it
-   * has something to sit on. Near black on #C4CAD2 measures about 10.8:1, so it
-   * stays readable in direct sun on a phone.
-   */
-  .surface-platinum {
-    background-color: #c4cad2;
-    border: 1px solid rgba(14, 14, 16, 0.16);
-    box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
-  }
-
-  /* Solid colour fields. Flat, so the colour itself is the statement. */
-  .field-ice {
-    background-color: #8fcbff;
-    box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
-  }
-
-  .field-red {
-    background-color: #ff3131;
-    box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
-  }
-
-  .field-warn {
-    background-color: #ff9f0a;
-    box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
-  }
-
-  /*
-   * The one lit surface in the product. The calendar anchor keeps a hint of
-   * violet in the top right corner so today reads as light falling on a plate.
-   * Nothing else gets this treatment, which is what keeps it worth looking at.
-   */
-  .field-ice-lit {
-    background-color: #8fcbff;
-    background-image: radial-gradient(
-      130% 140% at 106% -20%,
-      rgba(169, 166, 255, 0.9) 0%,
-      rgba(169, 166, 255, 0) 60%
-    );
-    box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
-  }
+.surface {
+  background-color: rgba(18, 18, 22, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
 }
 
-@layer utilities {
-  .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  .mb-safe {
-    margin-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .no-scrollbar {
-    scrollbar-width: none;
-  }
-  .tnum {
-    font-variant-numeric: tabular-nums;
-  }
+.surface-glass {
+  background-color: rgba(20, 20, 25, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  -webkit-backdrop-filter: blur(22px) saturate(130%);
+  backdrop-filter: blur(22px) saturate(130%);
+  box-shadow: 0 30px 60px -32px rgba(0, 0, 0, 0.95);
+}
+
+.surface-ice {
+  background-color: rgba(24, 30, 38, 0.9);
+  border: 1px solid rgba(143, 203, 255, 0.18);
+  box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
+}
+
+.surface-warm {
+  background-color: rgba(32, 21, 22, 0.9);
+  border: 1px solid rgba(255, 49, 49, 0.2);
+  box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
+}
+
+/* Settled money. Green stays utility only and never becomes a brand color. */
+.surface-ok {
+  background-color: rgba(20, 30, 23, 0.9);
+  border: 1px solid rgba(48, 209, 88, 0.2);
+  box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
+}
+
+/*
+ * Cool platinum. The primary ticket summary, and nothing else.
+ *
+ * A flat machined plate rather than a light grey form: no gradient, no gloss,
+ * a faint blue undertone and a near black hairline so the structure inside it
+ * has something to sit on. Near black on #C4CAD2 measures about 10.8:1, so it
+ * stays readable in direct sun on a phone.
+ */
+.surface-platinum {
+  background-color: #c4cad2;
+  border: 1px solid rgba(14, 14, 16, 0.16);
+  box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
+}
+
+/* Solid colour fields. Flat, so the colour itself is the statement. */
+.field-ice {
+  background-color: #8fcbff;
+  box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
+}
+
+.field-red {
+  background-color: #ff3131;
+  box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
+}
+
+.field-warn {
+  background-color: #ff9f0a;
+  box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
+}
+
+/*
+ * The one lit surface in the product. The calendar anchor keeps a hint of
+ * violet in the top right corner so today reads as light falling on a plate.
+ * Nothing else gets this treatment, which is what keeps it worth looking at.
+ */
+.field-ice-lit {
+  background-color: #8fcbff;
+  background-image: radial-gradient(
+    130% 140% at 106% -20%,
+    rgba(169, 166, 255, 0.9) 0%,
+    rgba(169, 166, 255, 0) 60%
+  );
+  box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+/*
+ * Anton sits high in its box. This pulls large numbers back onto the baseline.
+ *
+ * The padding is not decorative. With a line height below 1 the line box is
+ * shorter than the glyphs, so any ancestor that clips overflow shaves the top
+ * and bottom off large money figures. This keeps the glyph inside the box.
+ */
+.display-tight {
+  line-height: 0.86;
+  letter-spacing: -0.01em;
   /*
-   * Anton sits high in its box. This pulls large numbers back onto the baseline.
-   *
-   * The padding is not decorative. With a line height below 1 the line box is
-   * shorter than the glyphs, so any ancestor that clips overflow shaves the top
-   * and bottom off large money figures. This keeps the glyph inside the box.
+   * Measured against Anton's real ink, not its em box. At a 0.86 line box the
+   * glyphs sit about 0.07em proud at the top and descenders reach about 0.11em
+   * past the bottom, so anything that clips, including a truncate on the
+   * element itself, shaved the tails off names like Good morning. These values
+   * clear both with a little margin and nothing more.
    */
-  .display-tight {
-    line-height: 0.86;
-    letter-spacing: -0.01em;
-    /*
-     * Measured against Anton's real ink, not its em box. At a 0.86 line box the
-     * glyphs sit about 0.07em proud at the top and descenders reach about 0.11em
-     * past the bottom, so anything that clips, including a truncate on the
-     * element itself, shaved the tails off names like Good morning. These values
-     * clear both with a little margin and nothing more.
-     */
-    padding-top: 0.1em;
-    padding-bottom: 0.13em;
-  }
-  /* Numbers that must never wrap, and must never be clipped by a truncate. */
-  .num-safe {
-    white-space: nowrap;
-    overflow: visible;
-  }
-  /*
-   * A controlled forward lean for the one hero figure on the Overview. A real
-   * skew rather than a synthetic italic, so the angle is chosen instead of left
-   * to whatever the browser does to a font with no italic cut.
-   */
-  .display-racing {
-    transform: skewX(-8deg);
-    letter-spacing: -0.015em;
-  }
-  .text-balance {
-    text-wrap: balance;
-  }
+  padding-top: 0.1em;
+  padding-bottom: 0.13em;
+}
+/* Numbers that must never wrap, and must never be clipped by a truncate. */
+.num-safe {
+  white-space: nowrap;
+  overflow: visible;
+}
+/*
+ * A controlled forward lean for the one hero figure on the Overview. A real
+ * skew rather than a synthetic italic, so the angle is chosen instead of left
+ * to whatever the browser does to a font with no italic cut.
+ */
+.display-racing {
+  transform: skewX(-8deg);
+  letter-spacing: -0.015em;
+}
+.text-balance {
+  text-wrap: balance;
 }
 
 /* Restrained, state based motion only. */
