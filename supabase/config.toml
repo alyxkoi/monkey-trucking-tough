@@ -1,1 +1,4 @@
 project_id = "dugmcjpistrxxryaubkd"
+
+[functions.customer-document]
+verify_jwt = false

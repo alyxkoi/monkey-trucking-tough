@@ -22,6 +22,8 @@ const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const SignIn = lazy(() => import("./pages/SignIn"));
+const PublicQuote = lazy(() => import("./pages/CustomerDocument").then((module) => ({ default: module.PublicQuote })));
+const PublicInvoice = lazy(() => import("./pages/CustomerDocument").then((module) => ({ default: module.PublicInvoice })));
 const ControlCenterLayout = lazy(() => import("./control-center/ExactControlCenterLayout"));
 const Overview = lazy(mainAdminRouteLoaders.overview);
 const NeedsAttention = lazy(() => import("./control-center/approved/screens/NeedsAttention").then((module) => ({ default: module.NeedsAttention })));
@@ -89,6 +91,8 @@ const App = () => (
                 <Route path="/blog/:slug" element={<BlogPost />} />
               </Route>
               <Route path="/signin" element={<SignIn />} />
+              <Route path="/quote/:token" element={<PublicQuote />} />
+              <Route path="/invoice/:token" element={<PublicInvoice />} />
               <Route path="/admin" element={<ControlCenterLayout />}>
                 <Route index element={<Overview />} />
                 <Route path="attention" element={<NeedsAttention />} />

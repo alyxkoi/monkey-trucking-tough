@@ -26,8 +26,8 @@ import {
   markWorkerPaymentPaid,
   recordPayment as recordPaymentRecord,
   saveQuoteChanges,
+  sendCustomerEmail,
   snoozeAttention as persistSnooze,
-  updateInvoice,
   updateJob,
   updateLead,
   updateQuote,
@@ -226,6 +226,7 @@ export type AppStateValue = {
   acceptQuote: (quoteId: string) => void
   declineQuote: (quoteId: string) => void
   communicationReady: boolean
+  emailSendingFor: string | null
   sourceData: ControlData | null
 }
 
@@ -238,6 +239,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const { data, loading, error, refresh, pendingTickets, syncing } = useControlCenter()
   const [period, setPeriodState] = useState<Period>('MTD')
   const [moneyLoading, setMoneyLoading] = useState(false)
+  const [emailSendingFor, setEmailSendingFor] = useState<string | null>(null)
   const [online, setOnline] = useState(() => navigator.onLine)
   const [lastSyncAt, setLastSyncAt] = useState(Date.now())
   const [newSheetOpen, setNewSheetOpen] = useState(false)
@@ -650,6 +652,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const setQuoteDelivery = useCallback((id: string, delivery: DeliverySelection) => patchQuote(id, (quote) => ({ ...quote, delivery })), [patchQuote])
   const setQuoteDeliveryLoads = useCallback((id: string, deliveryLoads: number) => patchQuote(id, (quote) => ({ ...quote, deliveryLoads })), [patchQuote])
   const sendQuote = useCallback((id: string) => launch(async () => {
+    if (emailSendingFor === id) return
     const current = quoteDraftsRef.current[id] ?? quoteById(id)
     if (demo.enabled) {
       if (current?.status === 'DRAFT') {
@@ -659,18 +662,28 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const now = new Date().toISOString()
       demo.updateData((fixture) => ({ ...fixture, quotes: fixture.quotes.map((row) => row.id === id ? { ...row, status: 'SENT', sent_at: now, updated_at: now } : row) }))
       clearQuoteDraft(id)
-      toast.info('Quote marked sent in demo. SMS remains setup-required.')
+      toast.info('Quote email simulated in demo mode. No email was sent.')
       return
     }
-    if (current?.status === 'DRAFT') {
-      window.clearTimeout(noteTimers.current[`quote:${id}`])
-      await saveQuoteChanges(id, quoteDraft({ ...current, snapshotTotals: undefined }))
+    setEmailSendingFor(id)
+    try {
+      if (current?.status === 'DRAFT') {
+        window.clearTimeout(noteTimers.current[`quote:${id}`])
+        await saveQuoteChanges(id, quoteDraft({ ...current, snapshotTotals: undefined }))
+      }
+      await sendCustomerEmail({
+        template: 'QUOTE_READY',
+        recordId: id,
+        resend: current?.status !== 'DRAFT',
+        requestId: crypto.randomUUID(),
+      })
+      clearQuoteDraft(id)
+      await refresh()
+      toast.success(current?.status === 'DRAFT' ? 'Quote emailed.' : 'Quote emailed again.')
+    } finally {
+      setEmailSendingFor(null)
     }
-    await updateQuote(id, { status: 'SENT', sent_at: new Date().toISOString() })
-    clearQuoteDraft(id)
-    await refresh()
-    if (data?.controlSettings?.sms_status !== 'READY') toast.info('Quote marked sent. Customer delivery is setup-required until SMS is connected.')
-  }), [clearQuoteDraft, data?.controlSettings?.sms_status, demo, launch, quoteById, quoteDraft, refresh, saveQuoteDraftNow])
+  }), [clearQuoteDraft, demo, emailSendingFor, launch, quoteById, quoteDraft, refresh, saveQuoteDraftNow])
   const acceptQuote = useCallback((id: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, quotes: current.quotes.map((row) => row.id === id ? { ...row, status: 'ACCEPTED', accepted_at: now, updated_at: now } : row) })); return } await updateQuote(id, { status: 'ACCEPTED', accepted_at: new Date().toISOString() }); await refresh() }), [demo, launch, refresh])
   const declineQuote = useCallback((id: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, quotes: current.quotes.map((row) => row.id === id ? { ...row, status: 'DECLINED', declined_at: now, updated_at: now } : row) })); return } await updateQuote(id, { status: 'DECLINED', declined_at: new Date().toISOString() }); await refresh() }), [demo, launch, refresh])
 
@@ -777,15 +790,45 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return refreshAfter(() => createInvoiceFromTicketRecord(id))
   }, [data?.invoices.length, data?.tickets, demo, refreshAfter])
   const sendInvoice = useCallback((id: string) => launch(async () => {
+    if (emailSendingFor === id) return
     const due = new Date(); due.setDate(due.getDate() + (data?.controlSettings?.default_invoice_due_days ?? 3))
-    if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, invoices: current.invoices.map((row) => row.id === id ? { ...row, status: 'SENT', issued_at: now, due_at: due.toISOString(), updated_at: now } : row) })); toast.info('Invoice marked sent in demo. SMS remains setup-required.'); return }
-    await updateInvoice(id, { status: 'SENT', issued_at: new Date().toISOString(), due_at: due.toISOString() }); await refresh(); if (data?.controlSettings?.sms_status !== 'READY') toast.info('Invoice marked sent. Customer delivery is setup-required until SMS is connected.')
-  }), [data?.controlSettings, demo, launch, refresh])
-  const resendInvoice = useCallback((_id: string) => toast.info('SMS setup is required before an invoice can be resent.'), [])
+    if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, invoices: current.invoices.map((row) => row.id === id ? { ...row, status: 'SENT', issued_at: now, due_at: due.toISOString(), updated_at: now } : row) })); toast.info('Invoice email simulated in demo mode. No email was sent.'); return }
+    setEmailSendingFor(id)
+    try {
+      await sendCustomerEmail({ template: 'INVOICE_READY', recordId: id, requestId: crypto.randomUUID() })
+      await refresh()
+      toast.success('Invoice emailed.')
+    } finally {
+      setEmailSendingFor(null)
+    }
+  }), [data?.controlSettings?.default_invoice_due_days, demo, emailSendingFor, launch, refresh])
+  const resendInvoice = useCallback((id: string) => launch(async () => {
+    if (emailSendingFor === id) return
+    if (demo.enabled) { toast.info('Invoice resend simulated in demo mode. No email was sent.'); return }
+    setEmailSendingFor(id)
+    try {
+      await sendCustomerEmail({ template: 'INVOICE_READY', recordId: id, resend: true, requestId: crypto.randomUUID() })
+      await refresh()
+      toast.success('Invoice emailed again.')
+    } finally {
+      setEmailSendingFor(null)
+    }
+  }), [demo, emailSendingFor, launch, refresh])
   const voidInvoice = useCallback((id: string, reason: string) => launch(async () => { if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, invoices: current.invoices.map((row) => row.id === id ? { ...row, status: 'VOID', voided_at: now, void_reason: reason, voided_by: QA_FIXTURE_USER_ID, updated_at: now } : row), financialHistory: [{ id: `qa-runtime-financial-${current.financialHistory.length + 1}`, record_type: 'INVOICE', record_id: id, event_type: 'VOIDED', reason, before_snapshot: null, after_snapshot: null, actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now }, ...current.financialHistory] })); return } await voidFinancialRecord('INVOICE', id, reason); await refresh() }), [demo, launch, refresh])
   const recordPayment = useCallback((input: { invoiceId: string; amount: number; method: PaymentMethod; receivedAt: number; note: string }) => launch(async () => {
     if (demo.enabled) { const now = new Date(input.receivedAt).toISOString(); demo.updateData((current) => { const invoice = current.invoices.find((row) => row.id === input.invoiceId); if (!invoice) return current; const paymentId = `qa-runtime-payment-${current.payments.length + 1}`; return { ...current, payments: [{ id: paymentId, invoice_id: input.invoiceId, customer_id: invoice.customer_id, amount: input.amount, method: input.method, confirmed_by: 'HUMAN', note: input.note || null, received_at: now, recorded_by: QA_FIXTURE_USER_ID, recorded_at: now, voided_at: null, void_reason: null, voided_by: null }, ...current.payments], invoices: current.invoices.map((row) => row.id === input.invoiceId ? { ...row, status: 'PAID', paid_at: now, payment_claimed_at: null, updated_at: now } : row), financialHistory: [{ id: `qa-runtime-financial-${current.financialHistory.length + 1}`, record_type: 'PAYMENT', record_id: paymentId, event_type: 'RECORDED', reason: 'Full outstanding balance recorded in demo', before_snapshot: null, after_snapshot: { amount: input.amount }, actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now }, ...current.financialHistory] } }); return }
-    await recordPaymentRecord(input.invoiceId, input.method, input.note); await refresh()
+    const paymentId = await recordPaymentRecord(input.invoiceId, input.method, input.note, new Date(input.receivedAt).toISOString())
+    await refresh()
+    try {
+      const result = await sendCustomerEmail({ template: 'PAYMENT_RECEIVED', recordId: paymentId })
+      if (result.skipped && result.reason === 'missing_email') {
+        toast.info('Payment recorded. No receipt email was sent because the customer has no email address.')
+      } else {
+        toast.success('Payment recorded and receipt emailed.')
+      }
+    } catch (error) {
+      toast.error(`Payment recorded. Receipt email failed: ${error instanceof Error ? error.message : 'retry later'}`)
+    }
   }), [demo, launch, refresh])
   const addHourlyWorkerPay = useCallback((input: { workerId: string; periodStart: string; periodEnd: string; hours: number; rate: number }) => launch(async () => {
     if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, workerPayments: [{ id: `qa-runtime-worker-pay-${current.workerPayments.length + 1}`, worker_id: input.workerId, period_start: input.periodStart, period_end: input.periodEnd, hours: input.hours, rate: input.rate, amount: input.hours * input.rate, status: 'PENDING', source: 'MANUAL', attachment_path: null, confirmed_at: null, paid_at: null, voided_at: null, void_reason: null, voided_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.workerPayments] })); return }
@@ -849,8 +892,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor,
     createInvoiceFromJob, createInvoiceFromTicket, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment,
     findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote,
-    communicationReady: data?.controlSettings?.sms_status === 'READY', sourceData: data,
-  }), [period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, showAllAttention, snoozeAttention, unsnoozeAttention, lastAction, undoLastAction, loading, moneyLoading, demo.enabled, online, syncing, pendingTickets, lastSyncAt, cycleSync, newSheetOpen, newLeadSheetOpen, newJobSheetOpen, pinnedBarActive, customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer, jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes, tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, printTicket, invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor, createInvoiceFromJob, createInvoiceFromTicket, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment, findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote, data])
+    communicationReady: data?.controlSettings?.sms_status === 'READY', emailSendingFor, sourceData: data,
+  }), [period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, showAllAttention, snoozeAttention, unsnoozeAttention, lastAction, undoLastAction, loading, moneyLoading, demo.enabled, online, syncing, pendingTickets, lastSyncAt, cycleSync, newSheetOpen, newLeadSheetOpen, newJobSheetOpen, pinnedBarActive, customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer, jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes, tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, printTicket, invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor, createInvoiceFromJob, createInvoiceFromTicket, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment, findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote, emailSendingFor, data])
 
   if (loading && !data) {
     return <div className="min-h-screen" aria-label="Loading Control Center" />

@@ -36,6 +36,7 @@ export function QuoteScreen() {
     sendQuote,
     acceptQuote,
     declineQuote,
+    emailSendingFor,
   } = useAppState()
 
   const [materialSheet, setMaterialSheet] = useState(false)
@@ -281,8 +282,8 @@ export function QuoteScreen() {
                     <PrimaryButton onClick={() => acceptQuote(quote.id)}>
                       Accept Quote
                     </PrimaryButton>
-                    <SecondaryButton onClick={() => sendQuote(quote.id)}>
-                      Resend Quote
+                    <SecondaryButton disabled={emailSendingFor === quote.id} onClick={() => sendQuote(quote.id)}>
+                      {emailSendingFor === quote.id ? 'Sending…' : 'Resend Quote'}
                     </SecondaryButton>
                     <QuietButton onClick={() => declineQuote(quote.id)}>
                       Customer declined
@@ -325,8 +326,8 @@ export function QuoteScreen() {
                   : `${quote.materialLines.length} material ${quote.materialLines.length === 1 ? 'line' : 'lines'}, tax included`
             }
             action={
-              <PrimaryButton disabled={!canSend} onClick={() => sendQuote(quote.id)}>
-                Send Quote
+              <PrimaryButton disabled={!canSend || emailSendingFor === quote.id} onClick={() => sendQuote(quote.id)}>
+                {emailSendingFor === quote.id ? 'Sending…' : 'Send Quote'}
               </PrimaryButton>
             }
           />

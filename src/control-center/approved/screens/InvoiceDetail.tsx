@@ -85,6 +85,7 @@ export function InvoiceDetail() {
     resendInvoice,
     voidInvoice,
     voidPayment,
+    emailSendingFor,
   } = useAppState()
   const [paymentSheet, setPaymentSheet] = useState(false)
   const [voidOpen, setVoidOpen] = useState(false)
@@ -308,8 +309,8 @@ export function InvoiceDetail() {
             <NextStep
               line="Review it, then send the bill. Sending sets the due date three days out."
               action={
-                <PrimaryButton tone="onSolid" onClick={() => sendInvoice(invoice.id)}>
-                  Send Invoice
+                <PrimaryButton disabled={emailSendingFor === invoice.id} tone="onSolid" onClick={() => sendInvoice(invoice.id)}>
+                  {emailSendingFor === invoice.id ? 'Sending…' : 'Send Invoice'}
                 </PrimaryButton>
               }
             />
@@ -328,8 +329,8 @@ export function InvoiceDetail() {
                       Record Payment
                     </PrimaryButton>
                   </AttentionTarget>
-                  <SecondaryButton tone="onSolid" onClick={() => resendInvoice(invoice.id)}>
-                    Resend Invoice
+                  <SecondaryButton disabled={emailSendingFor === invoice.id} tone="onSolid" onClick={() => resendInvoice(invoice.id)}>
+                    {emailSendingFor === invoice.id ? 'Sending…' : 'Resend Invoice'}
                   </SecondaryButton>
                 </>
               }

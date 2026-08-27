@@ -764,13 +764,50 @@ export const createInvoiceFromJob = (jobId: string) =>
 export const createInvoiceFromTicket = (ticketId: string) =>
   runRpc<string>("create_invoice_from_standalone_ticket", { p_ticket_id: ticketId });
 
-export const recordPayment = (invoiceId: string, method: Payment["method"], note: string) =>
+export const recordPayment = (invoiceId: string, method: Payment["method"], note: string, receivedAt = new Date().toISOString()) =>
   runRpc<string>("record_invoice_payment_full", {
     p_invoice_id: invoiceId,
     p_method: method,
-    p_received_at: new Date().toISOString(),
+    p_received_at: receivedAt,
     p_note: note,
   });
+
+export type CustomerEmailRequest = {
+  template: "QUOTE_READY" | "INVOICE_READY" | "PAYMENT_RECEIVED";
+  recordId: string;
+  resend?: boolean;
+  requestId?: string;
+};
+
+export type CustomerEmailResult = {
+  success?: boolean;
+  skipped?: boolean;
+  reason?: string;
+  providerMessageId?: string;
+};
+
+async function functionErrorMessage(error: unknown): Promise<string> {
+  const fallback = error instanceof Error ? error.message : "Transactional email could not be sent";
+  const context = typeof error === "object" && error && "context" in error
+    ? (error as { context?: unknown }).context
+    : null;
+  if (context instanceof Response) {
+    try {
+      const body = await context.clone().json() as { error?: string };
+      if (body.error) return body.error;
+    } catch {
+      // The edge response was not JSON. Keep the safe client-facing fallback.
+    }
+  }
+  return fallback;
+}
+
+export async function sendCustomerEmail(input: CustomerEmailRequest): Promise<CustomerEmailResult> {
+  const { data, error } = await supabase.functions.invoke("customer-document-email", { body: input });
+  if (error) throw new Error(await functionErrorMessage(error));
+  if (data?.error) throw new Error(String(data.error));
+  return data as CustomerEmailResult;
+}
 
 export const snoozeAttention = async (userId: string, fingerprint: string, returnsAt: string) => {
   const { error } = await controlDb.from("attention_snoozes").upsert({
