@@ -124,7 +124,7 @@ export const TRACKING_LINKS: TrackingLink[] = [
  * so a link and a hand entered lead never describe the same thing two ways. The
  * specific placement, a spring flyer or a particular sign, belongs to Campaign.
  */
-export const LINK_SOURCES = ['Facebook', 'Website', 'QR code', 'Other']
+export const LINK_SOURCES: ('Facebook' | 'Website' | 'QR code' | 'Other')[] = ['Facebook', 'Website', 'QR code', 'Other']
 
 export type SystemUser = {
   id: string
