@@ -54,10 +54,14 @@ describe('guarded prelaunch operational reset', () => {
 })
 
 describe('authenticated Control Center atmosphere', () => {
-  it('uses the fixed platinum-to-burgundy gradient only in the Control Center scope', () => {
+  it('uses a fixed neutral platinum field only in the Control Center scope', () => {
     expect(css).toContain('.control-center-root::after')
-    expect(css).toContain('#545660 0%')
-    expect(css).toContain('#120509 100%')
+    expect(css).toContain('#c8ccd1 0%')
+    expect(css).toContain('#b5bac0 52%')
+    expect(css).toContain('#969ca3 100%')
+    expect(css).toContain('ellipse 118% 70%')
+    expect(css).toContain('overflow-x: clip')
+    expect(css).not.toMatch(/burgundy|#120509|#14070b/i)
     expect(css).not.toContain('Love%20and%20Liberty.jpg')
     expect(css).toContain('background-size: cover')
     expect(css).toContain('background-position: center')
@@ -68,6 +72,7 @@ describe('authenticated Control Center atmosphere', () => {
     expect(sideNav).toContain('lg:left-4')
     expect(sideNav).toContain('lg:top-4')
     expect(sideNav).toContain('lg:rounded-[24px]')
-    expect(sideNav).toContain('lg:backdrop-blur-2xl')
+    expect(sideNav).toContain('sidebar-frost')
+    expect(css).toContain('backdrop-filter: blur(24px) saturate(118%)')
   })
 })

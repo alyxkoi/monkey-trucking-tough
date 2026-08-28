@@ -81,6 +81,11 @@ export default {
         ink: "#F5F5F7",
         "cc-muted": "#9C9CA6",
         idle: "#8A8A94",
+        platinum: {
+          ink: "#171A1F",
+          muted: "#444A52",
+          idle: "#656C74",
+        },
         mt: {
           red: "#FF3131",
           deep: "#D62D24",

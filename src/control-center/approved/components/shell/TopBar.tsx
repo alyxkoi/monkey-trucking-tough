@@ -9,6 +9,7 @@ import { useAppState } from '@/control-center/approved/state/AppState'
 import { CURRENT_USER } from '@/control-center/approved/state/moneyData'
 import { sectionForPath } from './nav'
 import { useAuth } from '@/hooks/useAuth'
+import { ProfileAvatarControl } from './ProfileAvatar'
 import monkeyTruckingLogo from '@/assets/monkey-trucking-logo.webp'
 
 /**
@@ -103,10 +104,6 @@ export function TopBar() {
               : 'border-transparent bg-transparent',
           )}
         >
-          {/*
-            A thin red rule ties the date to the title so they read as one block
-            rather than two stacked lines, and gives the header its start point.
-          */}
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <img
               src={monkeyTruckingLogo}
@@ -116,22 +113,32 @@ export function TopBar() {
               decoding="async"
               className="h-auto w-[52px] shrink-0 object-contain sm:w-[68px] lg:hidden"
             />
-            <div className="flex min-w-0 items-stretch gap-2 sm:gap-3">
-              <span className="w-[3px] shrink-0 rounded-full bg-mt-red" />
-              <div className="min-w-0">
-                <div className="font-label text-[11px] font-semibold uppercase leading-none tracking-[0.26em] text-cc-muted sm:text-[12px]">
-                  {today.full}
-                </div>
-                <h1 className="display-racing -ml-1 mt-1 truncate pl-1 font-display display-tight text-[19px] min-[410px]:text-[22px] sm:text-[28px] lg:text-[32px]">
-                  {isOverview ? (
-                    <span className="animate-greeting">
-                      {greeting()}, <span className="text-mt-red">{userName}</span>
-                    </span>
-                  ) : (
-                    title
-                  )}
-                </h1>
+            <div className="min-w-0">
+              <div
+                className={cn(
+                  'font-label text-[11px] font-bold uppercase leading-none tracking-[0.2em] sm:text-[12px]',
+                  floating ? 'text-cc-muted' : 'platinum-muted',
+                )}
+              >
+                {today.full}
               </div>
+              <h1
+                className={cn(
+                  'mt-1.5 font-display display-tight sm:text-[34px] lg:text-[40px]',
+                  isOverview
+                    ? 'whitespace-normal text-[21px] min-[410px]:text-[23px]'
+                    : 'truncate text-[24px] min-[410px]:text-[27px]',
+                  floating ? 'text-ink' : 'platinum-title',
+                )}
+              >
+                {isOverview ? (
+                  <span className="animate-greeting">
+                    {greeting()}, <span className="block text-mt-red sm:inline">{userName}</span>
+                  </span>
+                ) : (
+                  title
+                )}
+              </h1>
             </div>
           </div>
 
@@ -142,6 +149,7 @@ export function TopBar() {
               lastSyncAt={lastSyncAt}
               onClick={cycleSync}
             />
+            <ProfileAvatarControl className="lg:hidden" compact />
             <PrimaryButton
               className="hidden lg:inline-flex"
               onClick={() => setNewSheetOpen(true)}

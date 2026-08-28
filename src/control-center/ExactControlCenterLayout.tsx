@@ -31,7 +31,7 @@ export default function ExactControlCenterLayout() {
         <title>Control Center · Monkey Trucking</title>
         <meta name="robots" content="noindex, nofollow" />
         <meta name="googlebot" content="noindex, nofollow" />
-        <meta name="theme-color" content="#0e0e10" />
+        <meta name="theme-color" content="#B5BAC0" />
       </Helmet>
       <ControlCenterProvider>
         <AppStateProvider>

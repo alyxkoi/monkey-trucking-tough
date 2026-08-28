@@ -129,8 +129,8 @@ function MoneySnapshot() {
             supporting layer groups as one band under the hero, and the overdue
             cell warms up only when something is actually late.
           */}
-          <div className="grid grid-cols-2 gap-px border-t border-white/[0.07] bg-white/[0.07]">
-            <div className="bg-[#141418]/60 px-5 py-5 lg:px-7 lg:py-6">
+          <div className="cc-segment-band grid grid-cols-2 border-t border-white/[0.07]">
+            <div className="cc-segment px-5 py-5 lg:px-7 lg:py-6">
               <NumberModule
                 label="Outstanding"
                 symbol="$"
@@ -142,8 +142,8 @@ function MoneySnapshot() {
             <div
               className={
                 money.overdue > 0
-                  ? 'bg-mt-red/[0.07] px-5 py-5 lg:px-7 lg:py-6'
-                  : 'bg-[#141418]/60 px-5 py-5 lg:px-7 lg:py-6'
+                  ? 'cc-segment bg-mt-red/[0.07] px-5 py-5 lg:px-7 lg:py-6'
+                  : 'cc-segment px-5 py-5 lg:px-7 lg:py-6'
               }
             >
               <NumberModule
@@ -397,13 +397,13 @@ function Pipeline() {
         </div>
       </button>
 
-      <div className="grid grid-cols-3 gap-px bg-white/[0.07]">
+      <div className="cc-segment-band grid grid-cols-3">
         {counts.map((count) => (
           <button
             key={count.key}
             type="button"
             onClick={() => navigate(count.to)}
-            className="row-hover min-h-[92px] bg-[#141418]/50 px-4 py-4 text-left hover:bg-white/[0.06]"
+            className="cc-segment min-h-[92px] px-4 py-4 text-left"
           >
             <div className="num-safe font-display display-tight tnum text-[30px]">
               {count.value}

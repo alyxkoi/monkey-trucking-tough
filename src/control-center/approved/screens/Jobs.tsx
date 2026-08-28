@@ -113,7 +113,7 @@ export function Jobs() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-4">
-          <span className="font-label text-[13px] font-semibold uppercase tracking-[0.16em] text-cc-muted">
+          <span className="platinum-muted font-label text-[13px] font-semibold uppercase tracking-[0.16em]">
             {jobs.filter((job) => job.status === 'SCHEDULED').length} scheduled
           </span>
           {cancelledCount > 0 && (
@@ -128,7 +128,7 @@ export function Jobs() {
               )}
             >
               Show cancelled
-              <span className={cn('ml-2 tnum', showCancelled ? 'text-canvas/70' : 'text-idle')}>
+              <span className={cn('ml-2 tnum', showCancelled ? 'text-white/75' : 'text-idle')}>
                 {cancelledCount}
               </span>
             </button>
@@ -154,7 +154,7 @@ export function Jobs() {
 
       <div className="grid gap-5 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-7">
-          <Panel padded={false}>
+          <Panel padded={false} className="calendar-frost">
             <MonthCalendar
               month={month}
               selected={selected}
@@ -277,7 +277,7 @@ export function Jobs() {
             there is anything in here. With the list empty it drops back to a
             normal section, because red that is always on stops meaning anything.
           */}
-          <section className="surface flex flex-col overflow-hidden rounded-panel">
+          <section className="waiting-frost flex flex-col overflow-hidden rounded-panel">
             <header
               className={cn(
                 'flex items-center justify-between gap-3 px-5 py-3.5',

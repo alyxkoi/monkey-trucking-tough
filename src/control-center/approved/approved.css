@@ -4,17 +4,17 @@
   color-scheme: dark;
   @apply text-ink font-control-body antialiased;
   font-size: 16px;
-  overflow-x: hidden;
+  overflow-x: clip;
   min-height: 100vh;
   -webkit-tap-highlight-color: transparent;
-  background-color: #14070b;
+  background-color: #b5bac0;
 }
 
 /*
  * One fixed atmospheric layer for the authenticated Control Center only.
- * Platinum holds through most of the viewport, then descends slowly into the
- * deep burgundy lower field. It is paint only: no image request and no moving
- * layer while routes change or the page scrolls.
+ * A neutral machined-platinum field for the authenticated product. A very broad
+ * ellipse rises from below the viewport to bend the lower fade into a shallow U.
+ * It is paint only: no image request and no moving layer while routes change.
  */
 .control-center-root::after {
   content: '';
@@ -22,19 +22,17 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-color: #14070b;
+  background-color: #b5bac0;
   background-image:
-    radial-gradient(1150px 760px at 18% -12%, rgba(238, 241, 248, 0.19), transparent 72%),
+    radial-gradient(ellipse 118% 70% at 50% 18%, transparent 55%, rgba(96, 103, 111, 0.24) 84%, rgba(82, 89, 97, 0.34) 100%),
+    radial-gradient(ellipse 130% 64% at 50% 118%, rgba(119, 126, 134, 0.62) 0%, rgba(130, 137, 145, 0.28) 52%, transparent 80%),
     linear-gradient(
       180deg,
-      #545660 0%,
-      #4c4e58 18%,
-      #42434d 38%,
-      #34343d 58%,
-      #28232d 70%,
-      #21131b 82%,
-      #18090f 92%,
-      #120509 100%
+      #c8ccd1 0%,
+      #c2c6cb 18%,
+      #b5bac0 52%,
+      #a8aeb4 76%,
+      #969ca3 100%
     );
   background-position: center;
   background-repeat: no-repeat;
@@ -48,20 +46,20 @@
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background-image: radial-gradient(rgba(239, 241, 247, 0.048) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(29, 33, 38, 0.075) 1px, transparent 1px);
   background-size: 24px 24px;
   -webkit-mask-image: linear-gradient(
     180deg,
     #000 0%,
-    rgba(0, 0, 0, 0.92) 58%,
-    rgba(0, 0, 0, 0.48) 78%,
+    rgba(0, 0, 0, 0.9) 54%,
+    rgba(0, 0, 0, 0.42) 80%,
     transparent 100%
   );
   mask-image: linear-gradient(
     180deg,
     #000 0%,
-    rgba(0, 0, 0, 0.92) 58%,
-    rgba(0, 0, 0, 0.48) 78%,
+    rgba(0, 0, 0, 0.9) 54%,
+    rgba(0, 0, 0, 0.42) 80%,
     transparent 100%
   );
 }
@@ -124,11 +122,76 @@
 }
 
 .surface-glass {
-  background-color: rgba(14, 14, 19, 0.74);
+  background-color: rgba(14, 14, 19, 0.84);
   border: 1px solid rgba(255, 255, 255, 0.11);
   -webkit-backdrop-filter: blur(22px) saturate(130%);
   backdrop-filter: blur(22px) saturate(130%);
   box-shadow: 0 30px 60px -32px rgba(0, 0, 0, 0.95);
+}
+
+/* Restrained depth for the Jobs calendar and its waiting queue. */
+.calendar-frost,
+.waiting-frost {
+  background-color: rgba(12, 13, 17, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  -webkit-backdrop-filter: blur(18px) saturate(112%);
+  backdrop-filter: blur(18px) saturate(112%);
+  box-shadow: 0 28px 64px -34px rgba(0, 0, 0, 0.92);
+}
+
+.sidebar-frost {
+  background-color: rgba(11, 12, 16, 0.9);
+  border-color: rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(24px) saturate(118%);
+  backdrop-filter: blur(24px) saturate(118%);
+  box-shadow: 0 34px 88px -32px rgba(0, 0, 0, 0.92);
+}
+
+/* Text that sits directly on platinum, never inside a dark content surface. */
+.platinum-title {
+  color: #171a1f;
+}
+
+.platinum-muted {
+  color: #444a52;
+}
+
+.platinum-idle {
+  color: #656c74;
+}
+
+/* One grouped band, with internal segments that move without reflowing it. */
+.cc-segment-band {
+  background-color: rgba(20, 20, 24, 0.62);
+}
+
+.cc-segment {
+  position: relative;
+  isolation: isolate;
+  transition: transform 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.cc-segment + .cc-segment::before {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  top: 15%;
+  bottom: 15%;
+  left: 0;
+  width: 1px;
+  transform: skewX(-11deg);
+  transform-origin: center;
+  background-image: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.16) 28%, rgba(255, 255, 255, 0.16) 72%, transparent);
+  pointer-events: none;
+}
+
+@media (hover: hover) {
+  .cc-segment:hover {
+    z-index: 1;
+    transform: translateY(-2px);
+    background-color: rgba(255, 255, 255, 0.065);
+    box-shadow: 0 15px 28px -22px rgba(0, 0, 0, 0.95), inset 0 1px rgba(255, 255, 255, 0.055);
+  }
 }
 
 .surface-ice {
@@ -166,6 +229,17 @@
 /* Ultrasonic Blue is dark enough to need a lighter companion for small text. */
 .control-center-root .text-ice {
   color: #9e7bff;
+}
+
+/* Sheets render through a body portal so sticky headers cannot trap them. */
+.cc-sheet-portal .text-ice {
+  color: #9e7bff;
+}
+
+.cc-sheet-portal input,
+.cc-sheet-portal select,
+.cc-sheet-portal textarea {
+  font-size: 16px;
 }
 
 .field-ice .text-canvas,
@@ -441,6 +515,14 @@
 @media (prefers-reduced-motion: reduce) {
   .attention-pulse {
     animation: none;
+  }
+
+  .cc-segment {
+    transition: none;
+  }
+
+  .cc-segment:hover {
+    transform: none;
   }
 }
 

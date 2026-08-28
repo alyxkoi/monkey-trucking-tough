@@ -32,7 +32,7 @@ const BASE =
   'inline-flex items-center justify-center gap-2 rounded-xl font-label font-semibold uppercase tracking-[0.08em] transition-[background-color,color,border-color,box-shadow,transform] duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice/70 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:opacity-40 disabled:pointer-events-none'
 
 /**
- * Primary action. Brand red by default, then platinum under the cursor.
+ * Primary action. Brand red by default, then snow white under the cursor.
  *
  * Urgency is carried by the priority chip beside the action, not by giving some
  * buttons a different color from others. Every primary action in the product now
@@ -59,7 +59,7 @@ export function PrimaryButton({
         SIZES[size],
         fullWidth && 'w-full',
         tone === 'default'
-          ? 'border border-mt-red bg-mt-red text-canvas shadow-[0_10px_24px_-14px_rgba(0,0,0,0.9)] hover:border-[#c4cad2] hover:bg-[#c4cad2] hover:text-canvas active:border-[#aeb4bd] active:bg-[#aeb4bd] active:text-canvas'
+          ? 'border border-mt-red bg-mt-red text-canvas shadow-[0_10px_24px_-14px_rgba(0,0,0,0.9)] motion-safe:hover:-translate-y-0.5 hover:border-ink hover:bg-ink hover:text-canvas hover:shadow-[0_18px_34px_-18px_rgba(0,0,0,0.95)] active:border-[#dfe1e5] active:bg-[#dfe1e5] active:text-canvas'
           : 'bg-canvas text-ink hover:bg-[#1C1C20] active:bg-[#242429] focus-visible:ring-canvas/60 focus-visible:ring-offset-0',
         className,
       )}
@@ -117,7 +117,7 @@ export function BrandButton({
         BASE,
         SIZES[size],
         fullWidth && 'w-full',
-        'border border-mt-red bg-mt-red text-canvas hover:border-[#c4cad2] hover:bg-[#c4cad2] hover:text-canvas active:border-[#aeb4bd] active:bg-[#aeb4bd] active:text-canvas',
+        'border border-mt-red bg-mt-red text-canvas shadow-[0_10px_24px_-14px_rgba(0,0,0,0.9)] motion-safe:hover:-translate-y-0.5 hover:border-ink hover:bg-ink hover:text-canvas hover:shadow-[0_18px_34px_-18px_rgba(0,0,0,0.95)] active:border-[#dfe1e5] active:bg-[#dfe1e5] active:text-canvas',
         className,
       )}
     >

@@ -184,7 +184,7 @@ describe("Phase 05 Control Center contracts", () => {
     expect(shell).toContain("lg:pl-[280px]");
   });
 
-  it("uses Ultrasonic Blue with red-to-platinum primary actions", () => {
+  it("uses solid Ultrasonic Blue with red-to-snow primary actions", () => {
     const tailwind = read("tailwind.config.ts");
     const buttons = read("src/control-center/approved/components/ui/Button.tsx");
     const panels = read("src/control-center/approved/components/ui/Panel.tsx");
@@ -193,10 +193,34 @@ describe("Phase 05 Control Center contracts", () => {
     expect(tailwind).toContain('DEFAULT: "#5500D5"');
     expect(tailwind).not.toContain('#8FCBFF');
     expect(buttons).toContain("bg-mt-red text-canvas");
-    expect(buttons).toContain("hover:bg-[#c4cad2]");
+    expect(buttons).toContain("hover:bg-ink");
+    expect(buttons).toContain("motion-safe:hover:-translate-y-0.5");
     expect(panels).toContain("primary = false");
     expect(panels).toContain("bg-mt-red");
     expect(settings).toContain("bg-ice text-white");
     expect(settings).toContain("{active && (");
+  });
+
+  it("keeps profile avatars private, owner-scoped, and immediately replacing", () => {
+    const avatar = read("src/control-center/approved/components/shell/ProfileAvatar.tsx");
+    const sheet = read("src/control-center/approved/components/shell/Sheet.tsx");
+    const service = read("src/control-center/profile/profileAvatar.ts");
+    const migration = read("supabase/migrations/20260828213000_profile_avatar_storage.sql");
+
+    expect(avatar).toContain("PROFILE_AVATAR_ACCEPT");
+    expect(avatar).toContain("uploadProfileAvatar(user, file)");
+    expect(avatar).not.toContain("Save profile");
+    expect(sheet).toContain("createPortal");
+    expect(service).toContain("10 * 1024 * 1024");
+    expect(service).toContain("image/jpeg");
+    expect(service).toContain("image/png");
+    expect(service).toContain("image/webp");
+    expect(service).toContain("upsert: true");
+    expect(service).toContain("`${userId}/avatar`");
+    expect(service).not.toMatch(/service.role|base64/i);
+    expect(migration).toContain("public = excluded.public");
+    expect(migration).toContain("to authenticated");
+    expect(migration).toContain("name = auth.uid()::text || '/avatar'");
+    expect(migration).not.toMatch(/public\.(customers|leads|jobs|tickets|materials|invoices|payments)/i);
   });
 });

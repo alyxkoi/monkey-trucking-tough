@@ -6,7 +6,7 @@ import type { SyncStatus } from '@/control-center/approved/state/AppState'
 /**
  * Offline and sync feedback.
  *
- * Connected and syncing states use icy blue because that is the system accent.
+ * Connected and syncing states use Monkey red as the active operational accent.
  * Offline uses amber because it is a waiting state, not a failure and not an
  * emergency. Nothing here is ever hidden from the user: a ticket waiting to sync
  * has to be visibly safe.
@@ -40,7 +40,7 @@ export function SyncChip({
         'flex h-11 items-center gap-2 rounded-xl border px-3.5 font-label text-[12px] font-semibold uppercase tracking-[0.12em] transition-colors',
         status === 'offline'
           ? 'border-warn/40 bg-warn/10 text-warn'
-          : 'border-line bg-raised text-ice hover:border-ice/40',
+          : 'border-mt-red/35 bg-mt-red/[0.08] text-mt-red hover:border-mt-red/60',
       )}
     >
       {status === 'offline' ? (
@@ -73,7 +73,7 @@ export function SyncBanner({
         'flex items-center gap-2.5 rounded-xl border px-4 py-3 font-label text-[13px] font-semibold uppercase tracking-[0.1em]',
         status === 'offline'
           ? 'border-warn/40 bg-warn/10 text-warn'
-          : 'border-ice/40 bg-ice/10 text-ice',
+          : 'border-mt-red/40 bg-mt-red/10 text-mt-red',
         className,
       )}
     >

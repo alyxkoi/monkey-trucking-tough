@@ -413,7 +413,7 @@ function WorkerPay() {
         )
       })}
 
-      <p className="px-1 text-[13px] leading-snug text-cc-muted">
+      <p className="platinum-muted px-1 text-[13px] leading-snug">
         Worker pay is a record, not payroll. A record only counts once it is marked paid.
         There are no worker logins, no time clock and no tax handling here.
       </p>

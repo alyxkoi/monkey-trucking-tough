@@ -129,16 +129,15 @@ export function MonthCalendar({
               onClick={() => onSelect(key)}
               className={cn(
                 'flex min-h-[54px] min-w-11 flex-col items-center justify-start gap-1.5 rounded-xl border p-1.5 transition-colors lg:min-h-[86px] lg:justify-between lg:p-2',
-                isToday && 'border-transparent bg-ice text-white',
-                !isToday && isSelected && 'border-ice bg-raised',
-                !isToday && !isSelected && 'border-transparent hover:bg-raised/60',
+                isSelected && 'border-ice bg-ice text-white shadow-[0_10px_24px_-18px_rgba(85,0,213,0.9)]',
+                !isSelected && 'border-transparent hover:bg-raised/60',
                 !inMonth && 'opacity-35',
               )}
             >
               <span
                 className={cn(
                   'font-display display-tight tnum text-[17px] lg:self-start lg:text-[22px]',
-                  isToday ? 'text-canvas' : inMonth ? 'text-ink' : 'text-cc-muted',
+                  isSelected ? 'text-white' : inMonth ? 'text-ink' : 'text-cc-muted',
                 )}
               >
                 {day.getDate()}
@@ -149,14 +148,14 @@ export function MonthCalendar({
                   {dayJobs.slice(0, 3).map((job) => (
                     <span
                       key={job.id}
-                      className={cn('h-1.5 w-1.5 rounded-full', dotClass(job, isToday))}
+                      className={cn('h-1.5 w-1.5 rounded-full', dotClass(job, isSelected))}
                     />
                   ))}
                   {dayJobs.length > 3 && (
                     <span
                       className={cn(
                         'font-label text-[11px] font-semibold tracking-[0.06em]',
-                        isToday ? 'text-canvas/70' : 'text-cc-muted',
+                        isSelected ? 'text-white/75' : 'text-cc-muted',
                       )}
                     >
                       +{dayJobs.length - 3}

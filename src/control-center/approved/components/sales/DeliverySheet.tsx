@@ -89,20 +89,20 @@ export function DeliverySheet({
               onClick={() => setMode(option.mode)}
               className={cn(
                 'flex w-full items-center gap-4 px-5 py-4 text-left transition-colors',
-                selected ? 'bg-ice/10' : 'hover:bg-raised/60',
+                selected ? 'bg-ice text-white' : 'hover:bg-raised/60',
               )}
             >
               <span
                 className={cn(
                   'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border',
-                  selected ? 'border-ice bg-ice text-white' : 'border-line bg-raised',
+                  selected ? 'border-white/60 bg-white text-ice' : 'border-line bg-raised',
                 )}
               >
                 {selected && <Check className="h-4 w-4" strokeWidth={3} />}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[16px] font-semibold text-ink">{option.label}</span>
-                <span className="mt-0.5 block text-[14px] text-cc-muted">{option.hint}</span>
+                <span className={cn('block text-[16px] font-semibold', selected ? 'text-white' : 'text-ink')}>{option.label}</span>
+                <span className={cn('mt-0.5 block text-[14px]', selected ? 'text-white/75' : 'text-cc-muted')}>{option.hint}</span>
               </span>
             </button>
           )

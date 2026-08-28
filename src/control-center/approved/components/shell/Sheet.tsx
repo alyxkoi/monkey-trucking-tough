@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '@/control-center/approved/lib/cn'
 
@@ -37,8 +38,8 @@ export function Sheet({
 
   if (!open) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+  return createPortal(
+    <div className="cc-sheet-portal fixed inset-0 z-50 flex items-end justify-center font-control-body text-ink [color-scheme:dark] sm:items-center">
       <button
         type="button"
         aria-label="Close"
@@ -61,7 +62,7 @@ export function Sheet({
                 {eyebrow}
               </div>
             )}
-            <h2 className="font-display display-tight text-[26px]">{title}</h2>
+            <h2 className="font-display display-tight text-[26px] text-ink">{title}</h2>
           </div>
           <button
             type="button"
@@ -80,6 +81,7 @@ export function Sheet({
         )}
         {!footer && <div className="pb-safe sm:pb-0" />}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

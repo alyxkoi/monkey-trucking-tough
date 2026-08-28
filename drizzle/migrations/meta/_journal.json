@@ -15,6 +15,13 @@
       "when": 1787936503278,
       "tag": "0001_create_email_queues",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787967000000,
+      "tag": "0002_profile_avatar_storage",
+      "breakpoints": true
     }
   ]
 }

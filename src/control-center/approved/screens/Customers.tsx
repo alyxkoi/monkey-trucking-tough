@@ -172,7 +172,7 @@ function SortMenu({ value, onChange }: { value: Sort; onChange: (value: Sort) =>
         className={cn(
           'flex h-12 items-center gap-2 rounded-xl border px-3.5 font-label text-[13px] font-semibold uppercase tracking-[0.1em] transition-colors',
           open
-            ? 'border-ice/40 bg-ice/[0.09] text-ice'
+            ? 'border-ice bg-raised text-white'
             : 'border-line bg-raised text-cc-muted hover:bg-white/[0.08] hover:text-ink',
         )}
       >
@@ -208,7 +208,7 @@ function SortMenu({ value, onChange }: { value: Sort; onChange: (value: Sort) =>
                   'flex h-12 w-full items-center justify-between gap-3 px-4 text-left font-label text-[13px] font-semibold uppercase tracking-[0.1em] transition-colors',
                   index > 0 && 'border-t border-white/[0.09]',
                   selected
-                    ? 'bg-ice/[0.14] text-ice'
+                    ? 'bg-ice text-white'
                     : 'text-ink hover:bg-white/[0.09] active:bg-white/[0.13]',
                 )}
               >

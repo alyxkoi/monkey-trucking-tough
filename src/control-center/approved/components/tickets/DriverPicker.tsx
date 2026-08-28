@@ -77,10 +77,13 @@ export function DriverPicker({
         <button
           type="button"
           onClick={() => choose('')}
-          className="flex min-h-14 w-full items-center gap-4 border-b border-line px-5 py-3 text-left hover:bg-white/[0.04]"
+          className={cn(
+            'flex min-h-14 w-full items-center gap-4 border-b border-line px-5 py-3 text-left hover:bg-white/[0.04]',
+            !value && 'bg-ice text-white',
+          )}
         >
-          <span className="min-w-0 flex-1 text-[16px] font-semibold text-ink">Unassigned</span>
-          {!value && <Check className="h-5 w-5 text-ice" strokeWidth={2.5} />}
+          <span className={cn('min-w-0 flex-1 text-[16px] font-semibold', !value ? 'text-white' : 'text-ink')}>Unassigned</span>
+          {!value && <Check className="h-5 w-5 text-white" strokeWidth={2.5} />}
         </button>
 
         {matches.map((driver) => (
@@ -90,11 +93,11 @@ export function DriverPicker({
             onClick={() => choose(driver.id)}
             className={cn(
               'flex min-h-14 w-full items-center gap-4 border-b border-line px-5 py-3 text-left hover:bg-white/[0.04]',
-              value === driver.id && 'bg-ice/10',
+              value === driver.id && 'bg-ice text-white',
             )}
           >
-            <span className="min-w-0 flex-1 text-[16px] font-semibold text-ink">{driver.name}</span>
-            {value === driver.id && <Check className="h-5 w-5 text-ice" strokeWidth={2.5} />}
+            <span className={cn('min-w-0 flex-1 text-[16px] font-semibold', value === driver.id ? 'text-white' : 'text-ink')}>{driver.name}</span>
+            {value === driver.id && <Check className="h-5 w-5 text-white" strokeWidth={2.5} />}
           </button>
         ))}
 
