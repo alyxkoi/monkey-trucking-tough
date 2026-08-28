@@ -155,7 +155,7 @@ export function MonthCalendar({
                     <span
                       className={cn(
                         'font-label text-[11px] font-semibold tracking-[0.06em]',
-                        isSelected ? 'text-white/75' : 'text-cc-muted',
+                        isSelected ? 'text-canvas/70' : 'text-cc-muted',
                       )}
                     >
                       +{dayJobs.length - 3}

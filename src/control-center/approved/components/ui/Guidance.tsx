@@ -56,22 +56,23 @@ const BANNER: Record<Priority, { field: string; label: string }> = {
  */
 export function AttentionBanner({ entry }: { entry: AttentionEntry }) {
   const tone = BANNER[entry.priority]
+  const usesWhiteForeground = entry.priority !== 'TODAY'
   return (
     <section
       className={cn(
         'animate-rise overflow-hidden rounded-block',
-        entry.priority === 'FOLLOW_UP' ? 'text-white' : 'text-canvas',
+        usesWhiteForeground ? 'text-white' : 'text-canvas',
         tone.field,
       )}
     >
       <div className="p-5 sm:p-6">
-        <div className={cn('font-label text-[12px] font-semibold uppercase tracking-[0.18em]', entry.priority === 'FOLLOW_UP' ? 'text-white/80' : 'text-canvas/85')}>
+        <div className={cn('font-label text-[12px] font-semibold uppercase tracking-[0.18em]', usesWhiteForeground ? 'text-white/80' : 'text-canvas/85')}>
           {tone.label}
         </div>
         <h2 className="mt-2 max-w-[34ch] font-control-body text-[19px] font-bold leading-[1.2] sm:text-[21px]">
           {entry.title}
         </h2>
-        <p className={cn('mt-1.5 max-w-[52ch] text-[15px] leading-snug', entry.priority === 'FOLLOW_UP' ? 'text-white/90' : 'text-canvas/90')}>
+        <p className={cn('mt-1.5 max-w-[52ch] text-[15px] leading-snug', usesWhiteForeground ? 'text-white/90' : 'text-canvas/90')}>
           {entry.context}
         </p>
       </div>

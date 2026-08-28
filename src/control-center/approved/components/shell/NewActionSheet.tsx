@@ -112,7 +112,7 @@ export function NewActionSheet() {
             <span
               className={
                 action.tone === 'red'
-                  ? 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-mt-red text-canvas'
+                  ? 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-mt-red text-white'
                   : 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-raised text-ice'
               }
             >

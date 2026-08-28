@@ -93,7 +93,7 @@ export function ProfileAvatarControl({
           setOpen(true)
         }}
         className={cn(
-          'group relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-mt-red font-display uppercase leading-none text-canvas shadow-[0_10px_24px_-14px_rgba(255,49,49,0.8)] transition-[transform,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice focus-visible:ring-offset-2 focus-visible:ring-offset-canvas motion-safe:hover:-translate-y-0.5 hover:shadow-[0_16px_28px_-15px_rgba(255,49,49,0.9)]',
+          'group relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-mt-red font-display uppercase leading-none text-white shadow-[0_10px_24px_-14px_rgba(255,49,49,0.8)] transition-[transform,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice focus-visible:ring-offset-2 focus-visible:ring-offset-canvas motion-safe:hover:-translate-y-0.5 hover:shadow-[0_16px_28px_-15px_rgba(255,49,49,0.9)]',
           compact ? 'h-10 w-10 text-[16px]' : 'h-10 w-10 text-[18px]',
           className,
         )}
@@ -111,7 +111,7 @@ export function ProfileAvatarControl({
       <Sheet open={open} onClose={() => !loading && setOpen(false)} eyebrow="Your account" title="Profile image">
         <div className="space-y-5 p-5">
           <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-mt-red font-display text-[32px] uppercase leading-none text-canvas">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-mt-red font-display text-[32px] uppercase leading-none text-white">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="Current profile" className="h-full w-full object-cover" />
               ) : (

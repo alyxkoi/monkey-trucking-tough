@@ -95,7 +95,7 @@ function LeadsInbox() {
                 )}
               >
                 {entry.label}
-                <span className={cn('tnum', selected ? 'text-white/75' : 'text-idle')}>
+                <span className={cn('tnum', selected ? 'text-canvas/70' : 'text-idle')}>
                   {countFor(entry.value)}
                 </span>
               </button>

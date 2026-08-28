@@ -1590,7 +1590,7 @@ function DetailList({ label, values }: { label: string; values: string[] }) {
 
 function trackingSourceStyle(source: string) {
   if (source === 'Facebook') return 'bg-[#1877F2]'
-  if (source === 'Website') return 'bg-mt-red text-canvas'
+  if (source === 'Website') return 'bg-mt-red text-white'
   if (source === 'QR code') return 'bg-[#6D28D9]'
   return 'bg-[#B7791F] text-canvas'
 }

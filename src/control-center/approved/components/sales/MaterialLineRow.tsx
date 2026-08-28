@@ -31,7 +31,7 @@ export function MaterialLineRow({
         className={cn(
           'flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl border',
           line.isFullLoad
-            ? 'border-mt-red bg-mt-red text-canvas'
+            ? 'border-mt-red bg-mt-red text-white'
             : 'border-white/10 bg-white/[0.05] text-cc-muted',
         )}
       >

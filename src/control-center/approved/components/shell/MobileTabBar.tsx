@@ -84,7 +84,7 @@ export function MobileTabBar() {
           onClick={() => setNewSheetOpen(true)}
           aria-label="New"
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}
-          className="fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-mt-red text-canvas shadow-[0_10px_28px_rgba(0,0,0,0.5)] transition-colors active:bg-mt-deep lg:hidden"
+          className="fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-mt-red text-white shadow-[0_10px_28px_rgba(0,0,0,0.5)] transition-colors active:bg-mt-deep lg:hidden"
         >
           <Plus className="h-7 w-7" strokeWidth={2.6} />
         </button>

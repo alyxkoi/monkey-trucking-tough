@@ -95,14 +95,14 @@ export function DeliverySheet({
               <span
                 className={cn(
                   'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border',
-                  selected ? 'border-white/60 bg-white text-ice' : 'border-line bg-raised',
+                  selected ? 'border-canvas/40 bg-canvas/10 text-canvas' : 'border-line bg-raised',
                 )}
               >
                 {selected && <Check className="h-4 w-4" strokeWidth={3} />}
               </span>
               <span className="min-w-0 flex-1">
-                <span className={cn('block text-[16px] font-semibold', selected ? 'text-white' : 'text-ink')}>{option.label}</span>
-                <span className={cn('mt-0.5 block text-[14px]', selected ? 'text-white/75' : 'text-cc-muted')}>{option.hint}</span>
+                <span className={cn('block text-[16px] font-semibold', selected ? 'text-canvas' : 'text-ink')}>{option.label}</span>
+                <span className={cn('mt-0.5 block text-[14px]', selected ? 'text-canvas/70' : 'text-cc-muted')}>{option.hint}</span>
               </span>
             </button>
           )

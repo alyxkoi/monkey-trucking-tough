@@ -38,8 +38,8 @@ const BASE =
  * buttons a different color from others. Every primary action in the product now
  * looks the same, so a red button always means the same thing.
  *
- * Both fields carry near-black text and clear WCAG contrast. The pressed state
- * stays darker than the hover without changing the button's geometry.
+ * Brand red carries white content; the snow-white hover carries near-black.
+ * The pressed state stays light without changing the button's geometry.
  */
 export function PrimaryButton({
   size = 'md',
@@ -59,7 +59,7 @@ export function PrimaryButton({
         SIZES[size],
         fullWidth && 'w-full',
         tone === 'default'
-          ? 'border border-mt-red bg-mt-red text-canvas shadow-[0_10px_24px_-14px_rgba(0,0,0,0.9)] motion-safe:hover:-translate-y-0.5 hover:border-ink hover:bg-ink hover:text-canvas hover:shadow-[0_18px_34px_-18px_rgba(0,0,0,0.95)] active:border-[#dfe1e5] active:bg-[#dfe1e5] active:text-canvas'
+          ? 'border border-mt-red bg-mt-red text-white shadow-[0_10px_24px_-14px_rgba(0,0,0,0.9)] motion-safe:hover:-translate-y-0.5 hover:border-ink hover:bg-ink hover:text-canvas hover:shadow-[0_18px_34px_-18px_rgba(0,0,0,0.95)] active:border-[#dfe1e5] active:bg-[#dfe1e5] active:text-canvas'
           : 'bg-canvas text-ink hover:bg-[#1C1C20] active:bg-[#242429] focus-visible:ring-canvas/60 focus-visible:ring-offset-0',
         className,
       )}
@@ -117,7 +117,7 @@ export function BrandButton({
         BASE,
         SIZES[size],
         fullWidth && 'w-full',
-        'border border-mt-red bg-mt-red text-canvas shadow-[0_10px_24px_-14px_rgba(0,0,0,0.9)] motion-safe:hover:-translate-y-0.5 hover:border-ink hover:bg-ink hover:text-canvas hover:shadow-[0_18px_34px_-18px_rgba(0,0,0,0.95)] active:border-[#dfe1e5] active:bg-[#dfe1e5] active:text-canvas',
+        'border border-mt-red bg-mt-red text-white shadow-[0_10px_24px_-14px_rgba(0,0,0,0.9)] motion-safe:hover:-translate-y-0.5 hover:border-ink hover:bg-ink hover:text-canvas hover:shadow-[0_18px_34px_-18px_rgba(0,0,0,0.95)] active:border-[#dfe1e5] active:bg-[#dfe1e5] active:text-canvas',
         className,
       )}
     >

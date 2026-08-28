@@ -135,7 +135,7 @@ describe("Phase 05 Control Center contracts", () => {
     expect(customers).toContain("<CustomerInitialAvatar");
     expect(picker).toContain("<CustomerInitialAvatar");
     expect(avatar).toContain("bg-mt-red");
-    expect(avatar).toContain("text-canvas");
+    expect(avatar).toContain("text-white");
     expect(avatar).toContain("font-black");
     expect(avatar).toContain("toUpperCase()");
     expect(chart).toContain('className="block h-full w-full text-ice"');
@@ -184,7 +184,7 @@ describe("Phase 05 Control Center contracts", () => {
     expect(shell).toContain("lg:pl-[280px]");
   });
 
-  it("uses solid acid-green selections with red-to-snow primary actions", () => {
+  it("uses black on solid acid-green and white on solid red actions", () => {
     const tailwind = read("tailwind.config.ts");
     const buttons = read("src/control-center/approved/components/ui/Button.tsx");
     const panels = read("src/control-center/approved/components/ui/Panel.tsx");
@@ -192,13 +192,34 @@ describe("Phase 05 Control Center contracts", () => {
 
     expect(tailwind).toContain('DEFAULT: "#B7FF35"');
     expect(tailwind).not.toContain('#8FCBFF');
-    expect(buttons).toContain("bg-mt-red text-canvas");
+    expect(buttons).toContain("bg-mt-red text-white");
     expect(buttons).toContain("hover:bg-ink");
     expect(buttons).toContain("motion-safe:hover:-translate-y-0.5");
     expect(panels).toContain("primary = false");
     expect(panels).toContain("bg-mt-red");
     expect(settings).toContain("bg-ice text-canvas");
     expect(settings).toContain("{active && (");
+  });
+
+  it("keeps the Control Center header in normal flow without a responsive logo", () => {
+    const topBar = read("src/control-center/approved/components/shell/TopBar.tsx");
+    const sideNav = read("src/control-center/approved/components/shell/SideNav.tsx");
+
+    expect(topBar).not.toContain("sticky top-0");
+    expect(topBar).not.toContain("data-floating");
+    expect(topBar).not.toContain("monkeyTruckingLogo");
+    expect(sideNav).toContain("monkeyTruckingLogo");
+    expect(sideNav).toContain("lg:fixed");
+  });
+
+  it("keeps selected lead counts and calendar overflow counts dark on acid green", () => {
+    const leads = read("src/control-center/approved/screens/LeadsQuotes.tsx");
+    const calendar = read("src/control-center/approved/components/jobs/MonthCalendar.tsx");
+    const drivers = read("src/control-center/approved/components/tickets/DriverPicker.tsx");
+
+    expect(leads).toContain("selected ? 'text-canvas/70'");
+    expect(calendar).toContain("isSelected ? 'text-canvas/70'");
+    expect(drivers).not.toContain('text-white');
   });
 
   it("keeps the refined Overview tied to real operational records", () => {

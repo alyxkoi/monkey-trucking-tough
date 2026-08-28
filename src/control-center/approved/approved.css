@@ -249,6 +249,23 @@
   color: rgba(14, 14, 16, 0.68);
 }
 
+/* Solid acid selections never retain a nested white count or helper label. */
+.field-ice [class*='text-white'],
+.field-ice-lit [class*='text-white'] {
+  color: rgba(14, 14, 16, 0.72);
+}
+
+/* Brand-red fields use one consistent high-visibility foreground system. */
+.field-red .text-canvas,
+.field-red .text-white {
+  color: #ffffff;
+}
+
+.field-red [class*='text-canvas/'],
+.field-red [class*='text-white/'] {
+  color: rgba(255, 255, 255, 0.84);
+}
+
 /*
  * Structural separators carry their weight in the middle and dissolve before
  * they hit a card edge. Border width remains one pixel, so this changes paint

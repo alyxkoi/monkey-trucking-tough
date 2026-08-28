@@ -13,7 +13,7 @@ export type SolidTone = 'ice' | 'iceLit' | 'red' | 'warn'
 const TONES: Record<SolidTone, string> = {
   ice: 'field-ice text-canvas',
   iceLit: 'field-ice-lit text-canvas',
-  red: 'field-red text-canvas',
+  red: 'field-red text-white',
   warn: 'field-warn text-canvas',
 }
 
@@ -21,8 +21,8 @@ const TONES: Record<SolidTone, string> = {
  * Bold solid color module. Used selectively as a visual anchor, never as the
  * default surface.
  *
- * System rule: every bright solid field carries near black text. On acid green that
- * is roughly 11:1, on brand red roughly 5.3:1, both readable outdoors on a phone.
+ * Acid green and amber carry near-black content. Brand red carries white content
+ * so actions and urgency use the same contrast language throughout the product.
  * Acid green is the schedule, calendar and active-system anchor.
  * Red is genuine urgency only.
  */

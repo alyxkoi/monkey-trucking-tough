@@ -83,7 +83,7 @@ export function DriverPicker({
           )}
         >
           <span className={cn('min-w-0 flex-1 text-[16px] font-semibold', !value ? 'text-canvas' : 'text-ink')}>Unassigned</span>
-          {!value && <Check className="h-5 w-5 text-white" strokeWidth={2.5} />}
+          {!value && <Check className="h-5 w-5 text-canvas" strokeWidth={2.5} />}
         </button>
 
         {matches.map((driver) => (
@@ -96,8 +96,8 @@ export function DriverPicker({
               value === driver.id && 'bg-ice text-canvas',
             )}
           >
-            <span className={cn('min-w-0 flex-1 text-[16px] font-semibold', value === driver.id ? 'text-white' : 'text-ink')}>{driver.name}</span>
-            {value === driver.id && <Check className="h-5 w-5 text-white" strokeWidth={2.5} />}
+            <span className={cn('min-w-0 flex-1 text-[16px] font-semibold', value === driver.id ? 'text-canvas' : 'text-ink')}>{driver.name}</span>
+            {value === driver.id && <Check className="h-5 w-5 text-canvas" strokeWidth={2.5} />}
           </button>
         ))}
 

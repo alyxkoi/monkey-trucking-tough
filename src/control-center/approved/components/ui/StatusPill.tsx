@@ -38,7 +38,7 @@ const TONES: Record<PillTone, string> = {
  * takes white instead, because near black on grey does not clear 3:1.
  */
 const FIELD_TONES: Record<PillTone, string> = {
-  now: 'bg-mt-red text-canvas border border-canvas/50',
+  now: 'bg-mt-red text-white border border-canvas/50',
   today: 'bg-warn text-canvas border border-canvas/50',
   followup: 'bg-canvas text-ice-violet',
   ice: 'bg-canvas text-ice-violet',
