@@ -60,7 +60,6 @@ export const safeTicketDraft: TicketDraft = {
   materials_subtotal: 2860,
   tax_rate: 8.25,
   tax_applies_to_delivery: true,
-  tax_enabled: true,
   tax_amount: 277.2,
   grand_total: 3637.2,
   notes: null,

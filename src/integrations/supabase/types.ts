@@ -285,10 +285,10 @@ export type Database = {
           print_copies: number
           print_method: string
           tax_applies_to_delivery: boolean
+          tax_enabled: boolean
           tax_rate: number
           ticket_prefix: string
           updated_at: string
-          tax_enabled: boolean
         }
         Insert: {
           company_address?: string
@@ -308,10 +308,10 @@ export type Database = {
           print_copies?: number
           print_method?: string
           tax_applies_to_delivery?: boolean
+          tax_enabled?: boolean
           tax_rate?: number
           ticket_prefix?: string
           updated_at?: string
-          tax_enabled?: boolean
         }
         Update: {
           company_address?: string
@@ -331,10 +331,10 @@ export type Database = {
           print_copies?: number
           print_method?: string
           tax_applies_to_delivery?: boolean
+          tax_enabled?: boolean
           tax_rate?: number
           ticket_prefix?: string
           updated_at?: string
-          tax_enabled?: boolean
         }
         Relationships: []
       }
@@ -463,9 +463,9 @@ export type Database = {
           email_status: string
           id: number
           payment_processor_status: string
+          printable_logo_status: string
           processing_fee_enabled: boolean
           processing_fee_rate: number
-          printable_logo_status: string
           review_url: string | null
           sms_status: string
           updated_at: string
@@ -480,9 +480,9 @@ export type Database = {
           email_status?: string
           id?: number
           payment_processor_status?: string
+          printable_logo_status?: string
           processing_fee_enabled?: boolean
           processing_fee_rate?: number
-          printable_logo_status?: string
           review_url?: string | null
           sms_status?: string
           updated_at?: string
@@ -497,9 +497,9 @@ export type Database = {
           email_status?: string
           id?: number
           payment_processor_status?: string
+          printable_logo_status?: string
           processing_fee_enabled?: boolean
           processing_fee_rate?: number
-          printable_logo_status?: string
           review_url?: string | null
           sms_status?: string
           updated_at?: string
@@ -2163,6 +2163,13 @@ export type Database = {
           customer_id: string
           lead_id: string
           matched_existing: boolean
+        }[]
+      }
+      create_quote_draft_from_lead: {
+        Args: { p_lead_id: string }
+        Returns: {
+          id: string
+          quote_number: string
         }[]
       }
       create_ticket_atomic: {
