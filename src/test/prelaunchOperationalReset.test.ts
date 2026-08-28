@@ -54,9 +54,11 @@ describe('guarded prelaunch operational reset', () => {
 })
 
 describe('authenticated Control Center atmosphere', () => {
-  it('uses the supplied fixed background only in the Control Center scope', () => {
-    expect(css).toContain("url('https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/images//Love%20and%20Liberty.jpg')")
+  it('uses the fixed platinum-to-burgundy gradient only in the Control Center scope', () => {
     expect(css).toContain('.control-center-root::after')
+    expect(css).toContain('#545660 0%')
+    expect(css).toContain('#120509 100%')
+    expect(css).not.toContain('Love%20and%20Liberty.jpg')
     expect(css).toContain('background-size: cover')
     expect(css).toContain('background-position: center')
   })

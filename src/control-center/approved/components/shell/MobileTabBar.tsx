@@ -102,7 +102,7 @@ export function MobileTabBar() {
               className={cn(
                 TAB_CLASS,
                 'px-1 text-[11px] tracking-[0.06em]',
-                current?.key === section.key ? 'text-ice' : 'text-cc-muted',
+                current?.key === section.key ? 'text-white' : 'text-cc-muted',
               )}
             >
               {current?.key === section.key && (
@@ -133,7 +133,7 @@ export function MobileTabBar() {
                 className={cn(
                   TAB_CLASS,
                   'min-w-[84px] flex-1 px-2 text-[11px] tracking-[0.07em]',
-                  isActive ? 'text-ice' : 'text-cc-muted',
+                  isActive ? 'text-white' : 'text-cc-muted',
                 )}
               >
                 {isActive && (

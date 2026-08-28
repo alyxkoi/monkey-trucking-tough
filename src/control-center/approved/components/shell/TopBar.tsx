@@ -122,7 +122,7 @@ export function TopBar() {
                 <div className="font-label text-[11px] font-semibold uppercase leading-none tracking-[0.26em] text-cc-muted sm:text-[12px]">
                   {today.full}
                 </div>
-                <h1 className="display-racing -ml-1 mt-1 truncate pl-1 font-display display-tight text-[22px] sm:text-[28px] lg:text-[32px]">
+                <h1 className="display-racing -ml-1 mt-1 truncate pl-1 font-display display-tight text-[19px] min-[410px]:text-[22px] sm:text-[28px] lg:text-[32px]">
                   {isOverview ? (
                     <span className="animate-greeting">
                       {greeting()}, <span className="text-mt-red">{userName}</span>

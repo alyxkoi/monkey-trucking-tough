@@ -11,10 +11,10 @@ export type SolidTone = 'ice' | 'iceLit' | 'red' | 'warn'
  * `iceLit` is the single exception, reserved for the calendar anchor.
  */
 const TONES: Record<SolidTone, string> = {
-  ice: 'field-ice',
-  iceLit: 'field-ice-lit',
-  red: 'field-red',
-  warn: 'field-warn',
+  ice: 'field-ice text-white',
+  iceLit: 'field-ice-lit text-white',
+  red: 'field-red text-canvas',
+  warn: 'field-warn text-canvas',
 }
 
 /**
@@ -38,7 +38,7 @@ export function SolidInfoModule({
   return (
     <section
       className={cn(
-        'rounded-block text-canvas overflow-hidden',
+        'rounded-block overflow-hidden',
         TONES[tone],
         className,
       )}
@@ -59,7 +59,7 @@ export function SolidLabel({
   return (
     <div
       className={cn(
-        'font-label text-[12px] font-semibold uppercase tracking-[0.18em] text-canvas/85',
+        'font-label text-[12px] font-semibold uppercase tracking-[0.18em] text-current opacity-80',
         className,
       )}
     >
@@ -70,5 +70,5 @@ export function SolidLabel({
 
 /** Divider for use inside a solid color module. */
 export function SolidDivider({ className }: { className?: string }) {
-  return <div className={cn('h-px bg-canvas/15', className)} />
+  return <div className={cn('h-px bg-current opacity-[0.15]', className)} />
 }

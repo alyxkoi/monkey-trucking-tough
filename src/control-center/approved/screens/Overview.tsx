@@ -77,7 +77,7 @@ function MoneySnapshot() {
         thing being measured.
       */}
       <header className="flex flex-col gap-3.5 px-5 pt-5 sm:flex-row sm:items-center sm:justify-between lg:px-7 lg:pt-6">
-        <PanelTitle>Money</PanelTitle>
+        <PanelTitle primary>Money</PanelTitle>
         <SegmentControl
           options={PERIOD_OPTIONS}
           value={period}
@@ -280,7 +280,7 @@ function Today() {
               <div className="font-label text-[15px] font-semibold uppercase tracking-[0.16em]">
                 {today.month}
               </div>
-              <div className="font-label text-[13px] font-semibold uppercase tracking-[0.14em] text-canvas/65">
+              <div className="font-label text-[13px] font-semibold uppercase tracking-[0.14em] text-white/65">
                 {today.weekday}
               </div>
             </div>
@@ -312,7 +312,7 @@ function Today() {
                   <span className="num-safe block font-display display-tight text-[21px]">
                     {time.time}
                   </span>
-                  <span className="block font-label text-[12px] font-semibold uppercase tracking-[0.12em] text-canvas/65">
+                  <span className="block font-label text-[12px] font-semibold uppercase tracking-[0.12em] text-white/65">
                     {time.meridiem}
                   </span>
                 </span>

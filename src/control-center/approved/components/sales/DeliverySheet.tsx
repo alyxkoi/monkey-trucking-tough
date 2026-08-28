@@ -95,7 +95,7 @@ export function DeliverySheet({
               <span
                 className={cn(
                   'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border',
-                  selected ? 'border-ice bg-ice text-canvas' : 'border-line bg-raised',
+                  selected ? 'border-ice bg-ice text-white' : 'border-line bg-raised',
                 )}
               >
                 {selected && <Check className="h-4 w-4" strokeWidth={3} />}

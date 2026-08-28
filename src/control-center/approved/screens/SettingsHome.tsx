@@ -21,6 +21,7 @@ type Category = {
   line: string
   to: string
   icon: LucideIcon
+  iconClass: string
 }
 
 /** Seven categories, each opening its own dedicated full screen. */
@@ -31,6 +32,7 @@ const CATEGORIES: Category[] = [
     line: 'Company details, tax, due days, payment methods, logo',
     to: '/admin/settings/business',
     icon: Building2,
+    iconClass: 'bg-[#b98a43] text-[#120d06]',
   },
   {
     key: 'materials',
@@ -38,6 +40,7 @@ const CATEGORIES: Category[] = [
     line: 'The one price list quotes and tickets both read',
     to: '/admin/settings/materials',
     icon: Banknote,
+    iconClass: 'bg-[#e1472f] text-white',
   },
   {
     key: 'workers',
@@ -45,6 +48,7 @@ const CATEGORIES: Category[] = [
     line: 'The crew, pay type and rates. No logins',
     to: '/admin/settings/workers',
     icon: Users,
+    iconClass: 'bg-[#d79a24] text-[#160f05]',
   },
   {
     key: 'communication',
@@ -52,6 +56,7 @@ const CATEGORIES: Category[] = [
     line: 'Business number, SMS, calling, AI and every automation',
     to: '/admin/settings/communication',
     icon: Radio,
+    iconClass: 'bg-ice text-white',
   },
   {
     key: 'tracking',
@@ -59,6 +64,7 @@ const CATEGORIES: Category[] = [
     line: 'Where leads come from, without an attribution platform',
     to: '/admin/settings/tracking',
     icon: Link2,
+    iconClass: 'bg-[#685d7d] text-white',
   },
   {
     key: 'users',
@@ -66,6 +72,7 @@ const CATEGORIES: Category[] = [
     line: 'Salvador and the Alyxlab admin',
     to: '/admin/settings/users',
     icon: UserCog,
+    iconClass: 'bg-[#8a929e] text-[#101216]',
   },
   {
     key: 'printing',
@@ -73,6 +80,7 @@ const CATEGORIES: Category[] = [
     line: 'Printer, test print, database, offline queue, last sync',
     to: '/admin/settings/printing',
     icon: Printer,
+    iconClass: 'bg-[#46464f] text-white',
   },
 ]
 
@@ -112,23 +120,19 @@ export function SettingsHome() {
                 onClick={() => navigate(category.to)}
                 className="row-hover flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-white/[0.04] active:bg-white/[0.07]"
               >
-                <span className={active
-                  ? state.status === 'WAITING'
-                    ? 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ice/30 bg-ice/[0.1] text-ice'
-                    : state.status === 'ERROR'
-                      ? 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-mt-red/35 bg-mt-red/[0.1] text-mt-red'
-                      : 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-warn/30 bg-warn/[0.12] text-warn'
-                  : 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-idle'}>
-                  <category.icon className="h-5 w-5" strokeWidth={2} />
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-[0_12px_26px_-18px_rgba(0,0,0,0.95)] ${category.iconClass}`}>
+                  <category.icon className="h-[21px] w-[21px]" strokeWidth={2.4} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="font-label text-[15px] font-semibold uppercase tracking-[0.08em] text-ink">
                       {category.label}
                     </span>
-                    <StatusPill tone={readinessTone(state.status)} size="sm">
-                      {state.label}
-                    </StatusPill>
+                    {active && (
+                      <StatusPill tone={readinessTone(state.status)} size="sm">
+                        {state.label}
+                      </StatusPill>
+                    )}
                   </span>
                   <span className="mt-0.5 block text-[14px] leading-snug text-cc-muted">{state.reason}</span>
                 </span>

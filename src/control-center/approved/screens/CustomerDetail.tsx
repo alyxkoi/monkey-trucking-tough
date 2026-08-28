@@ -231,7 +231,7 @@ export function CustomerDetail() {
                       className={cn(
                         'row-hover h-11 shrink-0 rounded-xl border px-3.5 font-label text-[13px] font-semibold uppercase tracking-[0.1em]',
                         selected
-                          ? 'field-ice border-transparent text-canvas'
+                          ? 'field-ice border-transparent text-white'
                           : 'border-white/10 bg-white/[0.05] text-cc-muted hover:bg-white/[0.09] hover:text-ink',
                       )}
                     >

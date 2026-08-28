@@ -860,7 +860,7 @@ export function SettingsWorkers() {
         <div className="divide-y divide-line border-t border-line">
           {workers.map((worker) => (
             <div key={worker.id} className="flex flex-wrap items-start gap-4 px-5 py-4">
-              <InitialAvatar name={worker.name} className="h-11 w-11 rounded-xl" />
+              <InitialAvatar name={worker.name} className="h-12 w-12 rounded-xl" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[16px] font-semibold text-ink">{worker.name}</span>

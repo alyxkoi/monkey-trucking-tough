@@ -19,8 +19,8 @@ export type PillTone =
 const TONES: Record<PillTone, string> = {
   now: 'bg-mt-red text-canvas',
   today: 'bg-warn text-canvas',
-  followup: 'bg-ice/[0.12] text-ice border border-ice/30',
-  ice: 'bg-ice text-canvas',
+  followup: 'bg-ice/35 text-white border border-ice/60',
+  ice: 'bg-ice text-white',
   ok: 'bg-ok/[0.12] text-ok border border-ok/30',
   warn: 'bg-warn/[0.12] text-warn border border-warn/30',
   idle: 'bg-white/[0.05] text-idle border border-white/10',
@@ -40,8 +40,8 @@ const TONES: Record<PillTone, string> = {
 const FIELD_TONES: Record<PillTone, string> = {
   now: 'bg-mt-red text-canvas border border-canvas/50',
   today: 'bg-warn text-canvas border border-canvas/50',
-  followup: 'bg-canvas text-ice',
-  ice: 'bg-canvas text-ice',
+  followup: 'bg-canvas text-ice-violet',
+  ice: 'bg-canvas text-ice-violet',
   ok: 'bg-ok text-canvas border border-canvas/50',
   warn: 'bg-warn text-canvas border border-canvas/50',
   idle: 'bg-inactive text-white border border-canvas/50',

@@ -183,4 +183,20 @@ describe("Phase 05 Control Center contracts", () => {
     expect(sideNav).toContain("lg:fixed");
     expect(shell).toContain("lg:pl-[280px]");
   });
+
+  it("uses Ultrasonic Blue with red-to-platinum primary actions", () => {
+    const tailwind = read("tailwind.config.ts");
+    const buttons = read("src/control-center/approved/components/ui/Button.tsx");
+    const panels = read("src/control-center/approved/components/ui/Panel.tsx");
+    const settings = read("src/control-center/approved/screens/SettingsHome.tsx");
+
+    expect(tailwind).toContain('DEFAULT: "#5500D5"');
+    expect(tailwind).not.toContain('#8FCBFF');
+    expect(buttons).toContain("bg-mt-red text-canvas");
+    expect(buttons).toContain("hover:bg-[#c4cad2]");
+    expect(panels).toContain("primary = false");
+    expect(panels).toContain("bg-mt-red");
+    expect(settings).toContain("bg-ice text-white");
+    expect(settings).toContain("{active && (");
+  });
 });

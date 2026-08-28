@@ -7,14 +7,14 @@
   overflow-x: hidden;
   min-height: 100vh;
   -webkit-tap-highlight-color: transparent;
-  background-color: #0c080a;
+  background-color: #14070b;
 }
 
 /*
- * One fixed image layer for the authenticated Control Center only. The dark
- * fallback lives on the root, so a failed image request never exposes a light
- * canvas. The two restrained paint layers preserve readable white type without
- * hiding the supplied burgundy atmosphere.
+ * One fixed atmospheric layer for the authenticated Control Center only.
+ * Platinum holds through most of the viewport, then descends slowly into the
+ * deep burgundy lower field. It is paint only: no image request and no moving
+ * layer while routes change or the page scrolls.
  */
 .control-center-root::after {
   content: '';
@@ -22,11 +22,20 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-color: #0c080a;
+  background-color: #14070b;
   background-image:
-    linear-gradient(180deg, rgba(7, 8, 11, 0.48) 0%, rgba(8, 8, 12, 0.58) 58%, rgba(10, 6, 9, 0.7) 100%),
-    radial-gradient(1200px 900px at 18% 4%, rgba(143, 203, 255, 0.045), transparent 68%),
-    url('https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/images//Love%20and%20Liberty.jpg');
+    radial-gradient(1150px 760px at 18% -12%, rgba(238, 241, 248, 0.19), transparent 72%),
+    linear-gradient(
+      180deg,
+      #545660 0%,
+      #4c4e58 18%,
+      #42434d 38%,
+      #34343d 58%,
+      #28232d 70%,
+      #21131b 82%,
+      #18090f 92%,
+      #120509 100%
+    );
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
@@ -39,20 +48,20 @@
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background-image: radial-gradient(rgba(224, 228, 238, 0.032) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(239, 241, 247, 0.048) 1px, transparent 1px);
   background-size: 24px 24px;
   -webkit-mask-image: linear-gradient(
     180deg,
     #000 0%,
-    rgba(0, 0, 0, 0.9) 62%,
-    rgba(0, 0, 0, 0.42) 80%,
+    rgba(0, 0, 0, 0.92) 58%,
+    rgba(0, 0, 0, 0.48) 78%,
     transparent 100%
   );
   mask-image: linear-gradient(
     180deg,
     #000 0%,
-    rgba(0, 0, 0, 0.9) 62%,
-    rgba(0, 0, 0, 0.42) 80%,
+    rgba(0, 0, 0, 0.92) 58%,
+    rgba(0, 0, 0, 0.48) 78%,
     transparent 100%
   );
 }
@@ -123,8 +132,8 @@
 }
 
 .surface-ice {
-  background-color: rgba(20, 27, 36, 0.84);
-  border: 1px solid rgba(143, 203, 255, 0.18);
+  background-color: rgba(25, 10, 50, 0.88);
+  border: 1px solid rgba(85, 0, 213, 0.36);
   box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
 }
 
@@ -154,6 +163,62 @@
   background-color: rgba(29, 29, 35, 0.95);
 }
 
+/* Ultrasonic Blue is dark enough to need a lighter companion for small text. */
+.control-center-root .text-ice {
+  color: #9e7bff;
+}
+
+.field-ice .text-canvas,
+.field-ice-lit .text-canvas {
+  color: #fff;
+}
+
+.field-ice [class*='text-canvas/'],
+.field-ice-lit [class*='text-canvas/'] {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+/*
+ * Structural separators carry their weight in the middle and dissolve before
+ * they hit a card edge. Border width remains one pixel, so this changes paint
+ * without changing any row, panel or sticky geometry.
+ */
+.cc-fade-divider {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 16%,
+    rgba(255, 255, 255, 0.1) 84%,
+    transparent 100%
+  );
+}
+
+.control-center-root .divide-y > :not([hidden]) ~ :not([hidden]),
+.control-center-root .border-t.border-line,
+.control-center-root .border-b.border-line,
+.control-center-root .border-y.border-line,
+.control-center-root [class~='border-t'][class*='border-white/'],
+.control-center-root [class~='border-b'][class*='border-white/'],
+.control-center-root [class~='border-y'][class*='border-white/'] {
+  border-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.11) 16%,
+      rgba(255, 255, 255, 0.11) 84%,
+      transparent 100%
+    ) 1;
+}
+
+.control-center-root .divide-x > :not([hidden]) ~ :not([hidden]) {
+  border-image: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.11) 16%,
+      rgba(255, 255, 255, 0.11) 84%,
+      transparent 100%
+    ) 1;
+}
+
 /*
  * Cool platinum. The primary ticket summary, and nothing else.
  *
@@ -170,7 +235,7 @@
 
 /* Solid colour fields. Flat, so the colour itself is the statement. */
 .field-ice {
-  background-color: #8fcbff;
+  background-color: #5500d5;
   box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
 }
 
@@ -190,11 +255,11 @@
  * Nothing else gets this treatment, which is what keeps it worth looking at.
  */
 .field-ice-lit {
-  background-color: #8fcbff;
+  background-color: #5500d5;
   background-image: radial-gradient(
     130% 140% at 106% -20%,
-    rgba(169, 166, 255, 0.9) 0%,
-    rgba(169, 166, 255, 0) 60%
+    rgba(158, 123, 255, 0.74) 0%,
+    rgba(158, 123, 255, 0) 60%
   );
   box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
 }
@@ -462,7 +527,7 @@
 .row-hover:hover,
 .row-hover:focus-visible {
   box-shadow:
-    inset 2px 0 0 0 rgba(143, 203, 255, 0.55),
+    inset 2px 0 0 0 rgba(85, 0, 213, 0.92),
     0 1px 0 0 rgba(255, 255, 255, 0.06);
 }
 /* On a solid colour field the same cue is drawn in near black instead. */

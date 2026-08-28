@@ -129,7 +129,7 @@ export function MonthCalendar({
               onClick={() => onSelect(key)}
               className={cn(
                 'flex min-h-[54px] min-w-11 flex-col items-center justify-start gap-1.5 rounded-xl border p-1.5 transition-colors lg:min-h-[86px] lg:justify-between lg:p-2',
-                isToday && 'border-transparent bg-ice text-canvas',
+                isToday && 'border-transparent bg-ice text-white',
                 !isToday && isSelected && 'border-ice bg-raised',
                 !isToday && !isSelected && 'border-transparent hover:bg-raised/60',
                 !inMonth && 'opacity-35',

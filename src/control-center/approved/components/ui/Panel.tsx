@@ -54,20 +54,12 @@ export function Panel({
         </header>
       )}
       <div className={cn('flex-1', padded && 'px-5 pb-5', bodyClassName)}>{children}</div>
-      {footer && <div className="border-t border-white/[0.07] px-5 py-3">{footer}</div>}
+      {footer && <div className="border-t border-line px-5 py-3">{footer}</div>}
     </section>
   )
 }
 
 export type TitleTone = 'ice' | 'red' | 'warn' | 'ok' | 'muted'
-
-const MARKER: Record<TitleTone, string> = {
-  ice: 'bg-ice',
-  red: 'bg-mt-red',
-  warn: 'bg-warn',
-  ok: 'bg-ok',
-  muted: 'bg-idle',
-}
 
 /**
  * Section label.
@@ -81,13 +73,23 @@ const MARKER: Record<TitleTone, string> = {
 export function PanelTitle({
   children,
   tone = 'ice',
+  primary = false,
 }: {
   children: ReactNode
   tone?: TitleTone
+  primary?: boolean
 }) {
+  if (primary) {
+    return (
+      <h2 className="font-display text-[24px] uppercase leading-none tracking-[0.035em] text-mt-red sm:text-[26px]">
+        {children}
+      </h2>
+    )
+  }
+
   return (
-    <h2 className="flex items-center gap-2.5 font-label text-[12px] font-semibold uppercase tracking-[0.22em] text-ink/85">
-      <span className={cn('h-[11px] w-[3px] shrink-0 rounded-full', MARKER[tone])} />
+    <h2 data-tone={tone} className="flex items-center gap-2.5 font-label text-[12px] font-semibold uppercase tracking-[0.2em] text-white">
+      <span className="h-3 w-1 shrink-0 rounded-[2px] bg-mt-red" />
       {children}
     </h2>
   )
@@ -95,5 +97,5 @@ export function PanelTitle({
 
 /** Hairline used between rows inside a panel. */
 export function RowDivider({ className }: { className?: string }) {
-  return <div className={cn('h-px bg-white/[0.07]', className)} />
+  return <div className={cn('cc-fade-divider h-px', className)} />
 }

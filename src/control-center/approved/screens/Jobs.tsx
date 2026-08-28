@@ -123,7 +123,7 @@ export function Jobs() {
               className={cn(
                 'flex h-11 items-center rounded-xl border px-3.5 font-label text-[12px] font-semibold uppercase tracking-[0.12em] transition-colors',
                 showCancelled
-                  ? 'border-ice bg-ice text-canvas'
+                  ? 'border-ice bg-ice text-white'
                   : 'border-line bg-raised text-cc-muted hover:text-ink',
               )}
             >

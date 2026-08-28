@@ -201,7 +201,7 @@ export function CustomerPicker({
         <div className="flex items-center gap-3 rounded-xl border border-ice/25 bg-ice/[0.09] px-3 py-2.5">
           <CustomerInitialAvatar
             name={selected.name}
-            className="h-10 w-10 rounded-lg text-[20px]"
+            className="h-12 w-12 rounded-xl text-[24px]"
           />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[16px] font-bold text-ink">
@@ -309,7 +309,7 @@ export function CustomerPicker({
                   >
                     <CustomerInitialAvatar
                       name={customer.name}
-                      className="h-9 w-9 rounded-lg text-[19px]"
+                      className="h-11 w-11 rounded-xl text-[22px]"
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[16px] font-bold text-ink">

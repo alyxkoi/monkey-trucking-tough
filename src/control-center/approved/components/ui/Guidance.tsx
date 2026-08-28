@@ -58,7 +58,11 @@ export function AttentionBanner({ entry }: { entry: AttentionEntry }) {
   const tone = BANNER[entry.priority]
   return (
     <section
-      className={cn('animate-rise overflow-hidden rounded-block text-canvas', tone.field)}
+      className={cn(
+        'animate-rise overflow-hidden rounded-block',
+        entry.priority === 'FOLLOW_UP' ? 'text-white' : 'text-canvas',
+        tone.field,
+      )}
     >
       <div className="p-5 sm:p-6">
         <div className="font-label text-[12px] font-semibold uppercase tracking-[0.18em] text-canvas/85">
@@ -78,7 +82,7 @@ export function AttentionBanner({ entry }: { entry: AttentionEntry }) {
 const PULSE_TONE: Record<Priority, string> = {
   NOW: '255, 49, 49',
   TODAY: '255, 159, 10',
-  FOLLOW_UP: '143, 203, 255',
+  FOLLOW_UP: '85, 0, 213',
 }
 
 /**
@@ -137,7 +141,7 @@ export function NextStep({
   className?: string
 }) {
   return (
-    <section className={cn('field-ice overflow-hidden rounded-block text-canvas', className)}>
+    <section className={cn('field-ice overflow-hidden rounded-block text-white', className)}>
       <div className="p-5 sm:p-6">
         <div className="font-label text-[12px] font-semibold uppercase tracking-[0.2em] text-canvas/85">
           Next

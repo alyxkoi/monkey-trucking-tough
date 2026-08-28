@@ -11,11 +11,8 @@ import monkeyTruckingLogo from '@/assets/monkey-trucking-logo.webp'
 /**
  * Persistent desktop navigation.
  *
- * A red system line runs the full height of the rail's outer edge. It is the one
- * piece of branding here that is not a word, it ties the rail to the red rule in
- * the page header, and it costs three pixels. The active section is architectural
- * rather than decorative: an icy blue marker sitting in that line, a tinted plate,
- * and the icon carrying the same state as the label so the two read as one object.
+ * The rail stays detached and quiet. Active state lives inside the navigation
+ * item itself, so the sidebar needs no decorative stripe on its outer edge.
  */
 export function SideNav() {
   const { pathname } = useLocation()
@@ -27,12 +24,6 @@ export function SideNav() {
 
   return (
     <aside className="hidden lg:fixed lg:bottom-4 lg:left-4 lg:top-4 lg:z-40 lg:flex lg:w-[248px] lg:flex-col lg:overflow-hidden lg:rounded-[24px] lg:border lg:border-white/[0.11] lg:bg-[#0e0f13]/76 lg:shadow-[0_30px_80px_-34px_rgba(0,0,0,0.98)] lg:backdrop-blur-2xl">
-      {/* The system line. Full height, outer edge, never interactive. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute bottom-4 left-0 top-4 w-[3px] rounded-r-full bg-gradient-to-b from-mt-red via-mt-red/45 to-transparent"
-      />
-
       <div className="border-b border-white/[0.07] px-6 py-5">
         <div className="min-w-0">
           <img
@@ -61,21 +52,14 @@ export function SideNav() {
               className={cn(
                 'group relative flex h-12 items-center gap-3 rounded-xl pl-4 pr-3 font-label text-[14px] font-semibold uppercase tracking-[0.08em] transition-[background-color,color,border-color] duration-150',
                 isActive
-                  ? 'border border-ice/25 bg-ice/[0.1] text-ice'
+                  ? 'border border-ice/60 bg-ice/35 text-white'
                   : 'border border-transparent text-cc-muted hover:bg-white/[0.05] hover:text-ink',
               )}
             >
-              {/* Sits in the system line, so the rail marks the section itself. */}
-              <span
-                className={cn(
-                  'absolute -left-[13px] top-1/2 w-[3px] -translate-y-1/2 rounded-full transition-all duration-200',
-                  isActive ? 'h-7 bg-ice' : 'h-0 bg-transparent',
-                )}
-              />
               <section.icon
                 className={cn(
                   'h-5 w-5 shrink-0 transition-colors',
-                  isActive ? 'text-ice' : 'text-idle group-hover:text-ink',
+                  isActive ? 'text-white' : 'text-idle group-hover:text-ink',
                 )}
                 strokeWidth={isActive ? 2.4 : 2}
               />
@@ -87,7 +71,7 @@ export function SideNav() {
 
       <div className="border-t border-white/[0.07] p-3">
         <div className="flex items-center gap-3 rounded-xl px-3 py-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-mt-red/30 bg-mt-red/[0.12] font-label text-[14px] font-semibold text-mt-red">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-mt-red font-display text-[18px] uppercase leading-none tracking-[-0.02em] text-canvas shadow-[0_10px_24px_-14px_rgba(255,49,49,0.8)]">
             {demo.enabled ? 'SA' : initialsFor(user)}
           </span>
           <div className="min-w-0 flex-1">

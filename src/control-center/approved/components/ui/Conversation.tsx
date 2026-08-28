@@ -74,7 +74,7 @@ export function ConversationMessage({ message }: { message: Message }) {
           className={cn(
             'rounded-xl px-4 py-3 text-[15px] leading-relaxed',
             incoming && 'border border-white/10 bg-raised text-ink',
-            message.actor === 'ai' && 'bg-ice font-medium text-canvas',
+            message.actor === 'ai' && 'bg-ice font-medium text-white',
             message.actor === 'salvador' && 'bg-ok font-medium text-canvas',
           )}
         >
