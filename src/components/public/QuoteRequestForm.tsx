@@ -87,13 +87,13 @@ export default function QuoteRequestForm({ idPrefix = "contact", appearance = "d
         <label htmlFor={`${idPrefix}-project-type`} className={labelClass}>What do you need?</label>
         <Select value={form.projectType} onValueChange={(value) => setForm({ ...form, projectType: value })}>
           <SelectTrigger id={`${idPrefix}-project-type`} className={controlClass}><SelectValue placeholder="Choose one" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="material-delivery">Material Delivery</SelectItem>
-            <SelectItem value="gravel-driveway">Driveway or Private Road</SelectItem>
-            <SelectItem value="pond-work">Pond Work</SelectItem>
-            <SelectItem value="dirt-work">Dirt Work or Grading</SelectItem>
-            <SelectItem value="light-land-clearing">Light Land Clearing</SelectItem>
-            <SelectItem value="other">Other</SelectItem>
+          <SelectContent className={dark ? "public-contact-select-content" : undefined}>
+            <SelectItem className={dark ? "public-contact-select-item" : undefined} value="material-delivery">Material Delivery</SelectItem>
+            <SelectItem className={dark ? "public-contact-select-item" : undefined} value="gravel-driveway">Driveway or Private Road</SelectItem>
+            <SelectItem className={dark ? "public-contact-select-item" : undefined} value="pond-work">Pond Work</SelectItem>
+            <SelectItem className={dark ? "public-contact-select-item" : undefined} value="dirt-work">Dirt Work or Grading</SelectItem>
+            <SelectItem className={dark ? "public-contact-select-item" : undefined} value="light-land-clearing">Light Land Clearing</SelectItem>
+            <SelectItem className={dark ? "public-contact-select-item" : undefined} value="other">Other</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -106,7 +106,7 @@ export default function QuoteRequestForm({ idPrefix = "contact", appearance = "d
         <Textarea id={`${idPrefix}-message`} value={form.message} onChange={(event) => setForm({ ...form, message: event.target.value })} rows={4} placeholder="Material, amount, job details or anything else we should know" className={`${controlClass} min-h-[132px]`} />
       </div>
 
-      <div className={`p-4 sm:col-span-2 ${dark ? "border border-white/[0.12] bg-white/[0.055]" : "border border-black/10 bg-[#f3f2f0]"}`}>
+      <div className={`p-4 sm:col-span-2 ${dark ? "public-contact-consent" : "border border-black/10 bg-[#f3f2f0]"}`}>
         <div className="flex items-start gap-3">
           <Checkbox id={`${idPrefix}-sms-consent`} checked={form.smsConsent} onCheckedChange={(checked) => setForm({ ...form, smsConsent: checked === true })} aria-describedby={`${idPrefix}-sms-disclosure`} className={`mt-1 h-5 w-5 ${dark ? "border-white/40 data-[state=checked]:border-primary data-[state=checked]:bg-primary" : ""}`} />
           <div id={`${idPrefix}-sms-disclosure`} className={`text-sm leading-relaxed ${dark ? "text-white/[0.68]" : "text-muted-foreground"}`}>
@@ -120,8 +120,10 @@ export default function QuoteRequestForm({ idPrefix = "contact", appearance = "d
         </div>
       </div>
 
-      <Button type="submit" disabled={isSubmitting} className="h-14 bg-primary px-7 font-heading text-xl tracking-wider text-white transition-transform duration-200 hover:-translate-y-0.5 hover:bg-[#dd2d2d] disabled:opacity-70 motion-reduce:transition-none sm:col-span-2">
-        {isSubmitting ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Sending...</> : <><Send className="mr-2 h-5 w-5" />Send Quote Request</>}
+      <Button type="submit" disabled={isSubmitting} className="public-contact-submit sm:col-span-2">
+        <span className="public-contact-submit-content">
+          {isSubmitting ? <><Loader2 className="h-5 w-5 animate-spin" />Sending...</> : <><Send className="h-5 w-5" />Send Quote Request</>}
+        </span>
       </Button>
     </form>
   );

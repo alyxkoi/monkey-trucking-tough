@@ -71,9 +71,11 @@ describe("public website contracts", () => {
     expect(userMenu).toContain("Dashboard");
     expect(userMenu).not.toContain("Tickets");
     expect(hero).toContain("https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job1 cropped 3x2.mp4");
-    expect(hero).toContain('media="(min-width: 1200px)"');
+    expect(hero).toContain('const DESKTOP_QUERY = "(min-width: 1200px)"');
+    expect(hero).toContain("const videoSrc = isDesktop ? DESKTOP_HERO_VIDEO_URL : HERO_VIDEO_URL");
     expect(hero).toContain("https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job home hero.mp4");
-    expect(hero).toContain("autoPlay={!reduceMotion} loop muted playsInline");
+    expect(hero).toContain("autoPlay={!reduceMotion}");
+    expect(hero).toContain("playsInline");
     expect(hero).not.toContain("<img");
     expect(hero).toContain("Material Delivery");
     expect(hero).toContain("Driveway Installation");
@@ -116,6 +118,25 @@ describe("public website contracts", () => {
     expect(contact).toContain('`${idPrefix}-location`');
     expect(handler).toContain("Location: ${location || 'Not provided'}");
     expect(handler).toContain("location ? `Location: ${location}`");
+  });
+
+  it("uses the supplied Perlin waves safely across both public contact experiences", () => {
+    const section = read("src/components/public/PublicContactSection.tsx");
+    const page = read("src/pages/Contact.tsx");
+    const waves = read("src/components/ui/interactive-waves.tsx");
+
+    expect(section).toContain("InteractiveWaves");
+    expect(section).not.toContain("VerticalBarsNoise");
+    expect(page).toContain('variant="page"');
+    expect(page).not.toContain("contactHeroImg");
+    expect(waves).toContain("class Noise");
+    expect(waves).toContain("perlin2");
+    expect(waves).toContain("ResizeObserver");
+    expect(waves).toContain("IntersectionObserver");
+    expect(waves).toContain("prefers-reduced-motion: reduce");
+    expect(waves).toContain("cancelAnimationFrame");
+    expect(waves).not.toContain("preventDefault");
+    expect(waves).not.toContain('addEventListener("touchmove"');
   });
 
   it("contains no placeholder business identity or testimonial copy", () => {

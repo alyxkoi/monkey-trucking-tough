@@ -27,14 +27,10 @@ describe("public Home interactions", () => {
   it("keeps a single paused Hero video under reduced motion", () => {
     const { container } = render(<MemoryRouter><HomeHero /></MemoryRouter>);
     const video = container.querySelector("video");
-    const sources = container.querySelectorAll("video source");
     expect(video).toBeInTheDocument();
     expect(video).not.toHaveAttribute("autoplay");
-    expect(sources).toHaveLength(2);
-    expect(sources[0]).toHaveAttribute("media", "(min-width: 1200px)");
-    expect(sources[0]).toHaveAttribute("src", "https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job1 cropped 3x2.mp4");
-    expect(sources[1]).not.toHaveAttribute("media");
-    expect(sources[1]).toHaveAttribute("src", "https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job home hero.mp4");
+    expect(video).toHaveAttribute("src", "https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job home hero.mp4");
+    expect(container.querySelectorAll("video source")).toHaveLength(0);
     expect(container.querySelector(".public-home-hero-media img")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Call 214-677-8466/i })).toHaveAttribute("href", "tel:+12146778466");
     expect(screen.getByRole("link", { name: /Get a Quote/i })).toHaveAttribute("href", "/contact");
