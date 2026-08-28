@@ -8,6 +8,7 @@ const reset = read('supabase/maintenance/prelaunch_operational_reset.sql')
 const postflight = read('supabase/maintenance/prelaunch_operational_reset_postflight.sql')
 const css = read('src/control-center/approved/approved.css')
 const sideNav = read('src/control-center/approved/components/shell/SideNav.tsx')
+const controlCenterLayout = read('src/control-center/ExactControlCenterLayout.tsx')
 
 describe('guarded prelaunch operational reset', () => {
   it('is maintenance tooling rather than a deployment migration', () => {
@@ -65,6 +66,15 @@ describe('authenticated Control Center atmosphere', () => {
     expect(css).not.toContain('Love%20and%20Liberty.jpg')
     expect(css).toContain('background-size: cover')
     expect(css).toContain('background-position: center')
+  })
+
+  it('keeps Overview open while applying one continuous dot texture to tab routes', () => {
+    expect(controlCenterLayout).toContain('pathname === "/admin" || pathname === "/admin/"')
+    expect(controlCenterLayout).toContain('"cc-overview-canvas" : "cc-tab-canvas"')
+    expect(css).toContain('.control-center-root.cc-tab-canvas::before')
+    expect(css).toContain('rgba(235, 239, 244, 0.06) 1px')
+    expect(css).toContain('background-size: 24px 24px')
+    expect(css).toContain('background-repeat: repeat')
   })
 
   it('keeps the desktop sidebar detached and smoked-glass', () => {

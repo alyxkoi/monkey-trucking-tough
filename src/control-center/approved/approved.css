@@ -39,29 +39,26 @@
   background-size: cover;
 }
 
-/* The established dot texture stays faint and recedes toward the bottom. */
+/*
+ * A single, static texture layer for authenticated tab canvases. Overview keeps
+ * the open atmospheric canvas; every deeper route receives the same quiet dot
+ * density without adding a second background or touching card surfaces.
+ */
 .control-center-root::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background-image: radial-gradient(rgba(233, 237, 242, 0.075) 1px, transparent 1px);
+  opacity: 0;
+  background-image: radial-gradient(rgba(235, 239, 244, 0.06) 1px, transparent 1px);
   background-size: 24px 24px;
-  -webkit-mask-image: linear-gradient(
-    180deg,
-    #000 0%,
-    rgba(0, 0, 0, 0.9) 54%,
-    rgba(0, 0, 0, 0.42) 80%,
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    180deg,
-    #000 0%,
-    rgba(0, 0, 0, 0.9) 54%,
-    rgba(0, 0, 0, 0.42) 80%,
-    transparent 100%
-  );
+  background-position: 0 0;
+  background-repeat: repeat;
+}
+
+.control-center-root.cc-tab-canvas::before {
+  opacity: 1;
 }
 
 .control-center-root > * {
