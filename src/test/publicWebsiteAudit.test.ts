@@ -120,6 +120,10 @@ describe("public website contracts", () => {
     expect(contact).toContain("trackingAttribution: getTrackingAttribution()");
     expect(contact).toContain("smsConsent: false");
     expect(contact).toContain('`${idPrefix}-location`');
+    expect(contact).toContain("Continue to project details");
+    expect(contact).toContain("Step {step} of 2");
+    expect(contact).toContain('role="progressbar"');
+    expect(read("src/index.css")).not.toContain(".public-contact-heading::after");
     expect(handler).toContain("Location: ${location || 'Not provided'}");
     expect(handler).toContain("location ? `Location: ${location}`");
   });

@@ -32,6 +32,9 @@ describe("public quote form", () => {
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Alicia Ortiz" } });
     fireEvent.change(screen.getByLabelText("Phone"), { target: { value: "214-555-0182" } });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "alicia@example.com" } });
+    expect(screen.queryByLabelText("Service or delivery location")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Continue to project details" }));
+    expect(invoke).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText("Service or delivery location"), { target: { value: "Kaufman, TX" } });
     fireEvent.change(screen.getByLabelText("Details"), { target: { value: "Need driveway material" } });
     fireEvent.click(screen.getByRole("button", { name: "Send Quote Request" }));
@@ -49,5 +52,29 @@ describe("public quote form", () => {
         trackingAttribution: null,
       }),
     });
+  });
+
+  it("keeps contact details when moving back from project details", () => {
+    render(
+      <HelmetProvider>
+        <MemoryRouter>
+          <Contact />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue to project details" }));
+    expect(screen.queryByLabelText("Service or delivery location")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Name")).toHaveFocus();
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Alicia Ortiz" } });
+    fireEvent.change(screen.getByLabelText("Phone"), { target: { value: "214-555-0182" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "alicia@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue to project details" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+    expect(screen.getByLabelText("Name")).toHaveValue("Alicia Ortiz");
+    expect(screen.getByLabelText("Phone")).toHaveValue("214-555-0182");
+    expect(screen.getByLabelText("Email")).toHaveValue("alicia@example.com");
   });
 });
