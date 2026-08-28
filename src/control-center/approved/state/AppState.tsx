@@ -491,6 +491,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           status: 'NEW',
           source: input.source as ControlData['leads'][number]['source'],
           campaign: input.campaign?.trim() || null,
+          tracking_link_id: null,
           need: input.need.trim(),
           human_takeover: false,
           last_contact_at: null,

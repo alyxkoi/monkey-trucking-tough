@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1787936408410,
+      "tag": "0000_settings_tracking_material_only_tax",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787936503278,
+      "tag": "0001_create_email_queues",
+      "breakpoints": true
+    }
+  ]
+}

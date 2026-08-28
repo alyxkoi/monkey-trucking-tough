@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -419,9 +419,9 @@ export type Database = {
           name: string
           phone: string
           project_type: string | null
-          source: string | null
           sms_consent: boolean
           sms_consent_at: string | null
+          source: string | null
           submitted_at: string
           tracking_link_id: string | null
         }
@@ -439,9 +439,9 @@ export type Database = {
           name: string
           phone: string
           project_type?: string | null
-          source?: string | null
           sms_consent?: boolean
           sms_consent_at?: string | null
+          source?: string | null
           submitted_at?: string
           tracking_link_id?: string | null
         }
@@ -459,9 +459,9 @@ export type Database = {
           name?: string
           phone?: string
           project_type?: string | null
-          source?: string | null
           sms_consent?: boolean
           sms_consent_at?: string | null
+          source?: string | null
           submitted_at?: string
           tracking_link_id?: string | null
         }
@@ -478,6 +478,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_submissions_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_link_metrics"
             referencedColumns: ["id"]
           },
           {
@@ -1224,6 +1231,13 @@ export type Database = {
             foreignKeyName: "leads_tracking_link_id_fkey"
             columns: ["tracking_link_id"]
             isOneToOne: false
+            referencedRelation: "tracking_link_metrics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
             referencedRelation: "tracking_links"
             referencedColumns: ["id"]
           },
@@ -1916,6 +1930,39 @@ export type Database = {
           },
         ]
       }
+      tracking_link_visits: {
+        Row: {
+          id: string
+          tracking_link_id: string
+          visited_at: string
+        }
+        Insert: {
+          id?: string
+          tracking_link_id: string
+          visited_at?: string
+        }
+        Update: {
+          id?: string
+          tracking_link_id?: string
+          visited_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracking_link_visits_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_link_metrics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracking_link_visits_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tracking_links: {
         Row: {
           archived_at: string | null
@@ -1963,32 +2010,6 @@ export type Database = {
           visits?: number
         }
         Relationships: []
-      }
-      tracking_link_visits: {
-        Row: {
-          id: string
-          tracking_link_id: string
-          visited_at: string
-        }
-        Insert: {
-          id?: string
-          tracking_link_id: string
-          visited_at?: string
-        }
-        Update: {
-          id?: string
-          tracking_link_id?: string
-          visited_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tracking_link_visits_tracking_link_id_fkey"
-            columns: ["tracking_link_id"]
-            isOneToOne: false
-            referencedRelation: "tracking_links"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       user_roles: {
         Row: {
@@ -2136,6 +2157,36 @@ export type Database = {
           source: string | null
           visits: number | null
         }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          campaign?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customers?: never
+          destination?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          leads?: never
+          slug?: string | null
+          source?: string | null
+          visits?: never
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          campaign?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customers?: never
+          destination?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          leads?: never
+          slug?: string | null
+          source?: string | null
+          visits?: never
+        }
         Relationships: []
       }
     }
@@ -2264,10 +2315,6 @@ export type Database = {
           matched_existing: boolean
         }[]
       }
-      delete_tracking_link_if_unused: {
-        Args: { p_tracking_link_id: string }
-        Returns: Json
-      }
       create_quote_draft_from_lead: {
         Args: { p_lead_id: string }
         Returns: {
@@ -2346,10 +2393,6 @@ export type Database = {
         }
         Returns: string
       }
-      set_tracking_link_archived: {
-        Args: { p_archived: boolean; p_tracking_link_id: string }
-        Returns: undefined
-      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -2360,6 +2403,10 @@ export type Database = {
       }
       delete_ticket_permanently: {
         Args: { p_confirmation: string; p_reason: string; p_ticket_id: string }
+        Returns: Json
+      }
+      delete_tracking_link_if_unused: {
+        Args: { p_tracking_link_id: string }
         Returns: Json
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
@@ -2509,6 +2556,10 @@ export type Database = {
           id: string
           quote_number: string
         }[]
+      }
+      set_tracking_link_archived: {
+        Args: { p_archived: boolean; p_tracking_link_id: string }
+        Returns: undefined
       }
       void_financial_record: {
         Args: { p_reason: string; p_record_id: string; p_record_type: string }
