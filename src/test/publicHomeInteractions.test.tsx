@@ -73,6 +73,9 @@ describe("public Home interactions", () => {
     fireEvent.click(pond);
     expect(driveway).toHaveAttribute("aria-expanded", "false");
     expect(pond).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(pond);
+    expect(pond).toHaveAttribute("aria-expanded", "false");
   });
 
   it("provides a touch control for material outcome images", () => {
