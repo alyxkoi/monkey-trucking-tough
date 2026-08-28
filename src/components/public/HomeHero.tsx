@@ -1,5 +1,6 @@
 import { ArrowUpRight, Phone } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 export const HERO_VIDEO_URL = "https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job home hero.mp4";
@@ -24,18 +25,45 @@ const item = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.44, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
+const DESKTOP_QUERY = "(min-width: 1200px)";
+
 export default function HomeHero() {
   const reduceMotion = useReducedMotion();
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(DESKTOP_QUERY).matches,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(DESKTOP_QUERY);
+    const onChange = (event: MediaQueryListEvent) => {
+      setIsDesktop(event.matches);
+    };
+    setIsDesktop(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => {
+      mq.removeEventListener("change", onChange);
+    };
+  }, []);
+
+  const videoSrc = isDesktop ? DESKTOP_HERO_VIDEO_URL : HERO_VIDEO_URL;
 
   return (
     <section className="public-home-hero" aria-labelledby="home-hero-heading">
       <div className="public-home-hero-media">
-        <video autoPlay={!reduceMotion} loop muted playsInline preload="auto" aria-hidden="true" tabIndex={-1}>
-          <source src={DESKTOP_HERO_VIDEO_URL} type="video/mp4" media="(min-width: 1200px)" />
-          <source src={HERO_VIDEO_URL} type="video/mp4" />
-        </video>
+        <video
+          key={videoSrc}
+          src={videoSrc}
+          autoPlay={!reduceMotion}
+          loop
+          muted
+          playsInline
+          preload="auto"
+          aria-hidden="true"
+          tabIndex={-1}
+        />
         <div className="public-home-hero-media-shade" />
       </div>
+
 
       <motion.div className="public-home-hero-panel" variants={reduceMotion ? undefined : sequence} initial={reduceMotion ? false : "hidden"} animate="visible">
         <motion.h1 id="home-hero-heading" variants={reduceMotion ? undefined : item} className="public-home-hero-title font-display uppercase text-white">
