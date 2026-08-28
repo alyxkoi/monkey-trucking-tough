@@ -25,6 +25,7 @@ import { useDemoMode } from '@/control-center/demo/DemoMode'
 import { QA_FIXTURE_USER_ID } from '@/control-center/demo/constants'
 import { supabase } from '@/integrations/supabase/client'
 import { outputTicketPng, renderTicketPng } from '@/lib/admin/print'
+import { BUILD_INFO } from '@/lib/buildInfo'
 import { buildAutomationPreviews } from '@/control-center/ai/automationDryRun'
 import { generateAutomationDraft } from '@/control-center/ai/service'
 
@@ -441,6 +442,16 @@ export function SettingsMaterials() {
 
   return (
     <SettingsScreen title="Materials & Delivery">
+      {materials.length === 0 && (
+        <div className="rounded-panel border border-warn/40 bg-warn/10 p-4 sm:p-5">
+          <div className="font-label text-[13px] font-semibold uppercase tracking-[0.12em] text-warn">
+            Ticket setup required
+          </div>
+          <p className="mt-1 text-[14px] leading-snug text-ink/80">
+            The managed database has no material catalog. Apply and verify the approved Ticket setup migrations before creating Tickets.
+          </p>
+        </div>
+      )}
       <Panel padded={false} title={`${materials.length} materials`}>
         <div className="flex justify-end border-t border-line px-5 py-3">
           <SecondaryButton size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openMaterial('new')}>
@@ -1231,6 +1242,11 @@ export function SettingsPrinting() {
             value={sync === 'synced' ? `${shortAgo(lastSyncAt)} ago` : 'Syncing'}
             tone={sync === 'synced' ? 'ok' : 'ice'}
             line={`${tickets.length} tickets on this device.`}
+          />
+          <StatusRow
+            label="Application build"
+            value={BUILD_INFO.id}
+            line={`Version ${BUILD_INFO.version}. Built ${BUILD_INFO.builtAt}.`}
           />
         </div>
       </Panel>

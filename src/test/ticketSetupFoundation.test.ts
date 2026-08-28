@@ -76,6 +76,8 @@ describe('Ticket setup foundation', () => {
     const drivers = read('src/control-center/approved/state/ticketsData.ts')
     expect(materialPicker).toContain('Search material')
     expect(materialPicker).toContain('No active materials configured')
+    expect(read('src/control-center/approved/screens/TicketBuilder.tsx')).toContain('No active materials are configured')
+    expect(read('src/control-center/approved/screens/settings/index.tsx')).toContain('The managed database has no material catalog')
     expect(driverPicker).toContain('Search driver')
     expect(driverPicker).toContain('No drivers configured')
     expect(drivers).toContain('export const DRIVERS: Driver[] = []')

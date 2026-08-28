@@ -105,6 +105,7 @@ export function TicketBuilder() {
   const suggested = suggestedDeliveryLoads(lines)
   const deliveryUnset = delivery.mode === 'UNSET'
   const ticketSettings = sourceData?.appSettings
+  const materialCatalogReady = Boolean(sourceData?.materials.some((material) => material.is_active))
   const deliveryPricingReady = Boolean(ticketSettings && [
     ticketSettings.delivery_tier_1_fee,
     ticketSettings.delivery_tier_2_fee,
@@ -120,6 +121,7 @@ export function TicketBuilder() {
       && configuredTaxRate <= 100,
   )
   const setupProblems = [
+    !materialCatalogReady && 'No active materials are configured',
     !deliveryPricingReady && 'Delivery pricing is not configured',
     !taxPricingReady && 'Ticket tax is not configured',
   ].filter(Boolean) as string[]
