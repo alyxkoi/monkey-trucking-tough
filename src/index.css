@@ -291,6 +291,13 @@
   transform: scale(3.8);
   transform-origin: 50% center;
 }
+@media (min-width: 1200px) {
+  .public-home-hero-media video {
+    object-position: 50% center;
+    transform: none;
+  }
+}
+
 .public-home-hero-media-shade {
   position: absolute;
   inset: 0;
