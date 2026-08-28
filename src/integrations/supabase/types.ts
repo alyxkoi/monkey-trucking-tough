@@ -494,6 +494,63 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_document_tokens: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          created_by: string | null
+          document_type: string
+          first_viewed_at: string | null
+          id: string
+          invoice_id: string | null
+          latest_viewed_at: string | null
+          quote_id: string | null
+          revoked_at: string | null
+          token_hash: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_type: string
+          first_viewed_at?: string | null
+          id?: string
+          invoice_id?: string | null
+          latest_viewed_at?: string | null
+          quote_id?: string | null
+          revoked_at?: string | null
+          token_hash: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_type?: string
+          first_viewed_at?: string | null
+          id?: string
+          invoice_id?: string | null
+          latest_viewed_at?: string | null
+          quote_id?: string | null
+          revoked_at?: string | null
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_document_tokens_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_document_tokens_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           created_at: string
@@ -574,36 +631,108 @@ export type Database = {
       }
       email_send_log: {
         Row: {
+          accepted_at: string | null
+          attempted_at: string | null
           created_at: string
+          customer_id: string | null
+          document_token_id: string | null
           error_message: string | null
           id: string
+          idempotency_key: string | null
+          invoice_id: string | null
           message_id: string | null
           metadata: Json | null
+          payment_id: string | null
+          provider_message_id: string | null
+          quote_id: string | null
           recipient_email: string
+          reply_to: string | null
+          sender_email: string | null
           status: string
           template_name: string
+          template_type: string | null
         }
         Insert: {
+          accepted_at?: string | null
+          attempted_at?: string | null
           created_at?: string
+          customer_id?: string | null
+          document_token_id?: string | null
           error_message?: string | null
           id?: string
+          idempotency_key?: string | null
+          invoice_id?: string | null
           message_id?: string | null
           metadata?: Json | null
+          payment_id?: string | null
+          provider_message_id?: string | null
+          quote_id?: string | null
           recipient_email: string
+          reply_to?: string | null
+          sender_email?: string | null
           status: string
           template_name: string
+          template_type?: string | null
         }
         Update: {
+          accepted_at?: string | null
+          attempted_at?: string | null
           created_at?: string
+          customer_id?: string | null
+          document_token_id?: string | null
           error_message?: string | null
           id?: string
+          idempotency_key?: string | null
+          invoice_id?: string | null
           message_id?: string | null
           metadata?: Json | null
+          payment_id?: string | null
+          provider_message_id?: string | null
+          quote_id?: string | null
           recipient_email?: string
+          reply_to?: string | null
+          sender_email?: string | null
           status?: string
           template_name?: string
+          template_type?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "email_send_log_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_log_document_token_id_fkey"
+            columns: ["document_token_id"]
+            isOneToOne: false
+            referencedRelation: "customer_document_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_log_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_log_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_log_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_send_state: {
         Row: {
@@ -1711,6 +1840,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_public_quote: {
+        Args: { p_token_hash: string }
+        Returns: {
+          accepted_at: string
+          quote_id: string
+          status: string
+        }[]
+      }
       confirm_worker_payment_details: {
         Args: { p_worker_payment_id: string }
         Returns: undefined
@@ -1896,6 +2033,14 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      finalize_customer_email_send: {
+        Args: {
+          p_due_at?: string
+          p_log_id: string
+          p_provider_message_id: string
+        }
+        Returns: undefined
       }
       find_or_create_customer: {
         Args: { p_email?: string; p_name: string; p_phone?: string }
