@@ -1551,10 +1551,6 @@ export type Database = {
           matched_existing: boolean
         }[]
       }
-      delete_material_if_unused: {
-        Args: { p_material_id: string }
-        Returns: Json
-      }
       create_ticket_atomic: {
         Args: {
           p_client_request_id: string
