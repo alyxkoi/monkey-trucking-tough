@@ -215,10 +215,10 @@ export default function ServiceFeatureGrid() {
 
   return (
     <LayoutGroup id="public-service-features">
-      <section className="w-full bg-[#f0efec] py-16 sm:py-20 lg:py-24" aria-labelledby="service-feature-heading">
+      <section className="public-service-feature-section w-full py-16 sm:py-20 lg:py-24" aria-labelledby="service-feature-heading">
         <div className="mx-auto max-w-[1560px] px-5 sm:px-8 lg:px-12">
           <PublicReveal>
-            <h2 id="service-feature-heading" className="font-display text-[clamp(46px,6vw,78px)] uppercase leading-[0.94] text-primary">What do you need?</h2>
+            <h2 id="service-feature-heading" className="font-display text-[clamp(46px,6vw,78px)] uppercase leading-[0.94] text-primary">Here&apos;s What We Do.</h2>
             <p className="mt-5 max-w-[720px] text-base leading-relaxed text-[#29292d] sm:text-lg">
               From material delivery to driveways, ponds and site work, choose what you need to see how we can help.
             </p>

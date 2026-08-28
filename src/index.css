@@ -790,6 +790,11 @@
   .public-contact-step { animation: none !important; }
 }
 
+.public-service-feature-section {
+  background:
+    radial-gradient(circle at 58% 8%, rgba(255, 255, 255, 0.56), transparent 38%),
+    linear-gradient(180deg, #e9eaeb 0%, #dcdee0 45%, #bec1c5 100%);
+}
 .public-recent-work {
   position: relative;
   overflow: hidden;

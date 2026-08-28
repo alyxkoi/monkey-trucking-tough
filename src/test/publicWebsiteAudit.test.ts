@@ -39,6 +39,8 @@ describe("public website contracts", () => {
 
   it("keeps the architectural Home sequence in the approved order", () => {
     const home = read("src/pages/Index.tsx");
+    const services = read("src/components/public/ServiceFeatureGrid.tsx");
+    const css = read("src/index.css");
     const sequence = [
       "<HomeHero",
       "<ServiceFeatureGrid",
@@ -54,6 +56,9 @@ describe("public website contracts", () => {
       cursor = next;
     }
     expect(home).not.toMatch(/CTASection|marquee|testimonial|How it works|Years in Business|Jobs Completed/i);
+    expect(services).toContain("Here&apos;s What We Do.");
+    expect(services).toContain("public-service-feature-section");
+    expect(css).toMatch(/\.public-service-feature-section\s*{[^}]*#e9eaeb[^}]*#dcdee0[^}]*#bec1c5/s);
   });
 
   it("keeps the public header centered and the Hero media contract exact", () => {
