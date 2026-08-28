@@ -1,7 +1,6 @@
 import { ArrowUpRight, Phone } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { Link } from "react-router-dom";
-import heroImage from "@/assets/services/aggregate-hauling.webp";
 
 export const HERO_VIDEO_URL = "https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job home hero.mp4";
 
@@ -29,15 +28,12 @@ export default function HomeHero() {
 
   return (
     <section className="public-home-hero" aria-labelledby="home-hero-heading">
-      <motion.div className="public-home-hero-media" initial={reduceMotion ? false : { opacity: 0, scale: 1.015 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: reduceMotion ? 0 : 0.56, ease: [0.16, 1, 0.3, 1] }}>
-        <img className="public-home-hero-poster" src={heroImage} alt="Monkey Trucking material delivery job" loading="eager" decoding="async" />
-        {!reduceMotion && (
-          <video autoPlay loop muted playsInline preload="metadata" poster={heroImage} aria-hidden="true" tabIndex={-1}>
-            <source src={HERO_VIDEO_URL} type="video/mp4" />
-          </video>
-        )}
+      <div className="public-home-hero-media">
+        <video autoPlay={!reduceMotion} loop muted playsInline preload="auto" aria-hidden="true" tabIndex={-1}>
+          <source src={HERO_VIDEO_URL} type="video/mp4" />
+        </video>
         <div className="public-home-hero-media-shade" />
-      </motion.div>
+      </div>
 
       <motion.div className="public-home-hero-panel" variants={reduceMotion ? undefined : sequence} initial={reduceMotion ? false : "hidden"} animate="visible">
         <motion.h1 id="home-hero-heading" variants={reduceMotion ? undefined : item} className="public-home-hero-title font-display uppercase text-white">

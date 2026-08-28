@@ -24,10 +24,12 @@ describe("public Home interactions", () => {
     });
   });
 
-  it("uses the stable Hero poster instead of moving video under reduced motion", () => {
+  it("keeps a single paused Hero video under reduced motion", () => {
     const { container } = render(<MemoryRouter><HomeHero /></MemoryRouter>);
-    expect(container.querySelector("video")).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Monkey Trucking material delivery job" })).toBeInTheDocument();
+    const video = container.querySelector("video");
+    expect(video).toBeInTheDocument();
+    expect(video).not.toHaveAttribute("autoplay");
+    expect(container.querySelector(".public-home-hero-media img")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Call 214-677-8466/i })).toHaveAttribute("href", "tel:+12146778466");
     expect(screen.getByRole("link", { name: /Get a Quote/i })).toHaveAttribute("href", "/contact");
   });

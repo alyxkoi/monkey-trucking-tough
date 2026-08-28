@@ -71,12 +71,15 @@ describe("public website contracts", () => {
     expect(userMenu).toContain("Dashboard");
     expect(userMenu).not.toContain("Tickets");
     expect(hero).toContain("https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job home hero.mp4");
-    expect(hero).toContain("autoPlay loop muted playsInline");
+    expect(hero).toContain("autoPlay={!reduceMotion} loop muted playsInline");
+    expect(hero).not.toContain("<img");
     expect(hero).toContain("Material Delivery");
     expect(hero).toContain("Driveway Installation");
     expect(hero).toContain("Dirt &amp; Site Work");
     expect(hero).toContain('to="/contact"');
     expect(css).not.toContain(".public-home-hero-panel::after");
+    expect(css).not.toContain("public-home-hero-poster");
+    expect(css).not.toMatch(/public-home-hero-media video[^{]*{[^}]*mask-image/s);
     expect(html).toContain('href="https://dugmcjpistrxxryaubkd.supabase.co"');
   });
 
