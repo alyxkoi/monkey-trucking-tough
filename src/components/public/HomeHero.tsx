@@ -1,4 +1,4 @@
-import { ArrowUpRight, Phone } from "lucide-react";
+import { ArrowUpRight, Award, Phone, Star, Truck } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -24,6 +24,27 @@ const item = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.44, ease: [0.16, 1, 0.3, 1] as const } },
 };
+
+const statsSequence = {
+  hidden: {},
+  visible: { transition: { delayChildren: 0.12, staggerChildren: 0.1 } },
+};
+
+const statItem = {
+  hidden: { opacity: 0, y: 10, filter: "blur(12px)" },
+  visible: {
+    opacity: 1,
+    y: 0,
+    filter: "blur(0px)",
+    transition: { duration: 0.52, ease: [0.16, 1, 0.3, 1] as const },
+  },
+};
+
+const HERO_STATS = [
+  { value: "10+", label: "Years in Service", Icon: Award },
+  { value: "200+", label: "Jobs Done", Icon: Truck },
+  { value: "5 Stars", label: "Reviews", Icon: Star },
+] as const;
 
 const DESKTOP_QUERY = "(min-width: 1200px)";
 
@@ -76,6 +97,21 @@ export default function HomeHero() {
           <a href="tel:+12146778466" className="public-button public-hero-cta public-hero-cta-primary"><Phone className="h-5 w-5" />Call 214-677-8466</a>
           <Link to="/contact" className="public-button public-hero-cta public-hero-cta-secondary">Get a Quote<ArrowUpRight className="h-5 w-5" /></Link>
         </motion.div>
+        <motion.ul
+          className="public-hero-stats"
+          aria-label="Monkey Trucking experience"
+          variants={reduceMotion ? undefined : statsSequence}
+        >
+          {HERO_STATS.map(({ value, label, Icon }) => (
+            <motion.li key={label} className="public-hero-stat" variants={reduceMotion ? undefined : statItem}>
+              <span className="public-hero-stat-icon" aria-hidden="true"><Icon /></span>
+              <span className="public-hero-stat-copy">
+                <strong className="public-hero-stat-value">{value}</strong>
+                <span className="public-hero-stat-label">{label}</span>
+              </span>
+            </motion.li>
+          ))}
+        </motion.ul>
       </motion.div>
     </section>
   );

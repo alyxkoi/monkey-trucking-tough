@@ -80,6 +80,10 @@ describe("public website contracts", () => {
     expect(hero).toContain("Material Delivery");
     expect(hero).toContain("Driveway Installation");
     expect(hero).toContain("Dirt &amp; Site Work");
+    expect(hero).toContain('value: "10+"');
+    expect(hero).toContain('value: "200+"');
+    expect(hero).toContain('value: "5 Stars"');
+    expect(hero).toContain('filter: "blur(12px)"');
     expect(hero).toContain('to="/contact"');
     expect(css).not.toContain(".public-home-hero-panel::after");
     expect(css).not.toContain("public-home-hero-poster");
