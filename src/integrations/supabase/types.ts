@@ -457,6 +457,7 @@ export type Database = {
           company_email: string | null
           custom_work_tax_rule: string
           default_invoice_due_days: number
+          email_status: string
           id: number
           payment_processor_status: string
           printable_logo_status: string
@@ -471,6 +472,7 @@ export type Database = {
           company_email?: string | null
           custom_work_tax_rule?: string
           default_invoice_due_days?: number
+          email_status?: string
           id?: number
           payment_processor_status?: string
           printable_logo_status?: string
@@ -485,6 +487,7 @@ export type Database = {
           company_email?: string | null
           custom_work_tax_rule?: string
           default_invoice_due_days?: number
+          email_status?: string
           id?: number
           payment_processor_status?: string
           printable_logo_status?: string
@@ -1596,6 +1599,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_deletion_audit: {
+        Row: {
+          deleted_at: string
+          deleted_by: string
+          id: string
+          job_id: string | null
+          reason: string
+          ticket_id: string
+          ticket_number: string
+          was_job_linked: boolean
+        }
+        Insert: {
+          deleted_at?: string
+          deleted_by?: string
+          id?: string
+          job_id?: string | null
+          reason: string
+          ticket_id: string
+          ticket_number: string
+          was_job_linked: boolean
+        }
+        Update: {
+          deleted_at?: string
+          deleted_by?: string
+          id?: string
+          job_id?: string | null
+          reason?: string
+          ticket_id?: string
+          ticket_number?: string
+          was_job_linked?: boolean
+        }
+        Relationships: []
+      }
       ticket_history: {
         Row: {
           actor_id: string | null
@@ -2188,6 +2224,10 @@ export type Database = {
       }
       delete_material_if_unused: {
         Args: { p_material_id: string }
+        Returns: Json
+      }
+      delete_ticket_permanently: {
+        Args: { p_confirmation: string; p_reason: string; p_ticket_id: string }
         Returns: Json
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
