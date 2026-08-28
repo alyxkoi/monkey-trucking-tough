@@ -205,6 +205,8 @@ describe("public website contracts", () => {
 
     for (const icon of ["MapPin", "Truck", "ClipboardCheck"]) expect(proof).toContain(icon);
     expect(proof).toContain("public-proof-card");
+    expect(css).toMatch(/\.public-proof-section\s*{[^}]*linear-gradient\(180deg, #bec1c5 0%, #b7babd 55%, #aeb1b5 100%\)/s);
+    expect(css).not.toMatch(/\.public-proof-section\s*{[^}]*#0f0f12/s);
     expect(css).toContain(".public-proof-card-fill");
     expect(css).toContain("transform: scaleY(0)");
     expect(css).toContain("transition: transform 440ms");

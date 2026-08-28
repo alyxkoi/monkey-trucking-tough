@@ -2110,7 +2110,7 @@
   position: relative;
   overflow: hidden;
   padding-block: clamp(4.5rem, 7vw, 7rem);
-  background: #0f0f12;
+  background: linear-gradient(180deg, #bec1c5 0%, #b7babd 55%, #aeb1b5 100%);
   color: #f5f5f3;
 }
 
