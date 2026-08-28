@@ -58,6 +58,8 @@ describe("public website contracts", () => {
     expect(home).not.toMatch(/CTASection|marquee|testimonial|How it works|Years in Business|Jobs Completed/i);
     expect(services).toContain("Here&apos;s What We Do.");
     expect(services).toContain("public-service-feature-section");
+    expect(services).toContain("public-home-service-card");
+    expect(services).not.toMatch(/className={`public-service-card/);
     expect(css).toMatch(/\.public-service-feature-section\s*{[^}]*#e9eaeb[^}]*#dcdee0[^}]*#bec1c5/s);
   });
 

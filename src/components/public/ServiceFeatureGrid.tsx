@@ -55,7 +55,7 @@ function ServiceCard({
       aria-expanded={open}
       aria-haspopup="dialog"
       onClick={onOpen}
-      className={`public-service-card group relative min-w-0 overflow-hidden bg-[#16161a] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-[#f0efec] ${placement[index]} ${cardHeight[index]}`}
+      className={`public-home-service-card group relative min-w-0 overflow-hidden bg-[#16161a] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-[#f0efec] ${placement[index]} ${cardHeight[index]}`}
       whileHover={reduceMotion ? undefined : { y: -3 }}
       whileTap={reduceMotion ? undefined : { scale: 0.992 }}
       transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
