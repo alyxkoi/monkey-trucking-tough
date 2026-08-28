@@ -61,6 +61,211 @@ export type Database = {
           },
         ]
       }
+      ai_audit_logs: {
+        Row: {
+          actor_id: string | null
+          automation_rule_id: string | null
+          concise_rationale: string | null
+          created_at: string
+          customer_id: string | null
+          decision: Json | null
+          error_code: string | null
+          error_message: string | null
+          evaluation_type: string
+          id: string
+          language: string | null
+          latency_ms: number | null
+          lead_id: string | null
+          model_id: string | null
+          prompt_version: string
+          status: string
+          tool_results: Json
+        }
+        Insert: {
+          actor_id?: string | null
+          automation_rule_id?: string | null
+          concise_rationale?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decision?: Json | null
+          error_code?: string | null
+          error_message?: string | null
+          evaluation_type: string
+          id?: string
+          language?: string | null
+          latency_ms?: number | null
+          lead_id?: string | null
+          model_id?: string | null
+          prompt_version: string
+          status: string
+          tool_results?: Json
+        }
+        Update: {
+          actor_id?: string | null
+          automation_rule_id?: string | null
+          concise_rationale?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decision?: Json | null
+          error_code?: string | null
+          error_message?: string | null
+          evaluation_type?: string
+          id?: string
+          language?: string | null
+          latency_ms?: number | null
+          lead_id?: string | null
+          model_id?: string | null
+          prompt_version?: string
+          status?: string
+          tool_results?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_audit_logs_automation_rule_id_fkey"
+            columns: ["automation_rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_audit_logs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_audit_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_conversation_state: {
+        Row: {
+          customer_id: string
+          known_facts: Json
+          last_evaluated_message_id: string | null
+          lead_id: string
+          missing_facts: Json
+          uncertain_facts: Json
+          updated_at: string
+        }
+        Insert: {
+          customer_id: string
+          known_facts?: Json
+          last_evaluated_message_id?: string | null
+          lead_id: string
+          missing_facts?: Json
+          uncertain_facts?: Json
+          updated_at?: string
+        }
+        Update: {
+          customer_id?: string
+          known_facts?: Json
+          last_evaluated_message_id?: string | null
+          lead_id?: string
+          missing_facts?: Json
+          uncertain_facts?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_conversation_state_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_conversation_state_last_evaluated_message_id_fkey"
+            columns: ["last_evaluated_message_id"]
+            isOneToOne: false
+            referencedRelation: "lead_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_conversation_state_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_drafts: {
+        Row: {
+          audit_log_id: string
+          automation_rule_id: string | null
+          body: string
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          decision: Json
+          id: string
+          language: string
+          lead_id: string | null
+          status: string
+        }
+        Insert: {
+          audit_log_id: string
+          automation_rule_id?: string | null
+          body: string
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          decision: Json
+          id?: string
+          language: string
+          lead_id?: string | null
+          status?: string
+        }
+        Update: {
+          audit_log_id?: string
+          automation_rule_id?: string | null
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          decision?: Json
+          id?: string
+          language?: string
+          lead_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_drafts_audit_log_id_fkey"
+            columns: ["audit_log_id"]
+            isOneToOne: false
+            referencedRelation: "ai_audit_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_drafts_automation_rule_id_fkey"
+            columns: ["automation_rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_drafts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_drafts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           company_address: string
@@ -302,6 +507,9 @@ export type Database = {
           normalized_phone: string | null
           notes: string | null
           phone: string | null
+          sms_consent_at: string | null
+          sms_consent_source: string | null
+          sms_opted_out_at: string | null
           updated_at: string
         }
         Insert: {
@@ -316,6 +524,9 @@ export type Database = {
           normalized_phone?: string | null
           notes?: string | null
           phone?: string | null
+          sms_consent_at?: string | null
+          sms_consent_source?: string | null
+          sms_opted_out_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -330,6 +541,9 @@ export type Database = {
           normalized_phone?: string | null
           notes?: string | null
           phone?: string | null
+          sms_consent_at?: string | null
+          sms_consent_source?: string | null
+          sms_opted_out_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1697,6 +1911,9 @@ export type Database = {
           normalized_phone: string | null
           notes: string | null
           phone: string | null
+          sms_consent_at: string | null
+          sms_consent_source: string | null
+          sms_opted_out_at: string | null
           updated_at: string
         }
         SetofOptions: {
