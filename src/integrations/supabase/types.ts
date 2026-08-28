@@ -1206,9 +1206,14 @@ export type Database = {
           invoice_id: string
           method: string
           note: string | null
+          payment_source: string | null
+          provider_payment_method_type: string | null
           received_at: string
           recorded_at: string
           recorded_by: string | null
+          stripe_checkout_session_id: string | null
+          stripe_event_id: string | null
+          stripe_payment_intent_id: string | null
           void_reason: string | null
           voided_at: string | null
           voided_by: string | null
@@ -1221,9 +1226,14 @@ export type Database = {
           invoice_id: string
           method: string
           note?: string | null
+          payment_source?: string | null
+          provider_payment_method_type?: string | null
           received_at: string
           recorded_at?: string
           recorded_by?: string | null
+          stripe_checkout_session_id?: string | null
+          stripe_event_id?: string | null
+          stripe_payment_intent_id?: string | null
           void_reason?: string | null
           voided_at?: string | null
           voided_by?: string | null
@@ -1236,9 +1246,14 @@ export type Database = {
           invoice_id?: string
           method?: string
           note?: string | null
+          payment_source?: string | null
+          provider_payment_method_type?: string | null
           received_at?: string
           recorded_at?: string
           recorded_by?: string | null
+          stripe_checkout_session_id?: string | null
+          stripe_event_id?: string | null
+          stripe_payment_intent_id?: string | null
           void_reason?: string | null
           voided_at?: string | null
           voided_by?: string | null
@@ -1421,6 +1436,138 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stripe_checkout_sessions: {
+        Row: {
+          amount_cents: number
+          checkout_url: string | null
+          created_at: string
+          currency: string
+          document_token_id: string
+          expires_at: string | null
+          failure_reason: string | null
+          id: string
+          invoice_id: string
+          livemode: boolean | null
+          status: string
+          stripe_payment_intent_id: string | null
+          stripe_session_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          checkout_url?: string | null
+          created_at?: string
+          currency?: string
+          document_token_id: string
+          expires_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          invoice_id: string
+          livemode?: boolean | null
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          checkout_url?: string | null
+          created_at?: string
+          currency?: string
+          document_token_id?: string
+          expires_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          invoice_id?: string
+          livemode?: boolean | null
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_checkout_sessions_document_token_id_fkey"
+            columns: ["document_token_id"]
+            isOneToOne: false
+            referencedRelation: "customer_document_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stripe_checkout_sessions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stripe_webhook_events: {
+        Row: {
+          attempt_count: number
+          error_message: string | null
+          event_type: string
+          invoice_id: string | null
+          livemode: boolean | null
+          payment_id: string | null
+          processed_at: string | null
+          provider_event_id: string
+          receipt_email_status: string | null
+          received_at: string
+          status: string
+          stripe_payment_intent_id: string | null
+          stripe_session_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          error_message?: string | null
+          event_type: string
+          invoice_id?: string | null
+          livemode?: boolean | null
+          payment_id?: string | null
+          processed_at?: string | null
+          provider_event_id: string
+          receipt_email_status?: string | null
+          received_at?: string
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          error_message?: string | null
+          event_type?: string
+          invoice_id?: string | null
+          livemode?: boolean | null
+          payment_id?: string | null
+          processed_at?: string | null
+          provider_event_id?: string
+          receipt_email_status?: string | null
+          received_at?: string
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_webhook_events_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stripe_webhook_events_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
             referencedColumns: ["id"]
           },
         ]
@@ -1848,6 +1995,20 @@ export type Database = {
           status: string
         }[]
       }
+      activate_stripe_checkout_session: {
+        Args: {
+          p_checkout_url: string
+          p_expires_at: string
+          p_livemode: boolean
+          p_reservation_id: string
+          p_stripe_session_id: string
+        }
+        Returns: undefined
+      }
+      complete_job_and_prepare_invoice: {
+        Args: { p_job_id: string }
+        Returns: string
+      }
       confirm_worker_payment_details: {
         Args: { p_worker_payment_id: string }
         Returns: undefined
@@ -2034,6 +2195,10 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      fail_stripe_checkout_session: {
+        Args: { p_reason: string; p_reservation_id: string }
+        Returns: undefined
+      }
       finalize_customer_email_send: {
         Args: {
           p_due_at?: string
@@ -2071,6 +2236,16 @@ export type Database = {
       is_admin_or_staff:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
+      mark_stripe_checkout_terminal: {
+        Args: {
+          p_event_id: string
+          p_event_type: string
+          p_livemode: boolean
+          p_status: string
+          p_stripe_session_id: string
+        }
+        Returns: undefined
+      }
       mark_worker_payment_paid: {
         Args: { p_worker_payment_id: string }
         Returns: undefined
@@ -2087,6 +2262,20 @@ export type Database = {
       next_invoice_number: { Args: never; Returns: string }
       next_quote_number: { Args: never; Returns: string }
       next_ticket_number: { Args: never; Returns: string }
+      process_stripe_checkout_payment: {
+        Args: {
+          p_amount_cents: number
+          p_currency: string
+          p_event_id: string
+          p_event_type: string
+          p_livemode: boolean
+          p_paid_at: string
+          p_provider_payment_method_type: string
+          p_stripe_payment_intent_id: string
+          p_stripe_session_id: string
+        }
+        Returns: Json
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -2103,6 +2292,44 @@ export type Database = {
           p_received_at: string
         }
         Returns: string
+      }
+      reserve_stripe_checkout_session: {
+        Args: {
+          p_amount_cents: number
+          p_document_token_id: string
+          p_invoice_id: string
+        }
+        Returns: {
+          amount_cents: number
+          checkout_url: string | null
+          created_at: string
+          currency: string
+          document_token_id: string
+          expires_at: string | null
+          failure_reason: string | null
+          id: string
+          invoice_id: string
+          livemode: boolean | null
+          status: string
+          stripe_payment_intent_id: string | null
+          stripe_session_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "stripe_checkout_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      revise_draft_invoice: {
+        Args: {
+          p_amount: number
+          p_description: string
+          p_invoice_id: string
+          p_reason: string
+        }
+        Returns: undefined
       }
       save_quote_atomic: {
         Args: { p_items: Json; p_quote: Json }
