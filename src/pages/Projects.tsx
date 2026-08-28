@@ -1,7 +1,6 @@
-import { useState } from "react";
-import { Phone } from "lucide-react";
+import { ArrowRight, Phone } from "lucide-react";
+import { Link } from "react-router-dom";
 import Seo from "@/components/Seo";
-import CTASection from "@/components/CTASection";
 import ProjectCard from "@/components/ProjectCard";
 
 import projectsHeroImg from "@/assets/projects-hero.webp";
@@ -16,10 +15,8 @@ import pondDrainageImg from "@/assets/projects/pond-drainage-fix.webp";
 import gravelParkingImg from "@/assets/projects/gravel-parking-pad.webp";
 
 const PHONE_HREF = "tel:+12146778466";
-const filters = ["All", "Driveways", "Ponds", "Delivery", "Dirt Work"] as const;
-type ProjectFilter = (typeof filters)[number];
 
-const projects: Array<{ title: string; category: Exclude<ProjectFilter, "All">; image: string }> = [
+const projects = [
   { title: "New Gravel Driveway", category: "Driveways", image: gravelDrivewayImg },
   { title: "Stock Pond Excavation", category: "Ponds", image: stockPondImg },
   { title: "Crushed Concrete Delivery", category: "Delivery", image: crushedConcreteImg },
@@ -31,19 +28,15 @@ const projects: Array<{ title: string; category: Exclude<ProjectFilter, "All">; 
   { title: "Gravel Parking Pad", category: "Driveways", image: gravelParkingImg },
 ];
 
-const Projects = () => {
-  const [filter, setFilter] = useState<ProjectFilter>("All");
-  const visibleProjects = filter === "All" ? projects : projects.filter((project) => project.category === filter);
+const Projects = () => (
+  <>
+    <Seo
+      title="Driveway, Pond & Dirt Work Projects | Kaufman TX"
+      description="View recent driveway work, pond excavation, material deliveries, grading and light land clearing near Kaufman, Texas."
+      path="/projects"
+    />
 
-  return (
-    <>
-      <Seo
-        title="Driveway, Pond & Dirt Work Projects | Kaufman TX"
-        description="View recent driveway work, pond excavation, material deliveries, grading and light land clearing near Kaufman, Texas."
-        path="/projects"
-      />
-
-      <section className="public-page-hero">
+    <section className="public-page-hero">
         <img src={projectsHeroImg} alt="Completed Monkey Trucking property project" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-nearblack via-nearblack/72 to-nearblack/15" />
         <div className="relative mx-auto w-full max-w-[1380px] px-5 sm:px-8 lg:px-12">
@@ -53,32 +46,29 @@ const Projects = () => {
             <a href={PHONE_HREF} className="public-button public-button-primary mt-7"><Phone className="h-5 w-5" />Call 214-677-8466</a>
           </div>
         </div>
-      </section>
+    </section>
 
-      <section className="bg-[#efeeec] py-12 sm:py-16 lg:py-20">
-        <div className="mx-auto max-w-[1380px] px-5 sm:px-8 lg:px-12">
-          <div className="flex max-w-full gap-2 overflow-x-auto pb-2" role="group" aria-label="Filter projects">
-            {filters.map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setFilter(option)}
-                aria-pressed={filter === option}
-                className={`min-h-12 shrink-0 rounded-md px-5 font-label text-base font-bold transition-colors ${filter === option ? "bg-primary text-white" : "border border-black/15 bg-white text-foreground hover:border-primary"}`}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
-            {visibleProjects.map((project) => <ProjectCard key={project.title} {...project} />)}
-          </div>
-        </div>
-      </section>
+    <main className="public-destination-main public-projects-main">
+        <section className="public-destination-catalog" aria-label="Recent Monkey Trucking projects">
+          <div className="public-destination-container">
+            <div className="public-project-grid">
+              {projects.map((project) => <ProjectCard key={project.title} {...project} />)}
+            </div>
 
-      <CTASection headline="Have a project in mind?" subtext="Call us or send a quote request with your location and what needs to be done." />
-    </>
-  );
-};
+            <div className="public-destination-cta public-projects-cta">
+              <div>
+                <h2>Have a project in mind?</h2>
+                <p>Send the work and location you have in mind. We will help you plan the next step.</p>
+              </div>
+              <Link to="/contact" className="public-destination-cta-link">
+                <span>Get a Quote</span>
+                <ArrowRight aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+        </section>
+    </main>
+  </>
+);
 
 export default Projects;

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 interface ProjectLightboxProps {
@@ -23,9 +24,9 @@ const ProjectLightbox = ({ image, title, category, isOpen, onClose }: ProjectLig
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 cursor-pointer"
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-8 cursor-pointer"
       onClick={onClose}
     >
       {/* Backdrop */}
@@ -55,7 +56,8 @@ const ProjectLightbox = ({ image, title, category, isOpen, onClose }: ProjectLig
           <h3 className="font-heading text-h4 text-white mt-1">{title}</h3>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 

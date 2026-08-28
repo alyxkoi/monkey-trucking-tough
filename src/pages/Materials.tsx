@@ -1,6 +1,5 @@
 import { Phone } from "lucide-react";
 import Seo from "@/components/Seo";
-import CTASection from "@/components/CTASection";
 import MaterialCard from "@/components/MaterialCard";
 
 import materialsHeroImg from "@/assets/materials-hero.webp";
@@ -50,15 +49,26 @@ const Materials = () => (
       </div>
     </section>
 
-    <section className="bg-[#efeeec] py-12 sm:py-16 lg:py-20">
-      <div className="mx-auto max-w-[1380px] px-5 sm:px-8 lg:px-12">
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
-          {materials.map((material) => <MaterialCard key={material.name} {...material} />)}
-        </div>
-      </div>
-    </section>
+    <main className="public-destination-main public-materials-main">
+      <section className="public-destination-catalog" aria-label="Available aggregate materials">
+        <div className="public-destination-container">
+          <div className="public-material-catalog-grid">
+            {materials.map((material) => <MaterialCard key={material.name} {...material} />)}
+          </div>
 
-    <CTASection headline="Need material delivered?" subtext="Tell us the material, amount and delivery location." />
+          <div className="public-destination-cta public-materials-cta">
+            <div>
+              <h2>Not sure which material you need?</h2>
+              <p>Tell us what you are working on and we can help you choose.</p>
+            </div>
+            <a href={PHONE_HREF} className="public-destination-cta-link">
+              <Phone aria-hidden="true" />
+              <span>Call 214-677-8466</span>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
   </>
 );
 

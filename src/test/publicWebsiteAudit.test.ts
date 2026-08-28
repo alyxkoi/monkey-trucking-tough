@@ -134,6 +134,27 @@ describe("public website contracts", () => {
     expect(services).not.toMatch(/projects of all sizes|demolition|major forestry|large-scale specialized/i);
   });
 
+  it("keeps the three destination page architectures responsive and distinct", () => {
+    const projects = read("src/pages/Projects.tsx");
+    const materials = read("src/pages/Materials.tsx");
+    const services = read("src/pages/Services.tsx");
+    const css = read("src/index.css");
+
+    expect(projects).not.toMatch(/Filter projects|aria-pressed|visibleProjects/);
+    expect(projects).toContain("public-project-grid");
+    expect(materials).toContain("public-material-catalog-grid");
+    expect(services.match(/className="public-service-card"/g)).toHaveLength(1);
+    for (const title of ["Driveways & Private Roads", "Ponds", "Dirt Work", "Materials & Delivery"]) {
+      expect(services).toContain(`title: "${title}"`);
+    }
+    expect(services).not.toContain('title: "Light Land Clearing"');
+    expect(css).toMatch(/\.public-project-grid,[\s\S]*\.public-material-catalog-grid\s*{[^}]*repeat\(3/s);
+    expect(css).toMatch(/@media \(max-width: 1023px\)[\s\S]*\.public-project-grid,[\s\S]*repeat\(2/s);
+    expect(css).toMatch(/@media \(max-width: 639px\)[\s\S]*\.public-project-grid,[\s\S]*grid-template-columns:\s*1fr/s);
+    expect(css).toMatch(/\.public-service-grid\s*{[^}]*repeat\(2/s);
+    expect(css).not.toMatch(/\.public-(?:projects|materials|services)-main\s*{[^}]*(?:#fff|white)/s);
+  });
+
   it("keeps contact attribution, consent, and service location in the real submission path", () => {
     const contact = read("src/components/public/QuoteRequestForm.tsx");
     const handler = read("supabase/functions/send-contact-email/index.ts");
