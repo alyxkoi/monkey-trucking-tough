@@ -7,14 +7,15 @@
   overflow-x: clip;
   min-height: 100vh;
   -webkit-tap-highlight-color: transparent;
-  background-color: #b5bac0;
+  background-color: #101115;
 }
 
 /*
  * One fixed atmospheric layer for the authenticated Control Center only.
- * A neutral machined-platinum field for the authenticated product. A very broad
- * ellipse rises from below the viewport to bend the lower fade into a shallow U.
- * It is paint only: no image request and no moving layer while routes change.
+ * A dark industrial room for the authenticated product. Broad platinum light
+ * sits high in the canvas, while a restrained brand-red undertone settles at the
+ * lower edge. It is paint only: no image request and no moving layer while
+ * routes change.
  */
 .control-center-root::after {
   content: '';
@@ -22,17 +23,16 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-color: #b5bac0;
+  background-color: #101115;
   background-image:
-    radial-gradient(ellipse 118% 70% at 50% 18%, transparent 55%, rgba(96, 103, 111, 0.24) 84%, rgba(82, 89, 97, 0.34) 100%),
-    radial-gradient(ellipse 130% 64% at 50% 118%, rgba(119, 126, 134, 0.62) 0%, rgba(130, 137, 145, 0.28) 52%, transparent 80%),
+    radial-gradient(ellipse 105% 64% at 46% -8%, rgba(104, 111, 121, 0.26) 0%, rgba(53, 58, 66, 0.14) 44%, transparent 74%),
+    radial-gradient(ellipse 72% 54% at 96% 112%, rgba(92, 10, 14, 0.22) 0%, rgba(49, 13, 17, 0.11) 45%, transparent 76%),
     linear-gradient(
       180deg,
-      #c8ccd1 0%,
-      #c2c6cb 18%,
-      #b5bac0 52%,
-      #a8aeb4 76%,
-      #969ca3 100%
+      #1b1d22 0%,
+      #17191e 30%,
+      #131419 67%,
+      #0d0e12 100%
     );
   background-position: center;
   background-repeat: no-repeat;
@@ -46,7 +46,7 @@
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background-image: radial-gradient(rgba(29, 33, 38, 0.075) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(233, 237, 242, 0.075) 1px, transparent 1px);
   background-size: 24px 24px;
   -webkit-mask-image: linear-gradient(
     180deg,
@@ -116,14 +116,14 @@
  * everything sits in, and the single lit calendar field on the Overview.
  */
 .surface {
-  background-color: rgba(14, 14, 18, 0.86);
-  border: 1px solid rgba(255, 255, 255, 0.085);
+  background-color: rgba(18, 19, 24, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.095);
   box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
 }
 
 .surface-glass {
-  background-color: rgba(14, 14, 19, 0.84);
-  border: 1px solid rgba(255, 255, 255, 0.11);
+  background-color: rgba(18, 19, 24, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.13);
   -webkit-backdrop-filter: blur(22px) saturate(130%);
   backdrop-filter: blur(22px) saturate(130%);
   box-shadow: 0 30px 60px -32px rgba(0, 0, 0, 0.95);
@@ -149,15 +149,15 @@
 
 /* Text that sits directly on platinum, never inside a dark content surface. */
 .platinum-title {
-  color: #171a1f;
+  color: #f5f5f7;
 }
 
 .platinum-muted {
-  color: #444a52;
+  color: #a8a9b2;
 }
 
 .platinum-idle {
-  color: #656c74;
+  color: #858791;
 }
 
 /* One grouped band, with internal segments that move without reflowing it. */
@@ -195,8 +195,8 @@
 }
 
 .surface-ice {
-  background-color: rgba(25, 10, 50, 0.88);
-  border: 1px solid rgba(85, 0, 213, 0.36);
+  background-color: rgba(21, 31, 16, 0.9);
+  border: 1px solid rgba(183, 255, 53, 0.26);
   box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
 }
 
@@ -226,14 +226,14 @@
   background-color: rgba(29, 29, 35, 0.95);
 }
 
-/* Ultrasonic Blue is dark enough to need a lighter companion for small text. */
+/* Acid green is the primary operational selection and guidance color. */
 .control-center-root .text-ice {
-  color: #9e7bff;
+  color: #b7ff35;
 }
 
 /* Sheets render through a body portal so sticky headers cannot trap them. */
 .cc-sheet-portal .text-ice {
-  color: #9e7bff;
+  color: #b7ff35;
 }
 
 .cc-sheet-portal input,
@@ -244,12 +244,12 @@
 
 .field-ice .text-canvas,
 .field-ice-lit .text-canvas {
-  color: #fff;
+  color: #0e0e10;
 }
 
 .field-ice [class*='text-canvas/'],
 .field-ice-lit [class*='text-canvas/'] {
-  color: rgba(255, 255, 255, 0.76);
+  color: rgba(14, 14, 16, 0.68);
 }
 
 /*
@@ -309,7 +309,7 @@
 
 /* Solid colour fields. Flat, so the colour itself is the statement. */
 .field-ice {
-  background-color: #5500d5;
+  background-color: #b7ff35;
   box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
 }
 
@@ -323,17 +323,22 @@
   box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
 }
 
+.field-info {
+  background-color: #2767c7;
+  box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
+}
+
 /*
- * The one lit surface in the product. The calendar anchor keeps a hint of
- * violet in the top right corner so today reads as light falling on a plate.
+ * The one lit surface in the product. The schedule anchor keeps a pale platinum
+ * bloom in the top right corner so the acid field reads as light on a plate.
  * Nothing else gets this treatment, which is what keeps it worth looking at.
  */
 .field-ice-lit {
-  background-color: #5500d5;
+  background-color: #b7ff35;
   background-image: radial-gradient(
     130% 140% at 106% -20%,
-    rgba(158, 123, 255, 0.74) 0%,
-    rgba(158, 123, 255, 0) 60%
+    rgba(245, 245, 247, 0.58) 0%,
+    rgba(245, 245, 247, 0) 60%
   );
   box-shadow: 0 26px 56px -32px rgba(0, 0, 0, 0.9);
 }
@@ -609,8 +614,41 @@
 .row-hover:hover,
 .row-hover:focus-visible {
   box-shadow:
-    inset 2px 0 0 0 rgba(85, 0, 213, 0.92),
+    inset 2px 0 0 0 rgba(183, 255, 53, 0.92),
     0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Fine operational linework for Overview modules, never a decorative grid. */
+.cc-line-field {
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 23px,
+    rgba(255, 255, 255, 0.035) 24px
+  );
+}
+
+.pipeline-meter {
+  overflow: hidden;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pipeline-meter > span {
+  display: block;
+  height: 100%;
+  min-width: 10px;
+  border-radius: inherit;
+  background: #b7ff35;
+  box-shadow: 0 0 18px rgba(183, 255, 53, 0.22);
+  transform-origin: left center;
+  animation: mt-meter-in 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+
+@keyframes mt-meter-in {
+  from { transform: scaleX(0); opacity: 0; }
+  to { transform: scaleX(1); opacity: 1; }
 }
 /* On a solid colour field the same cue is drawn in near black instead. */
 .row-hover-solid:hover,
@@ -636,5 +674,9 @@
   }
   .row-hover {
     transition: none;
+  }
+
+  .pipeline-meter > span {
+    animation: none;
   }
 }

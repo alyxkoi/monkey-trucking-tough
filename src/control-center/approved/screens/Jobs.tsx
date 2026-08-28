@@ -123,12 +123,12 @@ export function Jobs() {
               className={cn(
                 'flex h-11 items-center rounded-xl border px-3.5 font-label text-[12px] font-semibold uppercase tracking-[0.12em] transition-colors',
                 showCancelled
-                  ? 'border-ice bg-ice text-white'
+                  ? 'border-ice bg-ice text-canvas'
                   : 'border-line bg-raised text-cc-muted hover:text-ink',
               )}
             >
               Show cancelled
-              <span className={cn('ml-2 tnum', showCancelled ? 'text-white/75' : 'text-idle')}>
+              <span className={cn('ml-2 tnum', showCancelled ? 'text-canvas/70' : 'text-idle')}>
                 {cancelledCount}
               </span>
             </button>

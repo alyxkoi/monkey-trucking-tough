@@ -6,7 +6,7 @@ import type { SyncStatus } from '@/control-center/approved/state/AppState'
 /**
  * Offline and sync feedback.
  *
- * Connected and syncing states use Monkey red as the active operational accent.
+ * Connected and syncing states use the acid operational accent.
  * Offline uses amber because it is a waiting state, not a failure and not an
  * emergency. Nothing here is ever hidden from the user: a ticket waiting to sync
  * has to be visibly safe.
@@ -40,7 +40,9 @@ export function SyncChip({
         'flex h-11 items-center gap-2 rounded-xl border px-3.5 font-label text-[12px] font-semibold uppercase tracking-[0.12em] transition-colors',
         status === 'offline'
           ? 'border-warn/40 bg-warn/10 text-warn'
-          : 'border-mt-red/35 bg-mt-red/[0.08] text-mt-red hover:border-mt-red/60',
+          : status === 'syncing'
+            ? 'border-ice/30 bg-ice/[0.08] text-ice hover:border-ice/55'
+            : 'border-white/10 bg-white/[0.05] text-cc-muted hover:border-ice/30 hover:text-ink',
       )}
     >
       {status === 'offline' ? (

@@ -19,9 +19,9 @@ const MONTH_NAMES = [
   'DECEMBER',
 ]
 
-/** Limited status colour. Icy blue is the system accent and owns this screen. */
-function dotClass(job: Job, onIce: boolean): string {
-  if (onIce) return 'bg-canvas/70'
+/** Limited status colour. Acid green owns selection; statuses remain semantic. */
+function dotClass(job: Job, onAcid: boolean): string {
+  if (onAcid) return 'bg-canvas/70'
   switch (job.status) {
     case 'COMPLETED':
       return 'bg-ok'
@@ -129,7 +129,7 @@ export function MonthCalendar({
               onClick={() => onSelect(key)}
               className={cn(
                 'flex min-h-[54px] min-w-11 flex-col items-center justify-start gap-1.5 rounded-xl border p-1.5 transition-colors lg:min-h-[86px] lg:justify-between lg:p-2',
-                isSelected && 'border-ice bg-ice text-white shadow-[0_10px_24px_-18px_rgba(85,0,213,0.9)]',
+                isSelected && 'border-ice bg-ice text-canvas shadow-[0_10px_24px_-18px_rgba(183,255,53,0.7)]',
                 !isSelected && 'border-transparent hover:bg-raised/60',
                 !inMonth && 'opacity-35',
               )}
@@ -137,7 +137,7 @@ export function MonthCalendar({
               <span
                 className={cn(
                   'font-display display-tight tnum text-[17px] lg:self-start lg:text-[22px]',
-                  isSelected ? 'text-white' : inMonth ? 'text-ink' : 'text-cc-muted',
+                  isSelected ? 'text-canvas' : inMonth ? 'text-ink' : 'text-cc-muted',
                 )}
               >
                 {day.getDate()}

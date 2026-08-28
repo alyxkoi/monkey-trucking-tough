@@ -54,14 +54,14 @@ describe('guarded prelaunch operational reset', () => {
 })
 
 describe('authenticated Control Center atmosphere', () => {
-  it('uses a fixed neutral platinum field only in the Control Center scope', () => {
+  it('uses a fixed dark platinum atmosphere only in the Control Center scope', () => {
     expect(css).toContain('.control-center-root::after')
-    expect(css).toContain('#c8ccd1 0%')
-    expect(css).toContain('#b5bac0 52%')
-    expect(css).toContain('#969ca3 100%')
-    expect(css).toContain('ellipse 118% 70%')
+    expect(css).toContain('#1b1d22 0%')
+    expect(css).toContain('#17191e 30%')
+    expect(css).toContain('#0d0e12 100%')
+    expect(css).toContain('ellipse 105% 64%')
     expect(css).toContain('overflow-x: clip')
-    expect(css).not.toMatch(/burgundy|#120509|#14070b/i)
+    expect(css).toContain('rgba(92, 10, 14, 0.22)')
     expect(css).not.toContain('Love%20and%20Liberty.jpg')
     expect(css).toContain('background-size: cover')
     expect(css).toContain('background-position: center')

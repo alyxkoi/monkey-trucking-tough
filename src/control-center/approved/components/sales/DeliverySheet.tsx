@@ -89,7 +89,7 @@ export function DeliverySheet({
               onClick={() => setMode(option.mode)}
               className={cn(
                 'flex w-full items-center gap-4 px-5 py-4 text-left transition-colors',
-                selected ? 'bg-ice text-white' : 'hover:bg-raised/60',
+                selected ? 'bg-ice text-canvas' : 'hover:bg-raised/60',
               )}
             >
               <span

@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { CheckCircle2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowUpRight, CalendarDays, CheckCircle2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { CollectedChart } from '@/control-center/approved/components/money/CollectedChart'
 import { AttentionLead, AttentionRow } from '@/control-center/approved/components/ui/AttentionRow'
@@ -7,14 +7,14 @@ import { QuietButton } from '@/control-center/approved/components/ui/Button'
 import { NumberModule } from '@/control-center/approved/components/ui/NumberModule'
 import { Panel, PanelTitle } from '@/control-center/approved/components/ui/Panel'
 import { SegmentControl } from '@/control-center/approved/components/ui/SegmentControl'
-import { SolidDivider, SolidInfoModule, SolidLabel } from '@/control-center/approved/components/ui/SolidInfoModule'
+import { SolidInfoModule, SolidLabel } from '@/control-center/approved/components/ui/SolidInfoModule'
 import { EmptyState, SkeletonNumber, SkeletonRow } from '@/control-center/approved/components/ui/States'
 import { StatusPill } from '@/control-center/approved/components/ui/StatusPill'
 import { SyncBanner } from '@/control-center/approved/components/ui/SyncState'
-import { dateParts, splitMoney, splitTime } from '@/control-center/approved/lib/format'
+import { splitMoney } from '@/control-center/approved/lib/format'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import { PERIOD_LABELS, type Period } from '@/control-center/approved/state/mockData'
-import { JOB_CATEGORY_LABEL, formatTime } from '@/control-center/approved/state/jobsData'
+import { dateKey, formatTime, parseDateKey } from '@/control-center/approved/state/jobsData'
 import { collectedSeries } from '@/control-center/approved/state/moneyData'
 import { toEntry } from '@/control-center/approved/state/attention'
 
@@ -33,18 +33,14 @@ export function Overview() {
 
       <MoneySnapshot />
 
-      {/*
-        The queue holds the wide column because it is the longest read on the
-        screen. Past 1536px it takes even more of the width rather than letting
-        the shell grow empty gutters.
-      */}
+      <Pipeline />
+
       <div className="grid gap-5 lg:grid-cols-12 lg:gap-6">
-        <div className="min-w-0 lg:col-span-7 2xl:col-span-8">
+        <div className="min-w-0 lg:col-span-8">
           <NeedsAttention />
         </div>
-        <div className="min-w-0 space-y-5 lg:col-span-5 lg:space-y-6 2xl:col-span-4">
-          <Today />
-          <Pipeline />
+        <div className="min-w-0 lg:col-span-4">
+          <NextScheduledDate />
         </div>
       </div>
     </div>
@@ -69,7 +65,7 @@ function MoneySnapshot() {
   const series = useMemo(() => collectedSeries({ period, payments }), [payments, period])
 
   return (
-    <section className="surface-glass overflow-hidden rounded-block">
+    <section className="surface-glass cc-line-field overflow-hidden rounded-[26px]">
       {/*
         Period control sits at the top, in easy reach of a thumb on a phone.
         The section label is deliberately brighter and wider than the metric
@@ -101,12 +97,12 @@ function MoneySnapshot() {
             next to a chart. The hero carries a slight forward lean, which is the
             only place in the product that does.
           */}
-          <div key={period} className="animate-swap pb-4 lg:pb-6">
-            <div className="px-5 pt-8 text-center lg:pt-10">
+          <div key={period} className="animate-swap pb-5 lg:pb-7">
+            <div className="px-5 pt-9 text-center lg:pt-12">
               <div className="font-label text-[11px] font-semibold uppercase tracking-[0.22em] text-cc-muted">
                 Collected
               </div>
-              <div className="num-safe mt-3 flex items-start justify-center font-display display-tight tnum text-[68px] sm:text-[96px] lg:text-[116px]">
+              <div className="num-safe mt-3 flex items-start justify-center font-display display-tight tnum text-[72px] sm:text-[104px] lg:text-[132px]">
                 <span className="display-racing inline-flex items-start">
                   <span className="mr-1.5 mt-[0.22em] text-[0.34em] text-cc-muted">
                     {collected.symbol}
@@ -121,7 +117,7 @@ function MoneySnapshot() {
               </div>
             </div>
 
-            <CollectedChart points={series} period={period} className="mt-1" />
+            <CollectedChart points={series} period={period} className="mt-2" />
           </div>
 
           {/*
@@ -164,12 +160,13 @@ function MoneySnapshot() {
 
 /**
  * Needs Attention.
- * Top five on the Overview, View All expands the full queue in place.
+ * Four items on first read. See all expands in place to six, keeping the Overview
+ * useful without turning it into the full queue screen.
  * The most urgent NOW item is promoted into a solid red module.
  */
 function NeedsAttention() {
   const {
-    visibleAttention,
+    attention,
     openCount,
     snoozeAttention,
     lastAction,
@@ -177,10 +174,12 @@ function NeedsAttention() {
     booting,
   } = useAppState()
   const navigate = useNavigate()
+  const [expanded, setExpanded] = useState(false)
 
-  const [lead, ...rest] = visibleAttention
+  const shown = attention.slice(0, expanded ? 6 : 4)
+  const [lead, ...rest] = shown
   const promoteLead = lead?.priority === 'NOW'
-  const rows = promoteLead ? rest : visibleAttention
+  const rows = promoteLead ? rest : shown
 
   return (
     <Panel
@@ -192,9 +191,11 @@ function NeedsAttention() {
           <StatusPill tone="neutral" size="sm">
             {openCount} open
           </StatusPill>
-          <QuietButton size="sm" onClick={() => navigate('/admin/attention')}>
-            View all
-          </QuietButton>
+          {openCount > 4 && (
+            <QuietButton size="sm" onClick={() => setExpanded((current) => !current)}>
+              {expanded ? 'Show less' : 'See all'}
+            </QuietButton>
+          )}
         </div>
       }
       footer={
@@ -229,6 +230,7 @@ function NeedsAttention() {
             <div className="px-5 pb-4">
               <AttentionLead
                 item={lead}
+                subject={attentionSubject(lead)}
                 onAction={() => navigate(lead.action.to, { state: { attention: toEntry(lead) } })}
                 onSnooze={() => snoozeAttention(lead.id)}
               />
@@ -239,18 +241,19 @@ function NeedsAttention() {
               <AttentionRow
                 key={item.id}
                 item={item}
+                subject={attentionSubject(item)}
                 onAction={() => navigate(item.action.to, { state: { attention: toEntry(item) } })}
                 onSnooze={() => snoozeAttention(item.id)}
               />
             ))}
           </div>
-          {openCount > 5 && (
+          {expanded && openCount > 6 && (
             <button
               type="button"
               onClick={() => navigate('/admin/attention')}
               className="row-hover flex h-12 w-full items-center border-t border-white/[0.07] px-5 text-left font-label text-[13px] font-semibold uppercase tracking-[0.12em] text-cc-muted hover:bg-white/[0.04] hover:text-ink"
             >
-              {openCount - 5} more waiting
+              Open full queue, {openCount - 6} more waiting
             </button>
           )}
         </div>
@@ -259,100 +262,87 @@ function NeedsAttention() {
   )
 }
 
-/** Today. The icy blue schedule anchor, and the strongest color field on the screen. */
-function Today() {
-  const { todayJobs, booting, customerById } = useAppState()
+function attentionSubject(item: ReturnType<typeof useAppState>['attention'][number]) {
+  const waiting = item.title.match(/^(.+?) is waiting/)
+  if (waiting?.[1]) return waiting[1]
+  const first = item.context.split(/[,.]/)[0]?.trim()
+  if (first && first.length <= 42 && !/^(the |openai|stripe|anything|customer)/i.test(first)) return first
+  return item.kind === 'ai_failure' ? 'Communication & AI' : 'Control Center'
+}
+
+/** The nearest real scheduled job, not a second calendar or duplicated store. */
+function NextScheduledDate() {
+  const { jobs, booting, customerById } = useAppState()
   const navigate = useNavigate()
-  const today = dateParts()
+  const today = dateKey(new Date())
+  const next = useMemo(
+    () => jobs
+      .filter((job) => job.status === 'SCHEDULED' && job.date >= today)
+      .sort((a, b) => `${a.date}-${a.time ?? '00:00'}`.localeCompare(`${b.date}-${b.time ?? '00:00'}`))[0],
+    [jobs, today],
+  )
 
   if (booting) {
-    return <div className="h-[268px] animate-pulse-soft rounded-block bg-white/[0.05]" />
+    return <div className="h-[290px] animate-pulse-soft rounded-block bg-white/[0.05]" />
   }
 
+  const date = next ? parseDateKey(next.date) : null
+  const isToday = next?.date === today
+
   return (
-    <SolidInfoModule tone="iceLit">
-      <div className="flex items-start justify-between gap-4 p-5 lg:p-6">
-        <div>
-          <SolidLabel>Today</SolidLabel>
-          <div className="mt-2.5 flex items-end gap-3">
-            <span className="num-safe font-display display-tight text-[64px]">{today.day}</span>
-            <div className="pb-2.5">
-              <div className="font-label text-[15px] font-semibold uppercase tracking-[0.16em]">
-                {today.month}
-              </div>
-              <div className="font-label text-[13px] font-semibold uppercase tracking-[0.14em] text-white/65">
-                {today.weekday}
+    <SolidInfoModule tone="iceLit" className="h-full min-h-[290px]">
+      <div className="flex h-full flex-col p-5 lg:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <SolidLabel>Next Scheduled Date</SolidLabel>
+          <CalendarDays className="h-5 w-5 opacity-65" strokeWidth={2.1} />
+        </div>
+
+        {next && date ? (
+          <>
+            <div className="mt-8 flex items-end gap-3">
+              <span className="num-safe font-display display-tight text-[74px] lg:text-[88px]">{date.getDate()}</span>
+              <div className="pb-3">
+                <div className="font-label text-[16px] font-bold uppercase tracking-[0.16em]">
+                  {date.toLocaleDateString('en-US', { month: 'short' })}
+                </div>
+                <div className="font-label text-[12px] font-bold uppercase tracking-[0.14em] text-canvas/65">
+                  {isToday ? 'Today' : date.toLocaleDateString('en-US', { weekday: 'long' })}
+                </div>
               </div>
             </div>
+            <div className="mt-auto border-t border-canvas/15 pt-5">
+              <div className="text-[17px] font-bold leading-tight">
+                {customerById(next.customerId)?.name ?? 'Unknown customer'}
+              </div>
+              <div className="mt-1 text-[14px] leading-snug text-canvas/70">
+                {formatTime(next)} / {next.address}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="my-auto py-10 text-center">
+            <div className="font-display text-[34px] uppercase">Calendar clear</div>
+            <p className="mt-2 text-[14px] text-canvas/70">No scheduled work is waiting.</p>
           </div>
-        </div>
-        <StatusPill tone="onSolid" size="sm">
-          {todayJobs.length} jobs
-        </StatusPill>
-      </div>
+        )}
 
-      <SolidDivider />
-
-      {todayJobs.length === 0 ? (
-        <div className="px-5 py-8 text-center text-[15px] text-canvas/75">
-          Nothing on the calendar today.
-        </div>
-      ) : (
-        todayJobs.map((job, index) => {
-          const time = splitTime(formatTime(job))
-          return (
-            <div key={job.id}>
-              {index > 0 && <SolidDivider />}
-              <button
-                type="button"
-                onClick={() => navigate(`/admin/jobs/${job.id}`)}
-                className="row-hover row-hover-solid flex min-h-[66px] w-full items-center gap-4 px-5 py-3 text-left hover:bg-canvas/10 active:bg-canvas/15 lg:px-6"
-              >
-                <span className="w-[62px] shrink-0">
-                  <span className="num-safe block font-display display-tight text-[21px]">
-                    {time.time}
-                  </span>
-                  <span className="block font-label text-[12px] font-semibold uppercase tracking-[0.12em] text-white/65">
-                    {time.meridiem}
-                  </span>
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-semibold">
-                    {customerById(job.customerId)?.name ?? 'Unknown'}
-                  </span>
-                  <span className="mt-0.5 flex items-center gap-2">
-                    <span className="min-w-0 truncate text-[13px] text-canvas/70">
-                      {JOB_CATEGORY_LABEL[job.category]}, {job.address}
-                    </span>
-                    {job.status === 'IN_PROGRESS' && (
-                      <StatusPill tone="onSolid" size="sm" className="shrink-0">
-                        In progress
-                      </StatusPill>
-                    )}
-                  </span>
-                </span>
-              </button>
-            </div>
-          )
-        })
-      )}
-
-      <SolidDivider />
       <button
         type="button"
-        onClick={() => navigate('/admin/jobs')}
-        className="row-hover w-full px-5 py-3.5 text-left font-label text-[13px] font-semibold uppercase tracking-[0.14em] text-canvas/75 hover:bg-canvas/10 hover:text-canvas lg:px-6"
+        onClick={() => navigate(next ? `/admin/jobs/${next.id}` : '/admin/jobs')}
+        className="mt-5 flex h-12 w-full items-center justify-between rounded-xl border border-canvas/20 bg-canvas/10 px-4 font-label text-[13px] font-bold uppercase tracking-[0.13em] transition-colors hover:bg-canvas/20"
       >
-        Open the calendar
+        {next ? 'Open Job' : 'Open Calendar'}
+        <ArrowUpRight className="h-4 w-4" strokeWidth={2.4} />
       </button>
+      </div>
     </SolidInfoModule>
   )
 }
 
 /**
  * Pipeline.
- * One dominant value carries the module and three supporting counts sit beneath it.
- * Deliberately not four equal cards and not a flat list.
+ * One horizontal operational snapshot. Exactly three stages, each with one real
+ * count and a proportional bar. No decorative or duplicated value competes.
  */
 function Pipeline() {
   // Reads the real lead, quote and job records, so sending a quote or booking a
@@ -371,45 +361,36 @@ function Pipeline() {
     )
   }
 
-  const quoteValue = splitMoney(pipeline.openQuoteValue)
   const counts = [
     { key: 'leads', label: 'New Leads', value: pipeline.newLeads, to: '/admin/leads' },
     { key: 'quotes', label: 'Open Quotes', value: pipeline.openQuotes, to: '/admin/leads' },
     { key: 'jobs', label: 'Scheduled Jobs', value: pipeline.scheduledJobs, to: '/admin/jobs' },
   ]
+  const max = Math.max(...counts.map((count) => count.value), 1)
 
   return (
-    <Panel title="Pipeline" padded={false}>
-      <button
-        type="button"
-        onClick={() => navigate('/admin/leads')}
-        className="row-hover w-full border-y border-white/[0.07] bg-ice/[0.05] px-5 py-5 text-left hover:bg-ice/[0.09] lg:px-6"
-      >
-        <div className="font-label text-[11px] font-semibold uppercase tracking-[0.18em] text-cc-muted">
-          Open Quote Value
-        </div>
-        <div className="num-safe mt-1.5 flex items-start font-display display-tight tnum text-[46px] text-ice sm:text-[54px]">
-          <span className="mr-0.5 mt-[0.2em] text-[0.4em] text-cc-muted">{quoteValue.symbol}</span>
-          {quoteValue.amount}
-        </div>
-        <div className="mt-1.5 text-[14px] text-cc-muted">
-          across {pipeline.openQuotes} open quotes
-        </div>
-      </button>
-
-      <div className="cc-segment-band grid grid-cols-3">
-        {counts.map((count) => (
+    <Panel title="Pipeline" padded={false} className="cc-line-field">
+      <div className="grid border-t border-white/[0.07] md:grid-cols-3">
+        {counts.map((count, index) => (
           <button
             key={count.key}
             type="button"
             onClick={() => navigate(count.to)}
-            className="cc-segment min-h-[92px] px-4 py-4 text-left"
+            className={`row-hover min-h-[132px] px-5 py-5 text-left transition-colors hover:bg-white/[0.04] lg:px-6 ${index > 0 ? 'border-t border-white/[0.07] md:border-l md:border-t-0' : ''}`}
           >
-            <div className="num-safe font-display display-tight tnum text-[30px]">
-              {count.value}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="font-label text-[11px] font-bold uppercase tracking-[0.17em] text-cc-muted">
+                  {count.label}
+                </div>
+                <div className="num-safe mt-2 font-display display-tight tnum text-[42px] text-ink">
+                  {count.value}
+                </div>
+              </div>
+              <ArrowUpRight className="mt-1 h-4 w-4 text-ice opacity-70" strokeWidth={2.2} />
             </div>
-            <div className="mt-1.5 font-label text-[11px] font-semibold uppercase leading-tight tracking-[0.14em] text-cc-muted">
-              {count.label}
+            <div className="pipeline-meter mt-5">
+              <span style={{ width: count.value === 0 ? '0%' : `${Math.max(10, (count.value / max) * 100)}%` }} />
             </div>
           </button>
         ))}

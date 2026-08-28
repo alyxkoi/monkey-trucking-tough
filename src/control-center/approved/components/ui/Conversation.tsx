@@ -25,7 +25,7 @@ function dayLabel(at: number): string {
  *
  * Customer sits on the left, everything Monkey Trucking sends sits on the right,
  * and the role is carried by a solid fill so it is readable at a glance without
- * reading the label: neutral for the customer, icy blue for the AI, green for a
+ * reading the label: neutral for the customer, blue for the AI, green for a
  * human reply. Solid rather than tinted, because a half transparent bubble over
  * a textured background is harder to read and tells you less.
  *
@@ -74,7 +74,7 @@ export function ConversationMessage({ message }: { message: Message }) {
           className={cn(
             'rounded-xl px-4 py-3 text-[15px] leading-relaxed',
             incoming && 'border border-white/10 bg-raised text-ink',
-            message.actor === 'ai' && 'bg-ice font-medium text-white',
+            message.actor === 'ai' && 'bg-ice-violet font-medium text-white',
             message.actor === 'salvador' && 'bg-ok font-medium text-canvas',
           )}
         >

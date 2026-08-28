@@ -45,7 +45,7 @@ export function useAttentionEntry() {
 const BANNER: Record<Priority, { field: string; label: string }> = {
   NOW: { field: 'field-red', label: 'Needs attention now' },
   TODAY: { field: 'field-warn', label: 'Needs attention today' },
-  FOLLOW_UP: { field: 'field-ice', label: 'Follow up' },
+  FOLLOW_UP: { field: 'field-info', label: 'Follow up' },
 }
 
 /**
@@ -65,13 +65,13 @@ export function AttentionBanner({ entry }: { entry: AttentionEntry }) {
       )}
     >
       <div className="p-5 sm:p-6">
-        <div className="font-label text-[12px] font-semibold uppercase tracking-[0.18em] text-canvas/85">
+        <div className={cn('font-label text-[12px] font-semibold uppercase tracking-[0.18em]', entry.priority === 'FOLLOW_UP' ? 'text-white/80' : 'text-canvas/85')}>
           {tone.label}
         </div>
         <h2 className="mt-2 max-w-[34ch] font-control-body text-[19px] font-bold leading-[1.2] sm:text-[21px]">
           {entry.title}
         </h2>
-        <p className="mt-1.5 max-w-[52ch] text-[15px] leading-snug text-canvas/90">
+        <p className={cn('mt-1.5 max-w-[52ch] text-[15px] leading-snug', entry.priority === 'FOLLOW_UP' ? 'text-white/90' : 'text-canvas/90')}>
           {entry.context}
         </p>
       </div>
@@ -82,7 +82,7 @@ export function AttentionBanner({ entry }: { entry: AttentionEntry }) {
 const PULSE_TONE: Record<Priority, string> = {
   NOW: '255, 49, 49',
   TODAY: '255, 159, 10',
-  FOLLOW_UP: '85, 0, 213',
+  FOLLOW_UP: '39, 103, 199',
 }
 
 /**
@@ -125,10 +125,10 @@ export function AttentionTarget({
 /**
  * The normal next step in the workflow.
  *
- * Icy blue, because this is the system telling Salvador where the work goes next,
+ * Informational blue, because this is the system telling Salvador where the work goes next,
  * not an exception asking for rescue. When an attention banner is on screen it
  * sits above this one and the two are never confused: red or amber means
- * something is wrong, icy blue means carry on.
+ * something is wrong, blue means carry on.
  */
 export function NextStep({
   line,
@@ -141,9 +141,9 @@ export function NextStep({
   className?: string
 }) {
   return (
-    <section className={cn('field-ice overflow-hidden rounded-block text-white', className)}>
+    <section className={cn('field-info overflow-hidden rounded-block text-white', className)}>
       <div className="p-5 sm:p-6">
-        <div className="font-label text-[12px] font-semibold uppercase tracking-[0.2em] text-canvas/85">
+        <div className="font-label text-[12px] font-semibold uppercase tracking-[0.2em] text-white/80">
           Next
         </div>
         <p className="mt-2 max-w-[40ch] text-[17px] font-semibold leading-snug sm:text-[18px]">

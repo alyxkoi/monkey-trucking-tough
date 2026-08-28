@@ -5,7 +5,7 @@ type Size = 'sm' | 'md' | 'lg'
 
 /**
  * `default` sits on the dark canvas or a neutral panel.
- * `onSolid` sits on top of a bold solid color field (red, icy blue, amber).
+ * `onSolid` sits on top of a bold solid color field (red, acid green, amber).
  */
 type Tone = 'default' | 'onSolid'
 

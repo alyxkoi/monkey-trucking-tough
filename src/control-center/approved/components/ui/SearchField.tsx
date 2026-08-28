@@ -3,7 +3,7 @@ import { cn } from '@/control-center/approved/lib/cn'
 
 /**
  * Search field. 48px tall, 16px text so iPhone never zooms the page on focus.
- * Selected and focused states use icy blue, the system accent.
+ * Selected and focused states use acid green, the operational accent.
  */
 export function SearchField({
   value,

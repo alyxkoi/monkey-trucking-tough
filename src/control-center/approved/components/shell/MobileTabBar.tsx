@@ -102,12 +102,11 @@ export function MobileTabBar() {
               className={cn(
                 TAB_CLASS,
                 'px-1 text-[11px] tracking-[0.06em]',
-                current?.key === section.key ? 'text-white' : 'text-cc-muted',
+                current?.key === section.key
+                  ? 'mx-1 my-1 h-14 rounded-xl bg-ice text-canvas shadow-[0_8px_22px_-16px_rgba(183,255,53,0.7)]'
+                  : 'text-cc-muted',
               )}
             >
-              {current?.key === section.key && (
-                <span className="absolute top-0 h-[3px] w-9 rounded-b bg-ice" />
-              )}
               <section.icon className="h-[21px] w-[21px]" strokeWidth={2} />
               <span className="max-w-full truncate">{section.tabLabel}</span>
             </NavLink>
@@ -133,12 +132,11 @@ export function MobileTabBar() {
                 className={cn(
                   TAB_CLASS,
                   'min-w-[84px] flex-1 px-2 text-[11px] tracking-[0.07em]',
-                  isActive ? 'text-white' : 'text-cc-muted',
+                  isActive
+                    ? 'my-1 h-14 rounded-xl bg-ice text-canvas shadow-[0_8px_22px_-16px_rgba(183,255,53,0.7)]'
+                    : 'text-cc-muted',
                 )}
               >
-                {isActive && (
-                  <span className="absolute top-0 h-[3px] w-9 rounded-b bg-ice" />
-                )}
                 <section.icon className="h-[22px] w-[22px]" strokeWidth={2} />
                 <span className="whitespace-nowrap">{section.tabLabel}</span>
               </NavLink>

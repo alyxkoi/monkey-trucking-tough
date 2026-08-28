@@ -11,8 +11,8 @@ export type SolidTone = 'ice' | 'iceLit' | 'red' | 'warn'
  * `iceLit` is the single exception, reserved for the calendar anchor.
  */
 const TONES: Record<SolidTone, string> = {
-  ice: 'field-ice text-white',
-  iceLit: 'field-ice-lit text-white',
+  ice: 'field-ice text-canvas',
+  iceLit: 'field-ice-lit text-canvas',
   red: 'field-red text-canvas',
   warn: 'field-warn text-canvas',
 }
@@ -21,9 +21,9 @@ const TONES: Record<SolidTone, string> = {
  * Bold solid color module. Used selectively as a visual anchor, never as the
  * default surface.
  *
- * System rule: every solid color field carries near black text. On icy blue that
+ * System rule: every bright solid field carries near black text. On acid green that
  * is roughly 11:1, on brand red roughly 5.3:1, both readable outdoors on a phone.
- * Icy blue is the schedule, calendar, system and AI anchor.
+ * Acid green is the schedule, calendar and active-system anchor.
  * Red is genuine urgency only.
  */
 export function SolidInfoModule({

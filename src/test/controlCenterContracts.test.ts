@@ -118,7 +118,7 @@ describe("Phase 05 Control Center contracts", () => {
     expect(tickets).toContain("<CustomerPicker");
   });
 
-  it("uses the existing Monkey red for primary Ticket, customer, and Money accents", () => {
+  it("keeps Monkey red for brand actions while the Money graph uses the acid operational accent", () => {
     const tickets = read("src/control-center/approved/screens/Tickets.tsx");
     const ticketDetail = read("src/control-center/approved/screens/TicketDetail.tsx");
     const jobDetail = read("src/control-center/approved/screens/JobDetail.tsx");
@@ -138,7 +138,7 @@ describe("Phase 05 Control Center contracts", () => {
     expect(avatar).toContain("text-canvas");
     expect(avatar).toContain("font-black");
     expect(avatar).toContain("toUpperCase()");
-    expect(chart).toContain('className="block h-full w-full text-mt-red"');
+    expect(chart).toContain('className="block h-full w-full text-ice"');
     expect(chart).toContain('stopColor="currentColor"');
     expect(chart).not.toContain("#8FCBFF");
     expect(printPreview).not.toContain("text-mt-red");
@@ -184,21 +184,33 @@ describe("Phase 05 Control Center contracts", () => {
     expect(shell).toContain("lg:pl-[280px]");
   });
 
-  it("uses solid Ultrasonic Blue with red-to-snow primary actions", () => {
+  it("uses solid acid-green selections with red-to-snow primary actions", () => {
     const tailwind = read("tailwind.config.ts");
     const buttons = read("src/control-center/approved/components/ui/Button.tsx");
     const panels = read("src/control-center/approved/components/ui/Panel.tsx");
     const settings = read("src/control-center/approved/screens/SettingsHome.tsx");
 
-    expect(tailwind).toContain('DEFAULT: "#5500D5"');
+    expect(tailwind).toContain('DEFAULT: "#B7FF35"');
     expect(tailwind).not.toContain('#8FCBFF');
     expect(buttons).toContain("bg-mt-red text-canvas");
     expect(buttons).toContain("hover:bg-ink");
     expect(buttons).toContain("motion-safe:hover:-translate-y-0.5");
     expect(panels).toContain("primary = false");
     expect(panels).toContain("bg-mt-red");
-    expect(settings).toContain("bg-ice text-white");
+    expect(settings).toContain("bg-ice text-canvas");
     expect(settings).toContain("{active && (");
+  });
+
+  it("keeps the refined Overview tied to real operational records", () => {
+    const overview = read("src/control-center/approved/screens/Overview.tsx");
+
+    expect(overview).toContain("collectedSeries({ period, payments })");
+    expect(overview).toContain("attention.slice(0, expanded ? 6 : 4)");
+    expect(overview).toContain("Next Scheduled Date");
+    expect(overview).toContain("job.status === 'SCHEDULED'");
+    expect(overview).toContain("label: 'New Leads'");
+    expect(overview).toContain("label: 'Open Quotes'");
+    expect(overview).toContain("label: 'Scheduled Jobs'");
   });
 
   it("keeps profile avatars private, owner-scoped, and immediately replacing", () => {

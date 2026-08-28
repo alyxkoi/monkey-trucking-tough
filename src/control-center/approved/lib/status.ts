@@ -3,7 +3,7 @@ import type { LeadStatus, QuoteStatus } from '@/control-center/approved/state/sa
 
 /**
  * Status colors follow the locked utility meanings.
- * Icy blue is system and fresh, amber is waiting on someone, green is settled,
+ * Acid green is new/fresh, amber is waiting on someone, green is settled,
  * gray is closed. Red never carries a passive status.
  */
 export const LEAD_TONE: Record<LeadStatus, PillTone> = {

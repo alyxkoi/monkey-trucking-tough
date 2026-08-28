@@ -17,10 +17,10 @@ type IdleWindow = Window & {
 function AdminRouteFallback() {
   return (
     <div className="admin-route-skeleton" role="status" aria-label="Loading section">
-      <div className="h-7 w-40 rounded-lg bg-black/[0.12]" />
+      <div className="h-7 w-40 rounded-lg bg-white/[0.08]" />
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="h-44 rounded-panel border border-black/[0.08] bg-black/[0.055]" />
-        <div className="h-44 rounded-panel border border-black/[0.08] bg-black/[0.055]" />
+        <div className="h-44 rounded-panel border border-white/[0.08] bg-white/[0.045]" />
+        <div className="h-44 rounded-panel border border-white/[0.08] bg-white/[0.045]" />
       </div>
     </div>
   )

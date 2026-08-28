@@ -90,7 +90,7 @@ function LeadsInbox() {
                 className={cn(
                   'row-hover flex h-11 shrink-0 items-center gap-2 rounded-xl border px-3.5 font-label text-[13px] font-semibold uppercase tracking-[0.1em]',
                   selected
-                    ? 'field-ice border-transparent text-white'
+                    ? 'field-ice border-transparent text-canvas'
                     : 'border-white/10 bg-white/[0.05] text-cc-muted hover:bg-white/[0.09] hover:text-ink',
                 )}
               >

@@ -208,7 +208,7 @@ function SortMenu({ value, onChange }: { value: Sort; onChange: (value: Sort) =>
                   'flex h-12 w-full items-center justify-between gap-3 px-4 text-left font-label text-[13px] font-semibold uppercase tracking-[0.1em] transition-colors',
                   index > 0 && 'border-t border-white/[0.09]',
                   selected
-                    ? 'bg-ice text-white'
+                    ? 'bg-ice text-canvas'
                     : 'text-ink hover:bg-white/[0.09] active:bg-white/[0.13]',
                 )}
               >

@@ -53,14 +53,14 @@ export function SideNav() {
               className={cn(
                 'group relative flex h-12 items-center gap-3 rounded-xl pl-4 pr-3 font-label text-[14px] font-semibold uppercase tracking-[0.08em] transition-[background-color,color,border-color] duration-150',
                 isActive
-                  ? 'border border-ice bg-ice text-white shadow-[0_12px_26px_-18px_rgba(85,0,213,0.95)]'
+                  ? 'border border-ice bg-ice text-canvas shadow-[0_12px_28px_-18px_rgba(183,255,53,0.62)]'
                   : 'border border-transparent text-cc-muted hover:bg-white/[0.05] hover:text-ink',
               )}
             >
               <section.icon
                 className={cn(
                   'h-5 w-5 shrink-0 transition-colors',
-                  isActive ? 'text-white' : 'text-idle group-hover:text-ink',
+                  isActive ? 'text-canvas' : 'text-idle group-hover:text-ink',
                 )}
                 strokeWidth={isActive ? 2.4 : 2}
               />

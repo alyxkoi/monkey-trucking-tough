@@ -17,12 +17,12 @@ export type PillTone =
  * treatment, so the three priority tones stay the loudest things in the set.
  */
 const TONES: Record<PillTone, string> = {
-  now: 'bg-mt-red text-canvas',
-  today: 'bg-warn text-canvas',
-  followup: 'bg-ice/35 text-white border border-ice/60',
-  ice: 'bg-ice text-white',
-  ok: 'bg-ok/[0.12] text-ok border border-ok/30',
-  warn: 'bg-warn/[0.12] text-warn border border-warn/30',
+  now: 'bg-mt-deep text-white border border-white/10',
+  today: 'bg-[#A85B00] text-white border border-white/10',
+  followup: 'bg-[#2767C7] text-white border border-white/10',
+  ice: 'bg-ice text-canvas',
+  ok: 'bg-[#167A3B] text-white border border-white/10',
+  warn: 'bg-[#A85B00] text-white border border-white/10',
   idle: 'bg-white/[0.05] text-idle border border-white/10',
   neutral: 'bg-white/[0.06] text-cc-muted border border-white/10',
   onSolid: 'bg-canvas text-ink',
@@ -31,7 +31,7 @@ const TONES: Record<PillTone, string> = {
 /**
  * The same status on a solid colour field.
  *
- * A tinted chip works on charcoal and disappears on icy blue. On a colour field
+ * A tinted chip works on charcoal and disappears on a bright active field. On a colour field
  * every chip becomes a solid fill with a thin near black outline, which is what
  * separates it from the plate underneath. Green on blue was the worst offender
  * and is the reason this exists. Near black sits on green at about 8.6:1; grey

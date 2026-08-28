@@ -15,7 +15,7 @@ type CreateAction = {
   line: string
   to: string
   icon: LucideIcon
-  /** Icy blue for system and record creation, red for the money confirming action. */
+  /** Acid green for system creation, red for the money-confirming action. */
   tone: 'ice' | 'red'
 }
 

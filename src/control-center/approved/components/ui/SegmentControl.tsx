@@ -6,8 +6,8 @@ export type SegmentOption<T extends string> = {
 }
 
 /**
- * Filter and mode control. The selected segment uses Ultrasonic Blue, which is the
- * system accent for selected states across the whole product.
+ * Filter and mode control. The selected segment uses the acid operational accent
+ * shared by navigation, filters and calendar selection.
  */
 export function SegmentControl<T extends string>({
   options,
@@ -43,13 +43,13 @@ export function SegmentControl<T extends string>({
             aria-selected={selected}
             onClick={() => onChange(option.value)}
             className={cn(
-              'rounded-lg font-label font-semibold uppercase tracking-[0.1em] transition-[background-color,color,box-shadow] duration-200',
+              'min-w-0 rounded-lg font-label font-semibold uppercase leading-tight tracking-[0.1em] transition-[background-color,color,box-shadow] duration-200',
               size === 'sm'
-                ? 'h-12 px-4 text-[13px] lg:h-9 lg:px-3 lg:text-[12px]'
+                ? 'h-12 px-2 text-[12px] sm:px-4 sm:text-[13px] lg:h-9 lg:px-3 lg:text-[12px]'
                 : 'h-12 px-4 text-[13px] lg:h-11',
               fullWidth && 'flex-1',
               selected
-                ? 'field-ice text-white shadow-[0_8px_20px_-12px_rgba(85,0,213,0.9)]'
+                ? 'field-ice text-canvas shadow-[0_8px_20px_-12px_rgba(183,255,53,0.72)]'
                 : 'text-cc-muted hover:bg-white/[0.06] hover:text-ink',
             )}
           >

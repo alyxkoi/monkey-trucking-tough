@@ -56,7 +56,7 @@ const CATEGORIES: Category[] = [
     line: 'Business number, SMS, calling, AI and every automation',
     to: '/admin/settings/communication',
     icon: Radio,
-    iconClass: 'bg-ice text-white',
+    iconClass: 'bg-ice text-canvas',
   },
   {
     key: 'tracking',
@@ -64,7 +64,7 @@ const CATEGORIES: Category[] = [
     line: 'Tracked visits, campaigns and Lead attribution',
     to: '/admin/settings/tracking',
     icon: Link2,
-    iconClass: 'bg-[#685d7d] text-white',
+    iconClass: 'bg-ice-violet text-white',
   },
   {
     key: 'users',

@@ -79,10 +79,10 @@ export function DriverPicker({
           onClick={() => choose('')}
           className={cn(
             'flex min-h-14 w-full items-center gap-4 border-b border-line px-5 py-3 text-left hover:bg-white/[0.04]',
-            !value && 'bg-ice text-white',
+            !value && 'bg-ice text-canvas',
           )}
         >
-          <span className={cn('min-w-0 flex-1 text-[16px] font-semibold', !value ? 'text-white' : 'text-ink')}>Unassigned</span>
+          <span className={cn('min-w-0 flex-1 text-[16px] font-semibold', !value ? 'text-canvas' : 'text-ink')}>Unassigned</span>
           {!value && <Check className="h-5 w-5 text-white" strokeWidth={2.5} />}
         </button>
 
@@ -93,7 +93,7 @@ export function DriverPicker({
             onClick={() => choose(driver.id)}
             className={cn(
               'flex min-h-14 w-full items-center gap-4 border-b border-line px-5 py-3 text-left hover:bg-white/[0.04]',
-              value === driver.id && 'bg-ice text-white',
+              value === driver.id && 'bg-ice text-canvas',
             )}
           >
             <span className={cn('min-w-0 flex-1 text-[16px] font-semibold', value === driver.id ? 'text-white' : 'text-ink')}>{driver.name}</span>

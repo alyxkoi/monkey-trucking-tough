@@ -81,7 +81,8 @@ export function PanelTitle({
 }) {
   if (primary) {
     return (
-      <h2 className="font-display text-[24px] uppercase leading-none tracking-[0.035em] text-mt-red sm:text-[26px]">
+      <h2 className="flex items-center gap-3 font-display text-[24px] uppercase leading-none tracking-[0.035em] text-ink sm:text-[26px]">
+        <span className="h-1.5 w-7 rounded-full bg-ice" />
         {children}
       </h2>
     )
@@ -89,7 +90,12 @@ export function PanelTitle({
 
   return (
     <h2 data-tone={tone} className="flex items-center gap-2.5 font-label text-[12px] font-semibold uppercase tracking-[0.2em] text-white">
-      <span className="h-3 w-1 shrink-0 rounded-[2px] bg-mt-red" />
+      <span
+        className={cn(
+          'h-3 w-1 shrink-0 rounded-[2px]',
+          tone === 'red' ? 'bg-mt-red' : tone === 'warn' ? 'bg-warn' : tone === 'ok' ? 'bg-ok' : tone === 'muted' ? 'bg-idle' : 'bg-ice',
+        )}
+      />
       {children}
     </h2>
   )

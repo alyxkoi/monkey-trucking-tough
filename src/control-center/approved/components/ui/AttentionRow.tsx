@@ -2,6 +2,7 @@ import { StatusPill, type PillTone } from './StatusPill'
 import { PrimaryButton, QuietButton, SecondaryButton } from './Button'
 import { SolidInfoModule } from './SolidInfoModule'
 import { usd, waitingFor } from '@/control-center/approved/lib/format'
+import { cn } from '@/control-center/approved/lib/cn'
 import type { AttentionItem, Priority } from '@/control-center/approved/state/attention'
 
 const PILL: Record<Priority, { tone: PillTone; label: string }> = {
@@ -20,10 +21,12 @@ const PILL: Record<Priority, { tone: PillTone; label: string }> = {
  */
 export function AttentionRow({
   item,
+  subject,
   onAction,
   onSnooze,
 }: {
   item: AttentionItem
+  subject?: string
   onAction: () => void
   onSnooze: () => void
 }) {
@@ -37,6 +40,11 @@ export function AttentionRow({
             {pill.label}
           </StatusPill>
           <div className="min-w-0">
+            {subject && (
+              <div className="mb-1 font-label text-[11px] font-bold uppercase tracking-[0.16em] text-ice">
+                {subject}
+              </div>
+            )}
             <div className="text-[16px] font-semibold leading-snug text-ink">
               {item.title}
             </div>
@@ -72,10 +80,12 @@ export function AttentionRow({
  */
 export function AttentionLead({
   item,
+  subject,
   onAction,
   onSnooze,
 }: {
   item: AttentionItem
+  subject?: string
   onAction: () => void
   onSnooze: () => void
 }) {
@@ -91,11 +101,17 @@ export function AttentionLead({
           </span>
         </div>
 
+        {subject && (
+          <div className="mt-4 font-label text-[12px] font-bold uppercase tracking-[0.18em] text-canvas/75">
+            {subject}
+          </div>
+        )}
+
         {/*
           Anton is reserved for numbers, dates and short statements. An attention
           title is a full sentence, so it uses Barlow at a heavy weight instead.
         */}
-        <h3 className="mt-3.5 max-w-[26ch] font-control-body text-[21px] font-bold leading-[1.15] sm:text-[24px]">
+        <h3 className={cn('max-w-[26ch] font-control-body text-[21px] font-bold leading-[1.15] sm:text-[24px]', subject ? 'mt-1.5' : 'mt-3.5')}>
           {item.title}
         </h3>
         <p className="mt-2.5 max-w-[46ch] text-[15px] leading-snug text-canvas/90">
