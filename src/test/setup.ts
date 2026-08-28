@@ -27,4 +27,38 @@ if (typeof window !== "undefined") {
       dispatchEvent: () => {},
     }),
   });
+
+  class TestResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  class TestIntersectionObserver {
+    readonly root = null;
+    readonly rootMargin = "0px";
+    readonly thresholds = [0];
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() { return []; }
+  }
+  Object.defineProperty(globalThis, "ResizeObserver", { configurable: true, value: TestResizeObserver });
+  Object.defineProperty(globalThis, "IntersectionObserver", { configurable: true, value: TestIntersectionObserver });
+
+  Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+    configurable: true,
+    value: () => ({
+      beginPath() {},
+      fillRect() {},
+      lineTo() {},
+      moveTo() {},
+      setTransform() {},
+      stroke() {},
+      fillStyle: "",
+      lineCap: "butt",
+      lineJoin: "miter",
+      lineWidth: 1,
+      strokeStyle: "",
+    }),
+  });
 }

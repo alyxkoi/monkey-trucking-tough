@@ -9,10 +9,15 @@ const Layout = ({ children }: { children?: ReactNode }) => {
   const onHome = pathname === "/";
   const showMobileActions = ["/", "/services", "/materials", "/projects", "/contact"].includes(pathname);
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex min-h-screen flex-col overflow-x-clip">
       <Header />
-      <main className={`flex-1 ${onHome ? "" : "pt-[76px]"} ${showMobileActions ? "pb-[70px] md:pb-0" : ""}`}>{children ?? <Outlet />}</main>
-      <Footer />
+      <main
+        key={pathname}
+        className={`public-route-enter flex-1 ${onHome ? "" : "pt-[76px]"}`}
+      >
+        {children ?? <Outlet />}
+      </main>
+      <Footer clearMobileActions={showMobileActions} />
       {showMobileActions && <MobileCallBar />}
     </div>
   );

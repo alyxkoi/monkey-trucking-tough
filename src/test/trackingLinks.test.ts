@@ -54,7 +54,7 @@ describe('durable Tracking Links', () => {
     expect(migration).toContain('new.source := v_link.source')
     expect(migration).toContain('new.campaign := v_link.campaign')
     expect(migration).toContain('tracking_link_id, need')
-    const contact = read('src/pages/Contact.tsx')
+    const contact = read('src/components/public/QuoteRequestForm.tsx')
     const handler = read('supabase/functions/send-contact-email/index.ts')
     expect(contact).toContain('trackingAttribution: getTrackingAttribution()')
     expect(handler).toContain('tracking_link_id: trackingLinkId')

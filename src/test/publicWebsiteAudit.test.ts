@@ -16,6 +16,14 @@ const publicSources = [
   "src/components/Footer.tsx",
   "src/components/CTASection.tsx",
   "src/components/home/MobileCallBar.tsx",
+  "src/components/public/HomeHero.tsx",
+  "src/components/public/PublicContactSection.tsx",
+  "src/components/public/QuoteRequestForm.tsx",
+  "src/components/public/ServiceFeatureGrid.tsx",
+  "src/components/public/PopularMaterialsSection.tsx",
+  "src/components/public/RecentWorkSection.tsx",
+  "src/components/public/TrustRail.tsx",
+  "src/content/publicHome.ts",
   "src/content/blog.tsx",
 ].map(read).join("\n");
 
@@ -28,15 +36,15 @@ describe("public website contracts", () => {
     expect(new Set(telephoneLinks)).toEqual(new Set(["tel:+12146778466"]));
   });
 
-  it("keeps the compact Home sequence in the approved order", () => {
+  it("keeps the architectural Home sequence in the approved order", () => {
     const home = read("src/pages/Index.tsx");
     const sequence = [
-      "Gravel, delivery",
-      "What do you need?",
-      "Popular materials",
-      "Recent work",
-      "Based in Kaufman",
-      "Need material or work done?",
+      "<HomeHero",
+      "<ServiceFeatureGrid",
+      "<PopularMaterialsSection",
+      "<RecentWorkSection",
+      "<TrustRail",
+      "<PublicContactSection",
     ];
     let cursor = -1;
     for (const label of sequence) {
@@ -44,7 +52,7 @@ describe("public website contracts", () => {
       expect(next).toBeGreaterThan(cursor);
       cursor = next;
     }
-    expect(home).not.toMatch(/marquee|testimonial|How it works|Years in Business|Jobs Completed/i);
+    expect(home).not.toMatch(/CTASection|marquee|testimonial|How it works|Years in Business|Jobs Completed/i);
   });
 
   it("publishes the exact approved material catalog without public prices", () => {
@@ -71,11 +79,11 @@ describe("public website contracts", () => {
   });
 
   it("keeps contact attribution, consent, and service location in the real submission path", () => {
-    const contact = read("src/pages/Contact.tsx");
+    const contact = read("src/components/public/QuoteRequestForm.tsx");
     const handler = read("supabase/functions/send-contact-email/index.ts");
     expect(contact).toContain("trackingAttribution: getTrackingAttribution()");
     expect(contact).toContain("smsConsent: false");
-    expect(contact).toContain('id="contact-location"');
+    expect(contact).toContain('`${idPrefix}-location`');
     expect(handler).toContain("Location: ${location || 'Not provided'}");
     expect(handler).toContain("location ? `Location: ${location}`");
   });
@@ -85,5 +93,9 @@ describe("public website contracts", () => {
     const html = read("index.html");
     expect(html).toContain('"telephone": "+1-214-677-8466"');
     expect(html).not.toContain("+1-000-000-0000");
+  });
+
+  it("uses no em dash or en dash punctuation in public customer copy", () => {
+    expect(publicSources).not.toMatch(/[—–]/);
   });
 });

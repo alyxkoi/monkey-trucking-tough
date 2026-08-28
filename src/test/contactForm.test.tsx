@@ -15,11 +15,6 @@ vi.mock("@/components/ui/sonner", () => ({ toast: vi.fn() }));
 
 describe("public quote form", () => {
   beforeEach(() => {
-    globalThis.ResizeObserver = class ResizeObserver {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    };
     invoke.mockReset();
     invoke.mockResolvedValue({ data: { success: true }, error: null });
     window.localStorage.clear();

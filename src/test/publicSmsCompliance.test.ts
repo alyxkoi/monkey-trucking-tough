@@ -6,7 +6,7 @@ const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta
 
 describe("public SMS consent and legal-page contracts", () => {
   it("keeps SMS consent optional, unchecked by default, and explicitly versioned", () => {
-    const contact = read("src/pages/Contact.tsx");
+    const contact = read("src/components/public/QuoteRequestForm.tsx");
     expect(contact).toContain("smsConsent: false");
     expect(contact).toContain("checked={form.smsConsent}");
     expect(contact).toContain("smsConsent: checked === true");
@@ -35,7 +35,7 @@ describe("public SMS consent and legal-page contracts", () => {
 
   it("publishes the legal routes and exposes them from the contact form and footer", () => {
     const app = read("src/App.tsx");
-    const contact = read("src/pages/Contact.tsx");
+    const contact = read("src/components/public/QuoteRequestForm.tsx");
     const footer = read("src/components/Footer.tsx");
     expect(app).toContain('path="/privacy-policy"');
     expect(app).toContain('path="/terms"');
