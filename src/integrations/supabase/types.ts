@@ -406,51 +406,95 @@ export type Database = {
       }
       contact_submissions: {
         Row: {
+          campaign: string | null
           consent_disclosure_text: string
           consent_disclosure_version: string
           consent_source: string
+          customer_id: string | null
           email: string
           email_message_id: string
           id: string
+          lead_id: string | null
           message: string | null
           name: string
           phone: string
           project_type: string | null
           sms_consent: boolean
           sms_consent_at: string | null
+          source: string | null
           submitted_at: string
+          tracking_link_id: string | null
         }
         Insert: {
+          campaign?: string | null
           consent_disclosure_text: string
           consent_disclosure_version: string
           consent_source: string
+          customer_id?: string | null
           email: string
           email_message_id: string
           id?: string
+          lead_id?: string | null
           message?: string | null
           name: string
           phone: string
           project_type?: string | null
           sms_consent?: boolean
           sms_consent_at?: string | null
+          source?: string | null
           submitted_at?: string
+          tracking_link_id?: string | null
         }
         Update: {
+          campaign?: string | null
           consent_disclosure_text?: string
           consent_disclosure_version?: string
           consent_source?: string
+          customer_id?: string | null
           email?: string
           email_message_id?: string
           id?: string
+          lead_id?: string | null
           message?: string | null
           name?: string
           phone?: string
           project_type?: string | null
           sms_consent?: boolean
           sms_consent_at?: string | null
+          source?: string | null
           submitted_at?: string
+          tracking_link_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contact_submissions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_submissions_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_link_metrics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_submissions_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_links"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       control_center_settings: {
         Row: {
@@ -1142,6 +1186,7 @@ export type Database = {
           need: string
           source: string
           status: string
+          tracking_link_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1156,6 +1201,7 @@ export type Database = {
           need: string
           source: string
           status?: string
+          tracking_link_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1170,6 +1216,7 @@ export type Database = {
           need?: string
           source?: string
           status?: string
+          tracking_link_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1178,6 +1225,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_link_metrics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_links"
             referencedColumns: ["id"]
           },
         ]
@@ -1869,38 +1930,80 @@ export type Database = {
           },
         ]
       }
+      tracking_link_visits: {
+        Row: {
+          id: string
+          tracking_link_id: string
+          visited_at: string
+        }
+        Insert: {
+          id?: string
+          tracking_link_id: string
+          visited_at?: string
+        }
+        Update: {
+          id?: string
+          tracking_link_id?: string
+          visited_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracking_link_visits_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_link_metrics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracking_link_visits_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tracking_links: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           campaign: string
           created_at: string
           created_by: string | null
           customers: number
           destination: string
           id: string
+          is_active: boolean
           leads: number
           slug: string
           source: string
           visits: number
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           campaign: string
           created_at?: string
           created_by?: string | null
           customers?: number
           destination: string
           id?: string
+          is_active?: boolean
           leads?: number
           slug: string
           source: string
           visits?: number
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           campaign?: string
           created_at?: string
           created_by?: string | null
           customers?: number
           destination?: string
           id?: string
+          is_active?: boolean
           leads?: number
           slug?: string
           source?: string
@@ -2038,7 +2141,54 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      tracking_link_metrics: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          campaign: string | null
+          created_at: string | null
+          created_by: string | null
+          customers: number | null
+          destination: string | null
+          id: string | null
+          is_active: boolean | null
+          leads: number | null
+          slug: string | null
+          source: string | null
+          visits: number | null
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          campaign?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customers?: never
+          destination?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          leads?: never
+          slug?: string | null
+          source?: string | null
+          visits?: never
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          campaign?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customers?: never
+          destination?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          leads?: never
+          slug?: string | null
+          source?: string | null
+          visits?: never
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_public_quote: {
@@ -2255,6 +2405,10 @@ export type Database = {
         Args: { p_confirmation: string; p_reason: string; p_ticket_id: string }
         Returns: Json
       }
+      delete_tracking_link_if_unused: {
+        Args: { p_tracking_link_id: string }
+        Returns: Json
+      }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
@@ -2402,6 +2556,10 @@ export type Database = {
           id: string
           quote_number: string
         }[]
+      }
+      set_tracking_link_archived: {
+        Args: { p_archived: boolean; p_tracking_link_id: string }
+        Returns: undefined
       }
       void_financial_record: {
         Args: { p_reason: string; p_record_id: string; p_record_type: string }
