@@ -1551,10 +1551,6 @@ export type Database = {
           matched_existing: boolean
         }[]
       }
-      delete_material_if_unused: {
-        Args: { p_material_id: string }
-        Returns: Json
-      }
       create_ticket_atomic: {
         Args: {
           p_client_request_id: string
@@ -1629,6 +1625,10 @@ export type Database = {
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
+      }
+      delete_material_if_unused: {
+        Args: { p_material_id: string }
+        Returns: Json
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
