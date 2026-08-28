@@ -181,6 +181,6 @@ describe("Phase 05 Control Center contracts", () => {
     expect(sideNav).toContain("onMouseEnter={() => void preloadMainAdminRoute");
     expect(mobileNav).toContain("onFocus={() => void preloadMainAdminRoute");
     expect(sideNav).toContain("lg:fixed");
-    expect(shell).toContain("lg:pl-[248px]");
+    expect(shell).toContain("lg:pl-[280px]");
   });
 });

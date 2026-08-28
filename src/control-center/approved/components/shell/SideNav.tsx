@@ -26,11 +26,11 @@ export function SideNav() {
   const accountName = demo.enabled ? 'Salvador' : String(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Account')
 
   return (
-    <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:h-screen lg:w-[248px] lg:flex-col lg:border-r lg:border-white/[0.07] lg:bg-[#121216]/80 lg:backdrop-blur-xl">
+    <aside className="hidden lg:fixed lg:bottom-4 lg:left-4 lg:top-4 lg:z-40 lg:flex lg:w-[248px] lg:flex-col lg:overflow-hidden lg:rounded-[24px] lg:border lg:border-white/[0.11] lg:bg-[#0e0f13]/76 lg:shadow-[0_30px_80px_-34px_rgba(0,0,0,0.98)] lg:backdrop-blur-2xl">
       {/* The system line. Full height, outer edge, never interactive. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-mt-red via-mt-red/45 to-transparent"
+        className="pointer-events-none absolute bottom-4 left-0 top-4 w-[3px] rounded-r-full bg-gradient-to-b from-mt-red via-mt-red/45 to-transparent"
       />
 
       <div className="border-b border-white/[0.07] px-6 py-5">

@@ -48,7 +48,7 @@ function DemoControls({ value }: { value: DemoModeValue }) {
         onClick={() => setOpen(true)}
         aria-label="Open QA fixture controls"
         title="QA fixture controls"
-        className="qa-fixture-control fixed bottom-24 left-0 z-[100] flex h-11 w-5 items-center justify-center rounded-r-xl border border-ice/30 bg-[#111116]/90 text-ice opacity-60 shadow-lifted backdrop-blur-xl transition-[border-color,opacity] hover:border-ice/60 hover:opacity-100 lg:bottom-4 lg:left-[264px] lg:w-11 lg:rounded-full"
+        className="qa-fixture-control fixed bottom-24 left-0 z-[100] flex h-11 w-5 items-center justify-center rounded-r-xl border border-ice/30 bg-[#111116]/90 text-ice opacity-60 shadow-lifted backdrop-blur-xl transition-[border-color,opacity] hover:border-ice/60 hover:opacity-100 lg:bottom-4 lg:left-[280px] lg:w-11 lg:rounded-full"
       >
         <Database className="h-4 w-4" strokeWidth={2.3} />
       </button>
@@ -56,7 +56,7 @@ function DemoControls({ value }: { value: DemoModeValue }) {
   }
 
   return (
-    <aside className="qa-fixture-control fixed bottom-24 left-3 z-[100] w-[min(310px,calc(100vw-24px))] rounded-2xl border border-ice/30 bg-[#111116]/94 p-3 shadow-lifted backdrop-blur-xl lg:bottom-4 lg:left-[264px]">
+    <aside className="qa-fixture-control fixed bottom-24 left-3 z-[100] w-[min(310px,calc(100vw-24px))] rounded-2xl border border-ice/30 bg-[#111116]/94 p-3 shadow-lifted backdrop-blur-xl lg:bottom-4 lg:left-[280px]">
       <div className="flex items-center gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ice text-canvas">
           <Database className="h-4 w-4" strokeWidth={2.4} />

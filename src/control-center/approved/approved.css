@@ -8,34 +8,38 @@
   min-height: 100vh;
   -webkit-tap-highlight-color: transparent;
   background-color: #0c080a;
-  background-image:
-    radial-gradient(1200px 820px at 8% -14%, rgba(143, 203, 255, 0.055), transparent 64%),
-    radial-gradient(1500px 980px at 48% 24%, rgba(198, 204, 216, 0.05), transparent 72%),
-    radial-gradient(1500px 1050px at 92% 116%, rgba(92, 15, 25, 0.13), transparent 74%),
-    linear-gradient(
-      180deg,
-      #1c1c23 0%,
-      #1a1a21 38%,
-      #18181e 66%,
-      #151116 77%,
-      #10090d 90%,
-      #0c080a 100%
-    );
-  background-attachment: fixed;
-  background-repeat: no-repeat;
 }
 
 /*
- * Faint dotted platinum texture. One pixel dots on a 24px grid, faded out
- * through the platinum field, then eased away with the lower burgundy descent.
+ * One fixed image layer for the authenticated Control Center only. The dark
+ * fallback lives on the root, so a failed image request never exposes a light
+ * canvas. The two restrained paint layers preserve readable white type without
+ * hiding the supplied burgundy atmosphere.
  */
-.control-center-root::before {
+.control-center-root::after {
   content: '';
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image: radial-gradient(rgba(214, 220, 232, 0.05) 1px, transparent 1px);
+  background-color: #0c080a;
+  background-image:
+    linear-gradient(180deg, rgba(7, 8, 11, 0.48) 0%, rgba(8, 8, 12, 0.58) 58%, rgba(10, 6, 9, 0.7) 100%),
+    radial-gradient(1200px 900px at 18% 4%, rgba(143, 203, 255, 0.045), transparent 68%),
+    url('https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/images//Love%20and%20Liberty.jpg');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+/* The established dot texture stays faint and recedes toward the bottom. */
+.control-center-root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(224, 228, 238, 0.032) 1px, transparent 1px);
   background-size: 24px 24px;
   -webkit-mask-image: linear-gradient(
     180deg,
@@ -55,7 +59,7 @@
 
 .control-center-root > * {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 /* Outdoor and iPhone rule: form text never drops below 16px. */
@@ -105,36 +109,49 @@
  * everything sits in, and the single lit calendar field on the Overview.
  */
 .surface {
-  background-color: rgba(18, 18, 22, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background-color: rgba(14, 14, 18, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.085);
   box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
 }
 
 .surface-glass {
-  background-color: rgba(20, 20, 25, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  background-color: rgba(14, 14, 19, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   -webkit-backdrop-filter: blur(22px) saturate(130%);
   backdrop-filter: blur(22px) saturate(130%);
   box-shadow: 0 30px 60px -32px rgba(0, 0, 0, 0.95);
 }
 
 .surface-ice {
-  background-color: rgba(24, 30, 38, 0.9);
+  background-color: rgba(20, 27, 36, 0.84);
   border: 1px solid rgba(143, 203, 255, 0.18);
   box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
 }
 
 .surface-warm {
-  background-color: rgba(32, 21, 22, 0.9);
+  background-color: rgba(31, 19, 22, 0.86);
   border: 1px solid rgba(255, 49, 49, 0.2);
   box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
 }
 
 /* Settled money. Green stays utility only and never becomes a brand color. */
 .surface-ok {
-  background-color: rgba(20, 30, 23, 0.9);
+  background-color: rgba(18, 29, 22, 0.86);
   border: 1px solid rgba(48, 209, 88, 0.2);
   box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.9);
+}
+
+/*
+ * A few structural surfaces predate Panel and use the semantic utilities
+ * directly. Keep those cards translucent, while raised controls stay more
+ * opaque so inputs, menus and form boundaries remain unmistakable.
+ */
+.control-center-root .bg-panel {
+  background-color: rgba(14, 14, 18, 0.88);
+}
+
+.control-center-root .bg-raised {
+  background-color: rgba(29, 29, 35, 0.95);
 }
 
 /*

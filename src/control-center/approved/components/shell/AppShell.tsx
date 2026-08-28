@@ -47,12 +47,12 @@ export function AppShell() {
   }, [])
 
   return (
-    // The background lives on the body so the gradient and the dotted texture stay
-    // fixed while content scrolls. The shell itself stays transparent.
+    // The authenticated root owns one fixed image/overlay layer. The shell stays
+    // transparent so that atmosphere remains stable while content scrolls.
     <div className="flex min-h-screen">
       <SideNav />
 
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-[248px]">
+      <div className="flex min-w-0 flex-1 flex-col lg:pl-[280px]">
         <TopBar />
         {/*
           Clears the 64px navigation, the safe area, and the floating New action,

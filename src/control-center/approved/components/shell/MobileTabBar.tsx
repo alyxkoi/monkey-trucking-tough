@@ -90,7 +90,7 @@ export function MobileTabBar() {
         </button>
       )}
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#121216]/95 pb-safe backdrop-blur-xl lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.1] bg-[#0e0f13]/88 pb-safe shadow-[0_-18px_45px_-30px_rgba(0,0,0,0.95)] backdrop-blur-2xl lg:hidden">
         {/* Tablet, 768px and up: all seven share the width evenly. */}
         <div className="hidden md:grid md:grid-cols-7">
           {SECTIONS.map((section) => (
