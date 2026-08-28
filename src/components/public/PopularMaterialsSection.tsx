@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import VerticalBarsNoise from "@/components/ui/vertical-bars";
 import { popularMaterials, type PopularMaterial } from "@/content/publicHome";
 import PublicReveal from "./PublicReveal";
+import ResponsiveImage from "./ResponsiveImage";
 
 const architecturalEase = [0.16, 1, 0.3, 1] as const;
 
@@ -22,8 +23,9 @@ function MaterialPreview({ material, index }: { material: PopularMaterial; index
       transition={{ duration: reduceMotion ? 0 : 0.4, delay: reduceMotion ? 0 : index * 0.045, ease: architecturalEase }}
     >
       <div className="popular-material-media">
-        <img
+        <ResponsiveImage
           src={material.image}
+          mobileSrc={material.mobileImage}
           alt={`${material.name} aggregate material pile`}
           loading="lazy"
           decoding="async"
@@ -31,8 +33,9 @@ function MaterialPreview({ material, index }: { material: PopularMaterial; index
         />
 
         {material.jobImage && (
-          <img
+          <ResponsiveImage
             src={material.jobImage}
+            mobileSrc={material.jobMobileImage ?? undefined}
             alt={material.jobImageAlt ?? `${material.name} in use`}
             loading="lazy"
             decoding="async"

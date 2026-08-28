@@ -12,12 +12,18 @@ import {
 } from "lucide-react";
 import Seo from "@/components/Seo";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import ResponsiveImage from "@/components/public/ResponsiveImage";
 
 import servicesHeroImg from "@/assets/services-hero.webp";
+import servicesHeroMobileImg from "@/assets/services-hero-768.webp";
 import drivewayImg from "@/assets/services/gravel-driveway-installation.webp";
+import drivewayMobileImg from "@/assets/services/gravel-driveway-installation-768.webp";
 import pondImg from "@/assets/services/pond-construction.webp";
+import pondMobileImg from "@/assets/services/pond-construction-768.webp";
 import dirtWorkImg from "@/assets/services/dirt-work.webp";
+import dirtWorkMobileImg from "@/assets/services/dirt-work-768.webp";
 import haulingImg from "@/assets/services/aggregate-hauling.webp";
+import haulingMobileImg from "@/assets/services/aggregate-hauling-768.webp";
 
 const PHONE_HREF = "tel:+12146778466";
 
@@ -26,6 +32,7 @@ const services: Array<{
   description: string;
   uses: string[];
   image: string;
+  mobileImage: string;
   icon: LucideIcon;
 }> = [
   {
@@ -33,6 +40,7 @@ const services: Array<{
     description: "New builds, repairs and regrading for homes, ranches and private property.",
     uses: ["New driveways", "Repairs and regrading", "Extensions", "Ranch and private roads"],
     image: drivewayImg,
+    mobileImage: drivewayMobileImg,
     icon: Route,
   },
   {
@@ -40,6 +48,7 @@ const services: Array<{
     description: "Pond excavation, grading and drainage work for rural property.",
     uses: ["Stock ponds", "Irrigation ponds", "Pond excavation", "Drainage corrections"],
     image: pondImg,
+    mobileImage: pondMobileImg,
     icon: Waves,
   },
   {
@@ -47,6 +56,7 @@ const services: Array<{
     description: "Grading, site preparation and light land clearing for practical property projects.",
     uses: ["Brush", "Small trees", "Rocks and boulders", "Associated site clearing"],
     image: dirtWorkImg,
+    mobileImage: dirtWorkMobileImg,
     icon: Mountain,
   },
   {
@@ -54,6 +64,7 @@ const services: Array<{
     description: "Gravel, crushed concrete, flexbase, sand and other aggregate delivered to your site.",
     uses: ["Bulk material delivery", "Scheduled deliveries", "Job-site drops", "Aggregate hauling"],
     image: haulingImg,
+    mobileImage: haulingMobileImg,
     icon: Truck,
   },
 ];
@@ -101,7 +112,7 @@ const Services = () => {
       />
 
       <section className="public-page-hero">
-        <img src={servicesHeroImg} alt="Monkey Trucking equipment working on a North Texas property" className="absolute inset-0 h-full w-full object-cover" />
+        <ResponsiveImage src={servicesHeroImg} mobileSrc={servicesHeroMobileImg} alt="Monkey Trucking equipment working on a North Texas property" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-nearblack via-nearblack/75 to-nearblack/20" />
         <div className="relative mx-auto w-full max-w-[1380px] px-5 sm:px-8 lg:px-12">
           <div className="max-w-[760px]">
@@ -116,12 +127,12 @@ const Services = () => {
         <section className="public-services-catalog" aria-label="Monkey Trucking services">
           <div className="public-destination-container">
             <div className="public-service-grid">
-              {services.map((service, index) => {
+              {services.map((service) => {
                 const Icon = service.icon;
                 return (
                   <article key={service.title} className="public-service-card">
                     <div className="public-service-card-media">
-                      <img src={service.image} alt={`${service.title} project by Monkey Trucking`} loading={index === 0 ? "eager" : "lazy"} decoding="async" />
+                      <ResponsiveImage src={service.image} mobileSrc={service.mobileImage} alt={`${service.title} project by Monkey Trucking`} loading="lazy" decoding="async" />
                     </div>
                     <div className="public-service-card-copy">
                       <div className="public-service-card-icon"><Icon aria-hidden="true" /></div>

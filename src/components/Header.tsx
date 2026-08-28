@@ -27,10 +27,7 @@ const Header = () => {
     return () => { document.body.style.overflow = ""; };
   }, [mobileOpen]);
   useEffect(() => {
-    const schedule = window.requestIdleCallback ?? ((callback: IdleRequestCallback) => window.setTimeout(callback, 400));
-    const cancel = window.cancelIdleCallback ?? window.clearTimeout;
-    const id = schedule(() => preloadPublicRoutes());
-    return () => cancel(id);
+    preloadPublicRoutes();
   }, []);
 
   return (

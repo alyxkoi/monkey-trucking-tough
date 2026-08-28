@@ -1,32 +1,44 @@
 import { Phone } from "lucide-react";
 import Seo from "@/components/Seo";
 import MaterialCard from "@/components/MaterialCard";
+import ResponsiveImage from "@/components/public/ResponsiveImage";
 
 import materialsHeroImg from "@/assets/materials-hero.webp";
+import materialsHeroMobileImg from "@/assets/materials-hero-768.webp";
 import crushedConcreteImg from "@/assets/materials/crushed-concrete.webp";
+import crushedConcreteMobileImg from "@/assets/materials/crushed-concrete-768.webp";
 import selectFillImg from "@/assets/materials/select-fill.webp";
+import selectFillMobileImg from "@/assets/materials/select-fill-768.webp";
 import commonFillImg from "@/assets/materials/common-fill.webp";
+import commonFillMobileImg from "@/assets/materials/common-fill-768.webp";
 import flexBaseImg from "@/assets/materials/flex-base.webp";
+import flexBaseMobileImg from "@/assets/materials/flex-base-768.webp";
 import masonSandImg from "@/assets/materials/mason-sand.webp";
+import masonSandMobileImg from "@/assets/materials/mason-sand-768.webp";
 import millingsImg from "@/assets/materials/millings.webp";
+import millingsMobileImg from "@/assets/materials/millings-768.webp";
 import nativeGravelImg from "@/assets/materials/1in-native-gravel.webp";
+import nativeGravelMobileImg from "@/assets/materials/1in-native-gravel-768.webp";
 import nativeGravelsImg from "@/assets/materials/native-gravels.webp";
+import nativeGravelsMobileImg from "@/assets/materials/native-gravels-768.webp";
 import decomposedGraniteImg from "@/assets/materials/decomposed-granite.webp";
+import decomposedGraniteMobileImg from "@/assets/materials/decomposed-granite-768.webp";
 import limestoneImg from "@/assets/materials/limestone.webp";
+import limestoneMobileImg from "@/assets/materials/limestone-768.webp";
 
 const PHONE_HREF = "tel:+12146778466";
 
 const materials = [
-  { name: "Commercial Crushed Concrete Clean", use: "Driveways and compactable base", image: crushedConcreteImg },
-  { name: "Select Fill and Cushion Sand", use: "Fill, leveling and pipe bedding", image: selectFillImg },
-  { name: "3x4 Crushed Concrete", use: "Large base, drainage and stabilization", image: commonFillImg },
-  { name: 'Flexbase First Class 1" or 3"', use: "Driveways, roads and base", image: flexBaseImg },
-  { name: "Mason Sand", use: "Masonry, leveling and bedding", image: masonSandImg },
-  { name: 'Millings Asphalt 1/2" Minus', use: "Driveways and parking areas", image: millingsImg },
-  { name: 'Native Gravel 3/8"-1"', use: "Driveways, drainage and landscaping", image: nativeGravelImg },
-  { name: "Concrete Sand Mix Native Gravel", use: "Concrete mix and general aggregate use", image: nativeGravelsImg },
-  { name: "Decomposed Granite", use: "Paths, patios and ground cover", image: decomposedGraniteImg },
-  { name: 'Limestone 1"-1 1/2"', use: "Driveways, base and drainage", image: limestoneImg },
+  { name: "Commercial Crushed Concrete Clean", use: "Driveways and compactable base", image: crushedConcreteImg, mobileImage: crushedConcreteMobileImg },
+  { name: "Select Fill and Cushion Sand", use: "Fill, leveling and pipe bedding", image: selectFillImg, mobileImage: selectFillMobileImg },
+  { name: "3x4 Crushed Concrete", use: "Large base, drainage and stabilization", image: commonFillImg, mobileImage: commonFillMobileImg },
+  { name: 'Flexbase First Class 1" or 3"', use: "Driveways, roads and base", image: flexBaseImg, mobileImage: flexBaseMobileImg },
+  { name: "Mason Sand", use: "Masonry, leveling and bedding", image: masonSandImg, mobileImage: masonSandMobileImg },
+  { name: 'Millings Asphalt 1/2" Minus', use: "Driveways and parking areas", image: millingsImg, mobileImage: millingsMobileImg },
+  { name: 'Native Gravel 3/8"-1"', use: "Driveways, drainage and landscaping", image: nativeGravelImg, mobileImage: nativeGravelMobileImg },
+  { name: "Concrete Sand Mix Native Gravel", use: "Concrete mix and general aggregate use", image: nativeGravelsImg, mobileImage: nativeGravelsMobileImg },
+  { name: "Decomposed Granite", use: "Paths, patios and ground cover", image: decomposedGraniteImg, mobileImage: decomposedGraniteMobileImg },
+  { name: 'Limestone 1"-1 1/2"', use: "Driveways, base and drainage", image: limestoneImg, mobileImage: limestoneMobileImg },
 ];
 
 const Materials = () => (
@@ -38,7 +50,7 @@ const Materials = () => (
     />
 
     <section className="public-page-hero">
-      <img src={materialsHeroImg} alt="Aggregate material being delivered by dump truck" className="absolute inset-0 h-full w-full object-cover" />
+      <ResponsiveImage src={materialsHeroImg} mobileSrc={materialsHeroMobileImg} alt="Aggregate material being delivered by dump truck" className="absolute inset-0 h-full w-full object-cover" />
       <div className="absolute inset-0 bg-gradient-to-r from-nearblack via-nearblack/72 to-nearblack/15" />
       <div className="relative mx-auto w-full max-w-[1380px] px-5 sm:px-8 lg:px-12">
         <div className="max-w-[760px]">

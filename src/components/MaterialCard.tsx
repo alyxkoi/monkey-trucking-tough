@@ -1,16 +1,19 @@
 import { ArrowRight } from "lucide-react";
+import ResponsiveImage from "@/components/public/ResponsiveImage";
 
 interface MaterialCardProps {
   name: string;
   use: string;
   image: string;
+  mobileImage: string;
 }
 
-const MaterialCard = ({ name, use, image }: MaterialCardProps) => (
+const MaterialCard = ({ name, use, image, mobileImage }: MaterialCardProps) => (
   <article className="public-material-catalog-card">
     <div className="public-material-catalog-media">
-      <img
+      <ResponsiveImage
         src={image}
+        mobileSrc={mobileImage}
         alt={`${name} aggregate sample`}
         loading="lazy"
         decoding="async"

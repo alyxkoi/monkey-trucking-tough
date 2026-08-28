@@ -277,7 +277,7 @@ export default function InteractiveWaves({
     };
 
     const onPointerMove = (event: PointerEvent) => {
-      if (event.pointerType !== "mouse" || !state.bounding) return;
+      if (!visible || !documentVisible || event.pointerType !== "mouse" || !state.bounding) return;
       const { left, right, top, bottom } = state.bounding;
       if (event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom) {
         state.mouse.set = false;

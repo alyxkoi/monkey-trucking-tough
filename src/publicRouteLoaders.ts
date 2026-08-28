@@ -16,6 +16,31 @@ export function preloadPublicRoute(path: string) {
   void routeLoaderByPath[path]?.();
 }
 
+let preloadScheduled = false;
+
 export function preloadPublicRoutes() {
-  Object.values(routeLoaderByPath).forEach((load) => void load());
+  if (preloadScheduled) return;
+  preloadScheduled = true;
+
+  const queue = Object.values(routeLoaderByPath);
+  const loadNext = () => {
+    const load = queue.shift();
+    if (!load) return;
+    void load().finally(() => {
+      if (queue.length === 0) return;
+      if (window.requestIdleCallback) {
+        window.requestIdleCallback(loadNext, { timeout: 1800 });
+      } else {
+        window.setTimeout(loadNext, 450);
+      }
+    });
+  };
+
+  window.setTimeout(() => {
+    if (window.requestIdleCallback) {
+      window.requestIdleCallback(loadNext, { timeout: 2200 });
+    } else {
+      loadNext();
+    }
+  }, 2500);
 }

@@ -1,17 +1,14 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import ScrollToTop from "@/components/ScrollToTop";
 import Layout from "@/components/Layout";
 import { AuthProvider } from "@/hooks/useAuth";
-import { DemoModeProvider } from "@/control-center/demo/DemoMode";
 import { mainAdminRouteLoaders } from "@/control-center/adminRouteLoaders";
 import Index from "./pages/Index"; // keep eager — it's the LCP page
 import { captureTrackingAttribution } from "@/lib/trackingAttribution";
 import { publicRouteLoaders } from "@/publicRouteLoaders";
+import { DemoModeProvider } from "@/control-center/demo/DemoMode";
 
 // Lazy-load secondary routes so their bundles + images don't ship with the homepage
 const Services = lazy(publicRouteLoaders.services);
@@ -50,18 +47,6 @@ const SettingsTracking = lazy(() => import("./control-center/approved/screens/se
 const SettingsUsers = lazy(() => import("./control-center/approved/screens/settings").then((module) => ({ default: module.SettingsUsers })));
 const SettingsPrinting = lazy(() => import("./control-center/approved/screens/settings").then((module) => ({ default: module.SettingsPrinting })));
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      // Marketing site — no live data; avoid needless refetches that cause re-renders.
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-      staleTime: 5 * 60 * 1000,
-      retry: 1,
-    },
-  },
-});
-
 const RouteFallback = () => (
   <div className="route-fallback" aria-label="Loading page">
     <div className="route-fallback-line" />
@@ -79,17 +64,14 @@ const AttributionCapture = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <DemoModeProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
-            <AttributionCapture />
-            <ScrollToTop />
-            <Suspense fallback={<RouteFallback />}>
-              <Routes>
+  <DemoModeProvider>
+    <Sonner />
+    <BrowserRouter>
+      <AuthProvider>
+        <AttributionCapture />
+        <ScrollToTop />
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={<Index />} />
                 <Route path="/services" element={<Services />} />
@@ -135,13 +117,11 @@ const App = () => (
                 <Route path="ticket/:ticketId/edit" element={<TicketBuilder />} />
               </Route>
               <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </DemoModeProvider>
-  </QueryClientProvider>
+          </Routes>
+        </Suspense>
+      </AuthProvider>
+    </BrowserRouter>
+  </DemoModeProvider>
 );
 
 export default App;

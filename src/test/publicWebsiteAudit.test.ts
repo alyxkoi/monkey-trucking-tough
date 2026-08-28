@@ -81,6 +81,7 @@ describe("public website contracts", () => {
   it("keeps the public header centered and the Hero media contract exact", () => {
     const header = read("src/components/Header.tsx");
     const userMenu = read("src/components/auth/UserMenu.tsx");
+    const authenticatedUserMenu = read("src/components/auth/AuthenticatedUserMenu.tsx");
     const hero = read("src/components/public/HomeHero.tsx");
     const css = read("src/index.css");
     const html = read("index.html");
@@ -89,9 +90,9 @@ describe("public website contracts", () => {
     expect(css).toContain("grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr)");
     expect(header).toContain('to="/contact"');
     expect(header).toContain('const PHONE_HREF = "tel:+12146778466"');
-    expect(userMenu).toContain("LayoutDashboard");
-    expect(userMenu).toContain("Dashboard");
-    expect(userMenu).not.toContain("Tickets");
+    expect(authenticatedUserMenu).toContain("LayoutDashboard");
+    expect(authenticatedUserMenu).toContain("Dashboard");
+    expect(`${userMenu}\n${authenticatedUserMenu}`).not.toContain("Tickets");
     expect(hero).toContain("https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job1 cropped 3x2.mp4");
     expect(hero).toContain('const DESKTOP_QUERY = "(min-width: 1200px)"');
     expect(hero).toContain("const videoSrc = isDesktop ? DESKTOP_HERO_VIDEO_URL : HERO_VIDEO_URL");
@@ -235,5 +236,25 @@ describe("public website contracts", () => {
 
   it("uses no em dash or en dash punctuation in public customer copy", () => {
     expect(publicSources).not.toMatch(/[—–]/);
+  });
+
+  it("keeps public rendering work off the critical path without removing approved effects", () => {
+    const app = read("src/App.tsx");
+    const controlCenter = read("src/control-center/ExactControlCenterLayout.tsx");
+    const auth = read("src/hooks/useAuth.tsx");
+    const routes = read("src/publicRouteLoaders.ts");
+    const bars = read("src/components/ui/vertical-bars.tsx");
+    const responsiveImage = read("src/components/public/ResponsiveImage.tsx");
+
+    expect(app).not.toContain("QueryClientProvider");
+    expect(controlCenter).toContain("QueryClientProvider");
+    expect(auth).toContain('import("@/integrations/supabase/client")');
+    expect(routes).toContain("requestIdleCallback");
+    expect(routes).toContain("queue.shift()");
+    expect(bars).toContain("IntersectionObserver");
+    expect(bars).toContain("visibilitychange");
+    expect(bars).toContain("devicePixelRatio");
+    expect(bars).toContain("1.25");
+    expect(responsiveImage).toContain('media="(max-width: 767px)"');
   });
 });

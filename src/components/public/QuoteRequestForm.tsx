@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { getTrackingAttribution } from "@/lib/trackingAttribution";
 
 const SMS_DISCLOSURE_VERSION = "website-contact-v1-2026-08-27";
@@ -64,6 +63,7 @@ export default function QuoteRequestForm({ idPrefix = "contact", appearance = "d
     }
     setIsSubmitting(true);
     try {
+      const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase.functions.invoke("send-contact-email", {
         body: {
           ...form,

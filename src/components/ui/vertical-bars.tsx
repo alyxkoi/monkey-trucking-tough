@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 interface VerticalBarsNoiseProps {
   backgroundColor?: string;
@@ -29,6 +29,9 @@ const VerticalBarsNoise = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timeRef = useRef(0);
   const animationFrameId = useRef<number | null>(null);
+  const visibleRef = useRef(true);
+  const documentVisibleRef = useRef(!document.hidden);
+  const reducedMotionRef = useRef(false);
   const mouseRef = useRef({ x: 0, y: 0, isDown: false });
   const ripples = useRef<Array<{ x: number; y: number; time: number; intensity: number }>>([]);
 
@@ -73,10 +76,10 @@ const VerticalBarsNoise = ({
     const canvas = canvasRef.current;
     if (!root || !canvas) return;
 
-    const dpr = window.devicePixelRatio || 1;
     const bounds = root.getBoundingClientRect();
     const displayWidth = Math.max(1, Math.round(bounds.width));
     const displayHeight = Math.max(1, Math.round(bounds.height));
+    const dpr = Math.min(window.devicePixelRatio || 1, displayWidth < 768 ? 1.25 : 1.75);
     canvas.width = Math.round(displayWidth * dpr);
     canvas.height = Math.round(displayHeight * dpr);
     canvas.style.width = `${displayWidth}px`;
@@ -87,6 +90,7 @@ const VerticalBarsNoise = ({
   }, []);
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
+    if (!visibleRef.current) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -95,6 +99,7 @@ const VerticalBarsNoise = ({
   }, []);
 
   const handleMouseDown = useCallback((event: MouseEvent) => {
+    if (!visibleRef.current) return;
     mouseRef.current.isDown = true;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -115,7 +120,12 @@ const VerticalBarsNoise = ({
     mouseRef.current.isDown = false;
   }, []);
 
+  const lineRgb = useMemo(() => hexToRgb(lineColor), [lineColor]);
+  const barRgb = useMemo(() => hexToRgb(barColor), [barColor]);
+
   const animate = useCallback(() => {
+    animationFrameId.current = null;
+    if (!visibleRef.current || !documentVisibleRef.current) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -137,7 +147,6 @@ const VerticalBarsNoise = ({
       const lineAlpha = Math.max(0.3, 0.3 + mouseInfluence * 0.7);
 
       ctx.beginPath();
-      const lineRgb = hexToRgb(lineColor);
       ctx.strokeStyle = `rgba(${lineRgb.r}, ${lineRgb.g}, ${lineRgb.b}, ${lineAlpha})`;
       ctx.lineWidth = lineWidth + mouseInfluence * 2;
       ctx.moveTo(0, y);
@@ -161,7 +170,6 @@ const VerticalBarsNoise = ({
           const rippleAnimation = rippleInfl * Math.sin(timeRef.current * 2 + x * 0.02) * 15;
           const animatedX = x + baseAnimation + mouseAnimation + rippleAnimation;
           const intensity = Math.min(1, Math.max(0.7, 0.7 + totalInfluence * 0.3));
-          const barRgb = hexToRgb(barColor);
           ctx.fillStyle = `rgba(${barRgb.r}, ${barRgb.g}, ${barRgb.b}, ${intensity})`;
           ctx.fillRect(animatedX - barWidth / 2, y - barHeight / 2, barWidth, barHeight);
         }
@@ -185,31 +193,61 @@ const VerticalBarsNoise = ({
       });
     }
 
-    animationFrameId.current = requestAnimationFrame(animate);
-  }, [animationSpeed, backgroundColor, barColor, lineColor, lineWidth, removeWaveLine]);
+    if (!reducedMotionRef.current) animationFrameId.current = requestAnimationFrame(animate);
+  }, [animationSpeed, backgroundColor, barRgb, lineRgb, lineWidth, removeWaveLine]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const root = rootRef.current;
     if (!canvas || !root) return;
     resizeCanvas();
-    const handleResize = () => resizeCanvas();
     const resizeObserver = new ResizeObserver(resizeCanvas);
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    reducedMotionRef.current = reducedMotion.matches;
 
-    window.addEventListener("resize", handleResize);
+    const start = () => {
+      if (animationFrameId.current === null && visibleRef.current && documentVisibleRef.current) {
+        animationFrameId.current = requestAnimationFrame(animate);
+      }
+    };
+    const handleVisibilityChange = () => {
+      documentVisibleRef.current = !document.hidden;
+      if (documentVisibleRef.current) start();
+    };
+    const handleReducedMotionChange = () => {
+      reducedMotionRef.current = reducedMotion.matches;
+      if (animationFrameId.current !== null) cancelAnimationFrame(animationFrameId.current);
+      animationFrameId.current = null;
+      start();
+    };
+    const intersectionObserver = new IntersectionObserver(([entry]) => {
+      visibleRef.current = entry.isIntersecting;
+      if (!entry.isIntersecting && animationFrameId.current !== null) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+      } else if (entry.isIntersecting) {
+        start();
+      }
+    }, { rootMargin: "160px" });
+
     resizeObserver.observe(root);
+    intersectionObserver.observe(root);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    reducedMotion.addEventListener?.("change", handleReducedMotionChange);
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mousedown", handleMouseDown);
     canvas.addEventListener("mouseup", handleMouseUp);
-    animate();
+    start();
 
     return () => {
-      window.removeEventListener("resize", handleResize);
       resizeObserver.disconnect();
+      intersectionObserver.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      reducedMotion.removeEventListener?.("change", handleReducedMotionChange);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mousedown", handleMouseDown);
       canvas.removeEventListener("mouseup", handleMouseUp);
-      if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+      if (animationFrameId.current !== null) cancelAnimationFrame(animationFrameId.current);
       animationFrameId.current = null;
       timeRef.current = 0;
       ripples.current = [];

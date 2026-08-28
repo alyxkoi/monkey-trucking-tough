@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { recentWorkProjects, type RecentWorkProject } from "@/content/publicHome";
 import PublicReveal from "./PublicReveal";
+import ResponsiveImage from "./ResponsiveImage";
 
 const architecturalEase = [0.16, 1, 0.3, 1] as const;
 
@@ -25,8 +26,9 @@ function RecentWorkRow({ project, index, open, onToggle }: { project: RecentWork
         className="public-recent-work-trigger group"
       >
         <div className="public-recent-work-image">
-          <img
+          <ResponsiveImage
             src={project.image}
+            mobileSrc={project.mobileImage}
             alt={project.title}
             loading="lazy"
             decoding="async"

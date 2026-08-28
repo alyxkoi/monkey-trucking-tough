@@ -2,30 +2,41 @@ import { ArrowRight, Phone } from "lucide-react";
 import { Link } from "react-router-dom";
 import Seo from "@/components/Seo";
 import ProjectCard from "@/components/ProjectCard";
+import ResponsiveImage from "@/components/public/ResponsiveImage";
 
 import projectsHeroImg from "@/assets/projects-hero.webp";
+import projectsHeroMobileImg from "@/assets/projects-hero-768.webp";
 import gravelDrivewayImg from "@/assets/projects/gravel-driveway.webp";
+import gravelDrivewayMobileImg from "@/assets/projects/gravel-driveway-768.webp";
 import drivewayRegradingImg from "@/assets/projects/driveway-regrading.webp";
+import drivewayRegradingMobileImg from "@/assets/projects/driveway-regrading-768.webp";
 import masonSandDeliveryImg from "@/assets/projects/mason-sand-delivery.webp";
+import masonSandDeliveryMobileImg from "@/assets/projects/mason-sand-delivery-768.webp";
 import stockPondImg from "@/assets/projects/stock-pond-excavation.webp";
+import stockPondMobileImg from "@/assets/projects/stock-pond-excavation-768.webp";
 import crushedConcreteImg from "@/assets/projects/crushed-concrete-delivery.webp";
+import crushedConcreteMobileImg from "@/assets/projects/crushed-concrete-delivery-768.webp";
 import ranchRoadImg from "@/assets/projects/ranch-road-repair.webp";
+import ranchRoadMobileImg from "@/assets/projects/ranch-road-repair-768.webp";
 import landClearingImg from "@/assets/projects/land-clearing.webp";
+import landClearingMobileImg from "@/assets/projects/land-clearing-768.webp";
 import pondDrainageImg from "@/assets/projects/pond-drainage-fix.webp";
+import pondDrainageMobileImg from "@/assets/projects/pond-drainage-fix-768.webp";
 import gravelParkingImg from "@/assets/projects/gravel-parking-pad.webp";
+import gravelParkingMobileImg from "@/assets/projects/gravel-parking-pad-768.webp";
 
 const PHONE_HREF = "tel:+12146778466";
 
 const projects = [
-  { title: "New Gravel Driveway", category: "Driveways", image: gravelDrivewayImg },
-  { title: "Stock Pond Excavation", category: "Ponds", image: stockPondImg },
-  { title: "Crushed Concrete Delivery", category: "Delivery", image: crushedConcreteImg },
-  { title: "Ranch Road Repair", category: "Dirt Work", image: ranchRoadImg },
-  { title: "Driveway Regrading", category: "Driveways", image: drivewayRegradingImg },
-  { title: "Pond Drainage Fix", category: "Ponds", image: pondDrainageImg },
-  { title: "Mason Sand Delivery", category: "Delivery", image: masonSandDeliveryImg },
-  { title: "Light Clearing & Grading", category: "Dirt Work", image: landClearingImg },
-  { title: "Gravel Parking Pad", category: "Driveways", image: gravelParkingImg },
+  { title: "New Gravel Driveway", category: "Driveways", image: gravelDrivewayImg, mobileImage: gravelDrivewayMobileImg },
+  { title: "Stock Pond Excavation", category: "Ponds", image: stockPondImg, mobileImage: stockPondMobileImg },
+  { title: "Crushed Concrete Delivery", category: "Delivery", image: crushedConcreteImg, mobileImage: crushedConcreteMobileImg },
+  { title: "Ranch Road Repair", category: "Dirt Work", image: ranchRoadImg, mobileImage: ranchRoadMobileImg },
+  { title: "Driveway Regrading", category: "Driveways", image: drivewayRegradingImg, mobileImage: drivewayRegradingMobileImg },
+  { title: "Pond Drainage Fix", category: "Ponds", image: pondDrainageImg, mobileImage: pondDrainageMobileImg },
+  { title: "Mason Sand Delivery", category: "Delivery", image: masonSandDeliveryImg, mobileImage: masonSandDeliveryMobileImg },
+  { title: "Light Clearing & Grading", category: "Dirt Work", image: landClearingImg, mobileImage: landClearingMobileImg },
+  { title: "Gravel Parking Pad", category: "Driveways", image: gravelParkingImg, mobileImage: gravelParkingMobileImg },
 ];
 
 const Projects = () => (
@@ -37,7 +48,7 @@ const Projects = () => (
     />
 
     <section className="public-page-hero">
-        <img src={projectsHeroImg} alt="Completed Monkey Trucking property project" className="absolute inset-0 h-full w-full object-cover" />
+        <ResponsiveImage src={projectsHeroImg} mobileSrc={projectsHeroMobileImg} alt="Completed Monkey Trucking property project" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-nearblack via-nearblack/72 to-nearblack/15" />
         <div className="relative mx-auto w-full max-w-[1380px] px-5 sm:px-8 lg:px-12">
           <div className="max-w-[760px]">

@@ -1,14 +1,9 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { LayoutDashboard, LogOut, User as UserIcon } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import LoginModal from "@/components/auth/LoginModal";
+import { lazy, Suspense, useState } from "react";
+import { User as UserIcon } from "lucide-react";
 import { useAuth, initialsFor } from "@/hooks/useAuth";
+
+const LoginModal = lazy(() => import("@/components/auth/LoginModal"));
+const AuthenticatedUserMenu = lazy(() => import("@/components/auth/AuthenticatedUserMenu"));
 
 const UserMenu = ({ className = "" }: { className?: string }) => {
   const { user, signOut } = useAuth();
@@ -25,35 +20,25 @@ const UserMenu = ({ className = "" }: { className?: string }) => {
         >
           <UserIcon className="h-5 w-5" />
         </button>
-        <LoginModal open={loginOpen} onOpenChange={setLoginOpen} />
+        {loginOpen && (
+          <Suspense fallback={null}>
+            <LoginModal open={loginOpen} onOpenChange={setLoginOpen} />
+          </Suspense>
+        )}
       </>
     );
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label="Account menu"
-        className={`flex h-11 w-11 items-center justify-center rounded-full bg-primary font-heading text-base tracking-wider text-primary-foreground transition-transform hover:-translate-y-0.5 ${className}`}
-      >
-        {initialsFor(user)}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40 rounded-none border-white/10 bg-nearblack">
-        <DropdownMenuItem asChild className="cursor-pointer text-industrial-foreground focus:bg-white/5 focus:text-primary">
-          <Link to="/admin">
-            <LayoutDashboard className="mr-2 h-4 w-4" />
-            Dashboard
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => signOut()}
-          className="cursor-pointer text-industrial-foreground focus:bg-white/5 focus:text-primary"
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Suspense
+      fallback={(
+        <span className={`flex h-11 w-11 items-center justify-center rounded-full bg-primary font-heading text-base tracking-wider text-primary-foreground ${className}`}>
+          {initialsFor(user)}
+        </span>
+      )}
+    >
+      <AuthenticatedUserMenu initials={initialsFor(user)} onSignOut={signOut} className={className} />
+    </Suspense>
   );
 };
 

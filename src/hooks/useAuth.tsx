@@ -1,6 +1,8 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+
+const loadSupabase = () => import("@/integrations/supabase/client").then((module) => module.supabase);
 
 interface AuthContextValue {
   user: User | null;
@@ -23,27 +25,73 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Register the listener first so no auth event is missed.
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-      setLoading(false);
-    });
+    let disposed = false;
+    let unsubscribe: (() => void) | undefined;
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
+    const connect = async () => {
+      try {
+        const supabase = await loadSupabase();
+        if (disposed) return;
 
-    return () => sub.subscription.unsubscribe();
+        // Register the listener first so no auth event is missed.
+        const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+          if (disposed) return;
+          setSession(nextSession);
+          setLoading(false);
+        });
+        unsubscribe = () => sub.subscription.unsubscribe();
+
+        const { data } = await supabase.auth.getSession();
+        if (!disposed) {
+          setSession(data.session);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Authentication initialization failed:", error);
+        if (!disposed) setLoading(false);
+      }
+    };
+
+    const needsAuthImmediately = window.location.pathname.startsWith("/admin") || window.location.pathname === "/signin";
+    let idleHandle: number | undefined;
+    let timeoutHandle: number | undefined;
+
+    if (needsAuthImmediately) {
+      void connect();
+    } else {
+      // Keep auth/session hydration available on public pages without letting
+      // the Supabase SDK compete with the hero's first render.
+      timeoutHandle = window.setTimeout(() => {
+        if (window.requestIdleCallback) {
+          idleHandle = window.requestIdleCallback(() => void connect(), { timeout: 2200 });
+        } else {
+          void connect();
+        }
+      }, 2500);
+    }
+
+    return () => {
+      disposed = true;
+      unsubscribe?.();
+      if (idleHandle !== undefined) window.cancelIdleCallback?.(idleHandle);
+      if (timeoutHandle !== undefined) window.clearTimeout(timeoutHandle);
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const supabase = await loadSupabase();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (data.session) {
+      setSession(data.session);
+      setLoading(false);
+    }
     return { error: error?.message ?? null };
   };
 
   const signOut = async () => {
+    const supabase = await loadSupabase();
     await supabase.auth.signOut();
+    setSession(null);
   };
 
   return (

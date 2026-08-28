@@ -1,5 +1,7 @@
 import { Helmet } from "react-helmet-async";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Navigate, useLocation } from "react-router-dom";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/admin/useAdminAccess";
 import { ControlCenterProvider } from "@/control-center/context";
@@ -17,7 +19,18 @@ function LoadingGate() {
   );
 }
 
-export default function ExactControlCenterLayout() {
+const controlCenterQueryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      staleTime: 5 * 60 * 1000,
+      retry: 1,
+    },
+  },
+});
+
+function ExactControlCenterGate() {
   const { user, loading } = useAuth();
   const demo = useDemoMode();
   const access = useAdminAccess(user?.id);
@@ -41,5 +54,15 @@ export default function ExactControlCenterLayout() {
         </AppStateProvider>
       </ControlCenterProvider>
     </div>
+  );
+}
+
+export default function ExactControlCenterLayout() {
+  return (
+    <QueryClientProvider client={controlCenterQueryClient}>
+      <TooltipProvider>
+        <ExactControlCenterGate />
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }

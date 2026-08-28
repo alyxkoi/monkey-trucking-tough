@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { publicServiceFeatures, type PublicServiceFeature } from "@/content/publicHome";
 import PublicReveal from "./PublicReveal";
+import ResponsiveImage from "./ResponsiveImage";
 
 const placement = [
   "md:col-span-2 xl:col-span-1 xl:row-span-2",
@@ -60,10 +61,11 @@ function ServiceCard({
       whileTap={reduceMotion ? undefined : { scale: 0.992 }}
       transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
     >
-      <img
+      <ResponsiveImage
         src={service.image}
+        mobileSrc={service.mobileImage}
         alt={service.title}
-        loading={index === 0 ? "eager" : "lazy"}
+        loading="lazy"
         decoding="async"
         width="1400"
         height="900"
@@ -171,9 +173,11 @@ function ExpandedService({ service, onClose }: { service: PublicServiceFeature; 
           exit={{ opacity: 0 }}
           transition={{ duration: reduceMotion ? 0 : 0.28, delay: reduceMotion ? 0 : 0.08 }}
         >
-          <img
+          <ResponsiveImage
             src={service.image}
+            mobileSrc={service.mobileImage}
             alt={`${service.title} project`}
+            loading="eager"
             width="1400"
             height="900"
             className={`absolute inset-0 h-full w-full ${expandedImageTreatment[service.id]}`}
