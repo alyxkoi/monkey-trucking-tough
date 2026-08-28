@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
     if (!apiKey) throw new Error('The managed OpenAI connection is unavailable to the Edge Function.')
     const isDirect = Boolean(Deno.env.get('OPENAI_API_KEY'))
     const baseUrl = Deno.env.get('OPENAI_BASE_URL') ?? (isDirect ? 'https://api.openai.com/v1' : 'https://ai.gateway.lovable.dev/v1')
-    const model = Deno.env.get('OPENAI_MODEL') ?? Deno.env.get('LOVABLE_AI_MODEL') ?? 'gpt-5-mini'
+    const model = Deno.env.get('OPENAI_MODEL') ?? Deno.env.get('LOVABLE_AI_MODEL') ?? 'gpt-5.6-terra'
     const aiResponse = await fetch(`${baseUrl.replace(/\/$/, '')}/responses`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },

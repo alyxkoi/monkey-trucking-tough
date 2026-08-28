@@ -55,7 +55,7 @@ export function deriveSettingsReadiness(data: ControlData | null): SettingsReadi
   if (!control?.company_email?.trim()) businessMissing.push('business email')
   if (!app?.company_address?.trim()) businessMissing.push('street or service address')
   if (!app?.company_city_state_zip?.trim()) businessMissing.push('city, state and ZIP')
-  if (control?.custom_work_tax_rule === 'PENDING') businessMissing.push('custom work tax treatment')
+  if (!sameNumber(app?.tax_rate, 0) && control?.custom_work_tax_rule === 'PENDING') businessMissing.push('custom work tax treatment')
   const business = !app || !control
     ? item('ERROR', 'Error', 'Business settings tables are unavailable.', ['Apply and verify the Control Center settings migration.'])
     : !sameNumber(app.tax_rate, 0)

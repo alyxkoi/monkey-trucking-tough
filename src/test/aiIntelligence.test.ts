@@ -100,6 +100,13 @@ describe('Phase 06 OpenAI intelligence safety contracts', () => {
     expect(migration).not.toMatch(/update\s+public\.(tickets|ticket_items|app_settings)/i)
   })
 
+  it('keeps server-side model precedence with the approved fallback', () => {
+    const edge = read('supabase/functions/ai-draft/index.ts')
+    expect(edge).toContain("Deno.env.get('OPENAI_MODEL') ?? Deno.env.get('LOVABLE_AI_MODEL') ?? 'gpt-5.6-terra'")
+    expect(edge).not.toContain('gpt-5-mini')
+    expect(read('src/control-center/ai/service.ts')).not.toContain('gpt-5.6-terra')
+  })
+
   it('isolates missing AI schema from the strict Control Center boot path', () => {
     const missing = { data: null, error: { code: 'PGRST205', message: "Could not find the table 'public.ai_drafts' in the schema cache" } }
     const result = classifyAiIntegrationResults({

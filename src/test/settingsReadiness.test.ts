@@ -7,7 +7,7 @@ const fixture = () => createQaFixtureData(new Date('2026-08-27T12:00:00-05:00'))
 describe('Settings readiness is derived from managed configuration', () => {
   it('separates real blockers from capabilities that are already ready', () => {
     const readiness = deriveSettingsReadiness(fixture())
-    expect(readiness.categories.business.status).toBe('NEEDS_INFO')
+    expect(readiness.categories.business.status).toBe('READY')
     expect(readiness.categories.materials.status).toBe('READY')
     expect(readiness.categories.workers.status).toBe('READY')
     expect(readiness.categories.communication).toMatchObject({ status: 'WAITING', label: 'Waiting on number' })
@@ -27,6 +27,16 @@ describe('Settings readiness is derived from managed configuration', () => {
     expect(readiness.categories.business.reason).toContain('public business phone')
     expect(readiness.categories.business.reason).toContain('business email')
     expect(readiness.categories.workers.reason).toContain('real crew and pay information')
+  })
+
+  it('does not require a custom-work tax decision while the active tax rate is zero', () => {
+    const data = fixture()
+    data.appSettings!.tax_rate = 0
+    data.controlSettings!.custom_work_tax_rule = 'PENDING'
+    const readiness = deriveSettingsReadiness(data)
+    expect(readiness.categories.business.status).toBe('READY')
+    expect(readiness.categories.business.reason).not.toMatch(/custom work tax/i)
+    expect(readiness.blockers.some((blocker) => blocker.key === 'business')).toBe(false)
   })
 
   it('detects catalog drift and optional integration errors without hiding them', () => {
@@ -49,7 +59,6 @@ describe('Settings readiness is derived from managed configuration', () => {
     const data = fixture()
     data.controlSettings = {
       ...data.controlSettings!,
-      custom_work_tax_rule: 'EXEMPT',
       business_number: '+19725550100',
       sms_status: 'READY',
       calling_status: 'READY',

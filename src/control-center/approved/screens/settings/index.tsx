@@ -117,6 +117,8 @@ export function SettingsBusiness() {
   const [saving, setSaving] = useState(false)
   const readiness = deriveSettingsReadiness(sourceData ?? null)
   const paymentReadiness = readiness.capabilities.payments
+  const currentTaxRate = Number(sourceData?.appSettings?.tax_rate ?? TAX_RATE)
+  const hasZeroTax = Math.abs(currentTaxRate) < 0.001
 
   useEffect(() => {
     const business = sourceData?.appSettings
@@ -209,7 +211,7 @@ export function SettingsBusiness() {
                 Rate
               </div>
               <div className="mt-1 font-display display-tight tnum text-[36px]">
-                {formatTaxRate(Number(sourceData?.appSettings?.tax_rate ?? TAX_RATE))}
+                {formatTaxRate(currentTaxRate)}
               </div>
               <div className="mt-1 text-[14px] text-cc-muted">Current operational rate.</div>
             </div>
@@ -226,22 +228,33 @@ export function SettingsBusiness() {
             Internal only. This question is never phrased on a customer facing
             quote or invoice, it lives here as an admin decision.
           */}
-          <div className="rounded-panel border border-warn/40 bg-warn/10 p-4">
+          <div className={cn(
+            'rounded-panel border p-4',
+            hasZeroTax ? 'border-line bg-raised/55' : 'border-warn/40 bg-warn/10',
+          )}>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-label text-[13px] font-semibold uppercase tracking-[0.12em] text-warn">
+              <span className={cn(
+                'font-label text-[13px] font-semibold uppercase tracking-[0.12em]',
+                hasZeroTax ? 'text-ink' : 'text-warn',
+              )}>
                 Custom work tax
               </span>
-              {customWorkTax === 'PENDING' && (
+              {hasZeroTax ? (
+                <StatusPill tone="ok" size="sm">
+                  0% current rate
+                </StatusPill>
+              ) : customWorkTax === 'PENDING' && (
                 <StatusPill tone="warn" size="sm">
                   Needs info
                 </StatusPill>
               )}
             </div>
             <p className="mt-2 text-[14px] leading-snug text-ink/80">
-              The ticket system only defines tax on material and delivery. Until this is
-              set, service work stays out of the taxable base. This is a prelaunch item.
+              {hasZeroTax
+                ? 'Custom work is currently treated at the same 0% operational tax rate. The future tax rule remains configurable if the active rate changes.'
+                : 'The ticket system only defines tax on material and delivery. Until this is set, service work stays out of the taxable base.'}
             </p>
-            <div className="mt-4">
+            {!hasZeroTax && <div className="mt-4">
               <SegmentControl
                 options={[
                   { value: 'PENDING' as const, label: 'Not set' },
@@ -252,7 +265,7 @@ export function SettingsBusiness() {
                 onChange={setCustomWorkTax}
                 size="sm"
               />
-            </div>
+            </div>}
           </div>
         </div>
       </Panel>
