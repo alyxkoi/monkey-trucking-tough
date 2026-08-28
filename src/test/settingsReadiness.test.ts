@@ -39,6 +39,12 @@ describe('Settings readiness is derived from managed configuration', () => {
     expect(readiness.categories.communication.status).toBe('ERROR')
   })
 
+  it('does not mark an extra active test material as the approved ten-item catalog', () => {
+    const data = fixture()
+    data.materials.push({ ...data.materials[0], id: 'material-extra', name: 'Test Material' })
+    expect(deriveSettingsReadiness(data).categories.materials.status).toBe('ERROR')
+  })
+
   it('removes completed blockers when verified configuration changes', () => {
     const data = fixture()
     data.controlSettings = {

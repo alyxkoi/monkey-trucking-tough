@@ -65,7 +65,7 @@ export function deriveSettingsReadiness(data: ControlData | null): SettingsReadi
         : ready(`Company information is complete. Tax is 0% and invoices default to ${control.default_invoice_due_days} days.`)
 
   const activeMaterials = data.materials.filter((material) => material.is_active)
-  const catalogMatches = APPROVED_MATERIALS.every((approved) => {
+  const catalogMatches = activeMaterials.length === APPROVED_MATERIALS.length && APPROVED_MATERIALS.every((approved) => {
     const current = activeMaterials.find((material) => material.name.trim().toLowerCase() === approved.name.toLowerCase())
     return Boolean(current)
       && sameNumber(current?.price_per_yard, approved.pricePerYard)

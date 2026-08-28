@@ -1,4 +1,4 @@
--- READ ONLY. Run in Lovable before 20260827230000_phase06_ticket_delete_readiness.sql.
+-- READ ONLY. Run in Lovable before 20260828013000_phase06_ticket_delete_readiness.sql.
 
 select
   to_regclass('public.tickets') as tickets,

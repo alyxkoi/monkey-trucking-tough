@@ -1,4 +1,4 @@
--- READ ONLY. Run after 20260827230000_phase06_ticket_delete_readiness.sql.
+-- READ ONLY. Run after 20260828013000_phase06_ticket_delete_readiness.sql.
 -- Compare next_ticket_number with the preflight output; it must be unchanged.
 
 select

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { createQaFixtureData } from '@/control-center/demo/qaFixtures'
 import { ticketDeleteProtection } from '@/control-center/ticketDeletion'
 
-const migration = readFileSync('supabase/migrations/20260827230000_phase06_ticket_delete_readiness.sql', 'utf8')
+const migration = readFileSync('supabase/migrations/20260828013000_phase06_ticket_delete_readiness.sql', 'utf8')
 const detail = readFileSync('src/control-center/approved/screens/TicketDetail.tsx', 'utf8')
 
 describe('permanent Ticket deletion safety', () => {
