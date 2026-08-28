@@ -77,8 +77,8 @@ export type PopularMaterial = {
   name: string;
   use: string;
   image: string;
-  jobImage?: string;
-  jobImageAlt?: string;
+  jobImage: string | null;
+  jobImageAlt: string | null;
 };
 
 export const popularMaterials: PopularMaterial[] = [
@@ -111,18 +111,24 @@ export const popularMaterials: PopularMaterial[] = [
     name: 'Millings Asphalt 1/2" Minus',
     use: "Driveways and parking areas.",
     image: millingsImg,
+    jobImage: null,
+    jobImageAlt: null,
   },
   {
     id: "native-gravel",
     name: 'Native Gravel 3/8"-1"',
     use: "Driveways, drainage and landscaping.",
     image: nativeGravelImg,
+    jobImage: null,
+    jobImageAlt: null,
   },
   {
     id: "decomposed-granite",
     name: "Decomposed Granite",
     use: "Paths, patios and ground cover.",
     image: decomposedGraniteImg,
+    jobImage: null,
+    jobImageAlt: null,
   },
 ];
 

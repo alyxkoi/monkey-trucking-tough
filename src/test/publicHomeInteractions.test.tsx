@@ -79,10 +79,18 @@ describe("public Home interactions", () => {
   });
 
   it("provides a touch control for material outcome images", () => {
-    render(<MemoryRouter><PopularMaterialsSection /></MemoryRouter>);
+    const { container } = render(<MemoryRouter><PopularMaterialsSection /></MemoryRouter>);
+    expect(container.querySelectorAll(".popular-material-card")).toHaveLength(6);
+    expect(screen.getAllByRole("button", { name: "See in use" })).toHaveLength(3);
+    expect(screen.getByRole("link", { name: /View All Materials/i })).toHaveAttribute("href", "/materials");
+    expect(container.querySelector("canvas")).not.toBeInTheDocument();
+
     const outcome = screen.getAllByRole("button", { name: "See in use" })[0];
     expect(outcome).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(outcome);
-    expect(screen.getByRole("button", { name: "View material" })).toHaveAttribute("aria-pressed", "true");
+    const material = screen.getByRole("button", { name: "View material" });
+    expect(material).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(material);
+    expect(screen.getAllByRole("button", { name: "See in use" })[0]).toHaveAttribute("aria-pressed", "false");
   });
 });
