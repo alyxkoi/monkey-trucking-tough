@@ -1,42 +1,17 @@
-import { Phone, MessageSquare } from "lucide-react";
+import { Phone } from "lucide-react";
+import { Link } from "react-router-dom";
 
-const PHONE = "+12146778466";
-
-const MobileCallBar = () => {
-  return (
-    <div
-      className="md:hidden fixed inset-x-0 bottom-0 z-40 animate-slide-up-in"
-      style={{
-        paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
-        paddingLeft: 12,
-        paddingRight: 12,
-        paddingTop: 10,
-        background: "linear-gradient(to top, rgba(14,14,16,0.96), rgba(14,14,16,0.82))",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        borderTop: "1px solid rgba(255,255,255,0.08)",
-      }}
-    >
-      <div className="grid grid-cols-2 gap-2.5">
-        <a
-          href={`tel:${PHONE}`}
-          className="flex items-center justify-center gap-2 h-12 min-h-[48px] rounded-md bg-primary text-primary-foreground font-heading tracking-wider text-base shadow-[0_8px_24px_rgba(255,59,59,0.35)] active:scale-[0.97] transition-transform"
-          style={{ touchAction: "manipulation" }}
-        >
-          <Phone className="h-5 w-5" />
-          CALL
-        </a>
-        <a
-          href={`sms:${PHONE}`}
-          className="flex items-center justify-center gap-2 h-12 min-h-[48px] rounded-md border border-white/25 bg-white/5 text-white font-heading tracking-wider text-base active:scale-[0.97] transition-transform"
-          style={{ touchAction: "manipulation" }}
-        >
-          <MessageSquare className="h-5 w-5" />
-          TEXT
-        </a>
-      </div>
+const MobileCallBar = () => (
+  <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-nearblack/95 px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-md md:hidden">
+    <div className="grid grid-cols-2 gap-2.5">
+      <a href="tel:+12146778466" className="flex min-h-12 items-center justify-center gap-2 rounded-md bg-primary px-3 font-heading text-lg tracking-wider text-white active:scale-[0.98]">
+        <Phone className="h-5 w-5" />Call
+      </a>
+      <Link to="/contact" className="flex min-h-12 items-center justify-center rounded-md border border-white/25 bg-white/5 px-3 font-heading text-lg tracking-wider text-white active:scale-[0.98]">
+        Get Quote
+      </Link>
     </div>
-  );
-};
+  </div>
+);
 
 export default MobileCallBar;

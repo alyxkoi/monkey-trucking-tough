@@ -4,42 +4,29 @@ import ProjectLightbox from "./ProjectLightbox";
 interface ProjectCardProps {
   title: string;
   category: string;
-  bgColor: string;
-  image?: string;
+  image: string;
 }
 
-const ProjectCard = ({ title, category, bgColor, image }: ProjectCardProps) => {
+const ProjectCard = ({ title, category, image }: ProjectCardProps) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   return (
     <>
-      <div
-        className="relative rounded-lg overflow-hidden group cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 active:scale-[0.97]"
-        onClick={() => image && setLightboxOpen(true)}
+      <button
+        type="button"
+        className="group w-full overflow-hidden rounded-lg bg-industrial text-left shadow-sm transition-transform duration-200 motion-reduce:transition-none hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        onClick={() => setLightboxOpen(true)}
+        aria-label={`View ${title}`}
       >
-        <div
-          className="h-64 flex items-end"
-          style={{ background: bgColor }}
-        >
-          {image && (
-            <img src={image} alt={title} className="absolute inset-0 w-full h-full object-cover" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-industrial/60 to-transparent" />
-          <div className="relative p-5">
-            <span className="text-small text-primary font-semibold uppercase tracking-wider">{category}</span>
-            <h3 className="font-heading text-h4 text-industrial-foreground mt-1">{title}</h3>
-          </div>
+        <div className="aspect-[4/3] overflow-hidden">
+          <img src={image} alt={title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 motion-reduce:transition-none group-hover:scale-[1.025]" />
         </div>
-      </div>
-      {image && (
-        <ProjectLightbox
-          image={image}
-          title={title}
-          category={category}
-          isOpen={lightboxOpen}
-          onClose={() => setLightboxOpen(false)}
-        />
-      )}
+        <div className="min-h-[104px] p-4 sm:p-5">
+          <span className="font-label text-sm font-semibold text-primary">{category}</span>
+          <h2 className="mt-1 font-heading text-xl uppercase leading-none text-white sm:text-2xl">{title}</h2>
+        </div>
+      </button>
+      <ProjectLightbox image={image} title={title} category={category} isOpen={lightboxOpen} onClose={() => setLightboxOpen(false)} />
     </>
   );
 };

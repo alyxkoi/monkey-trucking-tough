@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Phone, Menu, User as UserIcon, X } from "lucide-react";
+import { Menu, Phone, User as UserIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ContactActionSheet from "@/components/ContactActionSheet";
 import UserMenu from "@/components/auth/UserMenu";
 import { initialsFor, useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/monkey-trucking-logo.webp";
+import { preloadPublicRoute, preloadPublicRoutes } from "@/publicRouteLoaders";
 
+const PHONE_HREF = "tel:+12146778466";
 const navLinks = [
   { label: "Home", to: "/" },
   { label: "Services", to: "/services" },
@@ -21,141 +22,89 @@ const Header = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [location]);
-
+  useEffect(() => setMobileOpen(false), [location.pathname]);
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [mobileOpen]);
+  useEffect(() => {
+    const schedule = window.requestIdleCallback ?? ((callback: IdleRequestCallback) => window.setTimeout(callback, 400));
+    const cancel = window.cancelIdleCallback ?? window.clearTimeout;
+    const id = schedule(() => preloadPublicRoutes());
+    return () => cancel(id);
+  }, []);
 
   return (
     <>
       <header className="public-header fixed inset-x-0 top-0 z-50">
-        <div className="container mx-auto flex h-[76px] items-center justify-between px-4">
-          {/* Spacer for mobile centering */}
-          <div className="w-10 lg:hidden" />
-          <Link to="/" className="flex items-center gap-3 lg:mr-auto">
-            <img src={logo} alt="Monkey Trucking LLC" className="h-[60px] w-auto" />
+        <div className="mx-auto flex h-[76px] max-w-[1440px] items-center px-4 sm:px-6 lg:px-8">
+          <Link to="/" className="shrink-0" aria-label="Monkey Trucking home">
+            <img src={logo} alt="Monkey Trucking LLC" className="h-[58px] w-auto" />
           </Link>
 
-          {/* Desktop nav */}
-          <nav className="hidden lg:flex items-center gap-9">
+          <nav className="ml-auto hidden items-center gap-7 lg:flex" aria-label="Primary navigation">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
-                className={`public-nav-link font-['Barlow_Semi_Condensed'] text-base font-bold uppercase ${
-                  location.pathname === link.to
-                    ? "text-primary"
-                    : "text-industrial-foreground"
-                }`}
+                onMouseEnter={() => preloadPublicRoute(link.to)}
+                onFocus={() => preloadPublicRoute(link.to)}
+                aria-current={location.pathname === link.to ? "page" : undefined}
+                className={`public-nav-link font-label text-base font-bold uppercase ${location.pathname === link.to ? "text-primary" : "text-white"}`}
               >
                 {link.label}
               </Link>
             ))}
           </nav>
 
-          <div className="hidden lg:flex items-center gap-4 ml-8">
-            <ContactActionSheet>
-              {({ onClick }) => (
-                <Button onClick={onClick} className="bg-primary text-primary-foreground hover:bg-primary/85 font-heading text-h4 tracking-wider px-6 h-12 transition-transform hover:-translate-y-0.5">
-                  <Phone className="mr-2 h-5 w-5" />
-                  CALL / TEXT FOR QUOTE
-                </Button>
-              )}
-            </ContactActionSheet>
+          <div className="ml-7 hidden items-center gap-3 lg:flex">
+            <Button asChild variant="outline" className="h-12 border-white/25 bg-transparent px-5 font-heading text-lg tracking-wider text-white hover:bg-white hover:text-nearblack">
+              <Link to="/contact">GET A QUOTE</Link>
+            </Button>
+            <Button asChild className="h-12 bg-primary px-5 font-heading text-lg tracking-wider text-white hover:bg-primary/85">
+              <a href={PHONE_HREF}><Phone className="mr-2 h-5 w-5" />CALL NOW</a>
+            </Button>
             <UserMenu />
           </div>
 
-
-          {/* Mobile hamburger */}
-          <button
-            className="lg:hidden text-industrial-foreground p-2"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-            aria-expanded={mobileOpen}
-          >
-            <Menu size={28} />
+          <button type="button" className="ml-auto flex h-12 w-12 items-center justify-center text-white lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu" aria-expanded={mobileOpen}>
+            <Menu size={30} />
           </button>
         </div>
       </header>
 
-      <div
-        className={`public-drawer-backdrop fixed inset-0 z-50 transition-opacity duration-[280ms] motion-reduce:duration-0 lg:hidden ${mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
-        onClick={() => setMobileOpen(false)}
-        aria-hidden="true"
-      />
-      <aside
-        className={`public-drawer-panel fixed bottom-0 right-0 top-0 z-[60] flex w-[82vw] max-w-[320px] flex-col transition-transform ease-out motion-reduce:transition-opacity motion-reduce:duration-0 lg:hidden ${mobileOpen ? "translate-x-0 duration-[280ms]" : "translate-x-full duration-[240ms]"}`}
-        aria-hidden={!mobileOpen}
-      >
-        <div className="px-5 pt-5">
-          <div className="flex items-start justify-between">
-            <img src={logo} alt="Monkey Trucking LLC" className="h-16 w-auto max-w-[210px] object-contain object-left" />
-            <button className="flex h-12 w-12 items-center justify-center text-industrial-foreground" onClick={() => setMobileOpen(false)} aria-label="Close menu">
-              <X size={28} />
-            </button>
-          </div>
+      <div className={`public-drawer-backdrop fixed inset-0 z-50 transition-opacity duration-200 motion-reduce:duration-0 lg:hidden ${mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`} onClick={() => setMobileOpen(false)} aria-hidden="true" />
+      <aside className={`public-drawer-panel fixed bottom-0 right-0 top-0 z-[60] flex w-[86vw] max-w-[360px] flex-col transition-transform duration-200 motion-reduce:duration-0 lg:hidden ${mobileOpen ? "translate-x-0" : "translate-x-full"}`} aria-hidden={!mobileOpen}>
+        <div className="flex items-center justify-between px-5 pt-5">
+          <img src={logo} alt="Monkey Trucking LLC" className="h-16 w-auto max-w-[220px] object-contain object-left" />
+          <button type="button" className="flex h-12 w-12 items-center justify-center text-white" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={30} /></button>
         </div>
-        <nav className="mt-8 flex flex-col px-5">
-            {navLinks.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                onClick={() => setMobileOpen(false)}
-                className={`flex min-h-[52px] items-center font-['Barlow_Semi_Condensed'] text-xl font-semibold uppercase transition-colors hover:text-primary ${
-                  location.pathname === link.to
-                    ? "text-primary"
-                    : "text-industrial-foreground"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+
+        <nav className="mt-7 flex flex-col px-5" aria-label="Mobile navigation">
+          {navLinks.map((link) => (
+            <Link key={link.to} to={link.to} onFocus={() => preloadPublicRoute(link.to)} aria-current={location.pathname === link.to ? "page" : undefined} className={`flex min-h-[54px] items-center border-b border-white/[0.08] font-label text-xl font-bold uppercase ${location.pathname === link.to ? "text-primary" : "text-white"}`}>
+              {link.label}
+            </Link>
+          ))}
         </nav>
-        <div className="mt-auto">
-          <div className="h-px w-full bg-[rgba(255,255,255,0.08)]" />
-          <div className="px-5 py-3">
+
+        <div className="mt-auto px-5 pb-[max(24px,env(safe-area-inset-bottom))]">
+          <div className="mb-5 border-t border-white/10 pt-4">
             {user ? (
-              <Link
-                to="/admin"
-                onClick={() => setMobileOpen(false)}
-                className="flex min-h-12 w-full items-center gap-3 font-['Barlow_Semi_Condensed'] text-base font-semibold uppercase text-industrial-foreground/75 transition-colors hover:text-industrial-foreground"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-industrial-foreground/10 text-sm text-industrial-foreground">
-                  {initialsFor(user)}
-                </span>
-                Tickets
+              <Link to="/admin" className="flex min-h-12 items-center gap-3 font-label text-base font-semibold text-white/70">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-sm text-white">{initialsFor(user)}</span>
+                Control Center
               </Link>
             ) : (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  setMobileOpen(false);
-                  window.setTimeout(() => navigate("/signin"), 260);
-                }}
-                className="min-h-12 w-full justify-start gap-3 px-0 font-['Barlow_Semi_Condensed'] text-base font-semibold uppercase text-industrial-foreground/75 hover:bg-transparent hover:text-industrial-foreground"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-industrial-foreground/15">
-                  <UserIcon className="h-4 w-4" />
-                </span>
+              <button type="button" onClick={() => { setMobileOpen(false); window.setTimeout(() => navigate("/signin"), 200); }} className="flex min-h-12 w-full items-center gap-3 font-label text-base font-semibold text-white/70">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15"><UserIcon className="h-4 w-4" /></span>
                 Sign in
-              </Button>
+              </button>
             )}
           </div>
-          <div className="h-px w-full bg-[rgba(255,255,255,0.08)]" />
-          <div className="px-5 py-6 pb-[max(24px,env(safe-area-inset-bottom))]">
-            <ContactActionSheet>
-              {({ onClick }) => (
-                <Button onClick={onClick} className="h-14 w-full bg-primary font-heading text-h4 tracking-wider text-primary-foreground hover:bg-primary/85">
-                  <Phone className="mr-2 h-5 w-5" />
-                  CALL / TEXT FOR QUOTE
-                </Button>
-              )}
-            </ContactActionSheet>
+          <div className="grid gap-3">
+            <a href={PHONE_HREF} className="public-button public-button-primary w-full"><Phone className="h-5 w-5" />Call Now</a>
+            <Link to="/contact" className="public-button public-button-dark-outline w-full">Get a Quote</Link>
           </div>
         </div>
       </aside>

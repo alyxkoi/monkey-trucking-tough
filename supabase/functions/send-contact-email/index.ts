@@ -38,6 +38,7 @@ Deno.serve(async (req) => {
       email,
       phone,
       projectType,
+      location,
       message,
       smsConsent: requestedSmsConsent,
       smsDisclosureVersion,
@@ -73,6 +74,7 @@ Deno.serve(async (req) => {
     const safeEmail = escapeHtml(email)
     const safePhone = escapeHtml(phone)
     const safeProjectTypeLabel = escapeHtml(projectTypeLabel)
+    const safeLocation = escapeHtml(location || 'Not provided')
     const safeMessage = escapeHtml(message || 'No message provided')
 
     const safeSmsConsent = smsConsent ? 'Yes' : 'No'
@@ -98,6 +100,10 @@ Deno.serve(async (req) => {
              <td style="padding: 8px 12px; color: #333;">${safeProjectTypeLabel}</td>
           </tr>
           <tr style="background-color: #f9f9f9;">
+            <td style="padding: 8px 12px; font-weight: bold; color: #555; vertical-align: top;">Location:</td>
+            <td style="padding: 8px 12px; color: #333;">${safeLocation}</td>
+          </tr>
+          <tr>
             <td style="padding: 8px 12px; font-weight: bold; color: #555; vertical-align: top;">Message:</td>
              <td style="padding: 8px 12px; color: #333; white-space: pre-wrap;">${safeMessage}</td>
           </tr>
@@ -110,7 +116,7 @@ Deno.serve(async (req) => {
       </div>
     `
 
-    const textBody = `New Contact Form Submission\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nProject Type: ${projectTypeLabel}\nMessage: ${message || 'No message provided'}\nSMS consent: ${safeSmsConsent}\nConsent disclosure: ${SMS_CONSENT_VERSION}`
+    const textBody = `New Contact Form Submission\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nProject Type: ${projectTypeLabel}\nLocation: ${location || 'Not provided'}\nMessage: ${message || 'No message provided'}\nSMS consent: ${safeSmsConsent}\nConsent disclosure: ${SMS_CONSENT_VERSION}`
 
     const messageId = crypto.randomUUID()
 
@@ -120,7 +126,7 @@ Deno.serve(async (req) => {
       email,
       phone,
       project_type: projectType || null,
-      message: message || null,
+      message: [location ? `Location: ${location}` : '', message || ''].filter(Boolean).join('\n\n') || null,
       sms_consent: smsConsent,
       sms_consent_at: smsConsent ? new Date().toISOString() : null,
       consent_source: SMS_CONSENT_SOURCE,

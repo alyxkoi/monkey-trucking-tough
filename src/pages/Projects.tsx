@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { Phone } from "lucide-react";
 import Seo from "@/components/Seo";
-import ContactActionSheet from "@/components/ContactActionSheet";
+import CTASection from "@/components/CTASection";
+import ProjectCard from "@/components/ProjectCard";
+
 import projectsHeroImg from "@/assets/projects-hero.webp";
 import gravelDrivewayImg from "@/assets/projects/gravel-driveway.webp";
 import drivewayRegradingImg from "@/assets/projects/driveway-regrading.webp";
@@ -11,112 +14,69 @@ import ranchRoadImg from "@/assets/projects/ranch-road-repair.webp";
 import landClearingImg from "@/assets/projects/land-clearing.webp";
 import pondDrainageImg from "@/assets/projects/pond-drainage-fix.webp";
 import gravelParkingImg from "@/assets/projects/gravel-parking-pad.webp";
-import { Button } from "@/components/ui/button";
-import ProjectCard from "@/components/ProjectCard";
-import CTASection from "@/components/CTASection";
 
-const projects = [
-  { title: "New Gravel Driveway", category: "Driveways", bgColor: "linear-gradient(135deg, #5C5650, #8B8680)", image: gravelDrivewayImg },
-  { title: "Stock Pond Excavation", category: "Ponds", bgColor: "linear-gradient(135deg, #4A6741, #6B8F62)", image: stockPondImg },
-  { title: "Crushed Concrete Delivery", category: "Delivery", bgColor: "linear-gradient(135deg, #7A7A7A, #9E9E9E)", image: crushedConcreteImg },
-  { title: "Ranch Road Repair", category: "Dirt Work", bgColor: "linear-gradient(135deg, #8B6914, #B8960F)", image: ranchRoadImg },
-  { title: "Driveway Regrading", category: "Driveways", bgColor: "linear-gradient(135deg, #6B5B4F, #9E8E80)", image: drivewayRegradingImg },
-  { title: "Pond Drainage Fix", category: "Drainage", bgColor: "linear-gradient(135deg, #4A5568, #718096)", image: pondDrainageImg },
-  { title: "Mason Sand Delivery", category: "Delivery", bgColor: "linear-gradient(135deg, #A09070, #C4B59A)", image: masonSandDeliveryImg },
-  { title: "Land Clearing & Grading", category: "Dirt Work", bgColor: "linear-gradient(135deg, #6B4226, #8B6240)", image: landClearingImg },
-  { title: "Gravel Parking Pad", category: "Driveways", bgColor: "linear-gradient(135deg, #8B8680, #A09B94)", image: gravelParkingImg },
+const PHONE_HREF = "tel:+12146778466";
+const filters = ["All", "Driveways", "Ponds", "Delivery", "Dirt Work"] as const;
+type ProjectFilter = (typeof filters)[number];
+
+const projects: Array<{ title: string; category: Exclude<ProjectFilter, "All">; image: string }> = [
+  { title: "New Gravel Driveway", category: "Driveways", image: gravelDrivewayImg },
+  { title: "Stock Pond Excavation", category: "Ponds", image: stockPondImg },
+  { title: "Crushed Concrete Delivery", category: "Delivery", image: crushedConcreteImg },
+  { title: "Ranch Road Repair", category: "Dirt Work", image: ranchRoadImg },
+  { title: "Driveway Regrading", category: "Driveways", image: drivewayRegradingImg },
+  { title: "Pond Drainage Fix", category: "Ponds", image: pondDrainageImg },
+  { title: "Mason Sand Delivery", category: "Delivery", image: masonSandDeliveryImg },
+  { title: "Light Clearing & Grading", category: "Dirt Work", image: landClearingImg },
+  { title: "Gravel Parking Pad", category: "Driveways", image: gravelParkingImg },
 ];
 
 const Projects = () => {
+  const [filter, setFilter] = useState<ProjectFilter>("All");
+  const visibleProjects = filter === "All" ? projects : projects.filter((project) => project.category === filter);
+
   return (
     <>
       <Seo
-        title="Gravel Driveway & Pond Construction Projects Near Kaufman, TX"
-        description="Recent gravel driveway installations, pond construction, ranch road repairs, and crushed concrete deliveries near Kaufman, TX."
+        title="Driveway, Pond & Dirt Work Projects | Kaufman TX"
+        description="View recent driveway work, pond excavation, material deliveries, grading and light land clearing near Kaufman, Texas."
         path="/projects"
       />
-      {/* Hero */}
-      <section className="relative bg-industrial py-20 md:py-28 overflow-hidden">
-        <img src={projectsHeroImg} alt="" className="absolute inset-0 w-full h-full object-cover blur-sm scale-105 opacity-30" />
-        <div className="relative container mx-auto px-4">
-          <h1 className="font-heading text-h1 text-white mb-4">OUR WORK</h1>
-          <p className="text-body text-white/80 max-w-2xl mb-8">
-            Browse examples of completed hauling, driveway installs, pond construction, and dirt work projects across Kaufman County and surrounding areas.
-          </p>
-          <ContactActionSheet>
-            {({ onClick }) => (
-              <Button onClick={onClick} className="bg-primary text-primary-foreground hover:bg-primary/85 font-heading text-h4 tracking-wider px-8 h-14 min-h-[48px] transition-transform hover:-translate-y-0.5">
-                <Phone className="mr-2 h-5 w-5" />
-                CALL OR TEXT FOR QUOTE
-              </Button>
-            )}
-          </ContactActionSheet>
+
+      <section className="public-page-hero">
+        <img src={projectsHeroImg} alt="Completed Monkey Trucking property project" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-r from-nearblack via-nearblack/72 to-nearblack/15" />
+        <div className="relative mx-auto w-full max-w-[1380px] px-5 sm:px-8 lg:px-12">
+          <div className="max-w-[760px]">
+            <h1 className="public-page-title">Our work</h1>
+            <p className="public-page-intro">Driveways, ponds, deliveries and dirt work completed around North Texas.</p>
+            <a href={PHONE_HREF} className="public-button public-button-primary mt-7"><Phone className="h-5 w-5" />Call 214-677-8466</a>
+          </div>
         </div>
       </section>
 
-      {/* Project Gallery */}
-      <section className="py-16 md:py-20 bg-background">
-        <div className="container mx-auto px-4">
-          <h2 className="font-heading text-h2 text-foreground text-center mb-12">PROJECT GALLERY</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => (
-              <ProjectCard key={project.title} {...project} />
+      <section className="bg-[#efeeec] py-12 sm:py-16 lg:py-20">
+        <div className="mx-auto max-w-[1380px] px-5 sm:px-8 lg:px-12">
+          <div className="flex max-w-full gap-2 overflow-x-auto pb-2" role="group" aria-label="Filter projects">
+            {filters.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setFilter(option)}
+                aria-pressed={filter === option}
+                className={`min-h-12 shrink-0 rounded-md px-5 font-label text-base font-bold transition-colors ${filter === option ? "bg-primary text-white" : "border border-black/15 bg-white text-foreground hover:border-primary"}`}
+              >
+                {option}
+              </button>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* Before / After */}
-      <section className="py-16 md:py-20 bg-light-gray">
-        <div className="container mx-auto px-4">
-          <h2 className="font-heading text-h1 text-primary text-center mb-12">RECENT JOBS</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 max-w-3xl mx-auto">
-            {/* Before */}
-            <div>
-              <div
-                className="relative w-full rounded-sm border-2 border-border shadow-lg overflow-hidden"
-                style={{ aspectRatio: "9 / 16", background: "linear-gradient(135deg, #5C4A3A, #8B7A6A)" }}
-              >
-                <video
-                  src="https://ssuciilipipwlakpwhim.supabase.co/storage/v1/object/public/videos/job1.mp4"
-                  className="absolute inset-0 w-full h-full object-cover"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                />
-              </div>
-              <p className="font-heading text-h4 text-foreground text-center mt-3">FLOODED DRIVEWAY REPAIR</p>
-            </div>
-
-            {/* After */}
-            <div>
-              <div
-                className="relative w-full rounded-sm border-2 border-border shadow-lg overflow-hidden"
-                style={{ aspectRatio: "9 / 16", background: "linear-gradient(135deg, #8B8680, #C4BDB4)" }}
-              >
-                <video
-                  src="https://ssuciilipipwlakpwhim.supabase.co/storage/v1/object/public/videos/job2.mp4"
-                  className="absolute inset-0 w-full h-full object-cover"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                />
-              </div>
-              <p className="font-heading text-h4 text-foreground text-center mt-3">GRAVEL DRIVEWAY</p>
-            </div>
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
+            {visibleProjects.map((project) => <ProjectCard key={project.title} {...project} />)}
           </div>
         </div>
       </section>
 
-      {/* Final CTA */}
-      <CTASection
-        headline="READY TO START YOUR PROJECT?"
-        subtext="Call or text Monkey Trucking for a free quote."
-      />
+      <CTASection headline="Have a project in mind?" subtext="Call us or send a quote request with your location and what needs to be done." />
     </>
   );
 };

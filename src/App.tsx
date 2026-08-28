@@ -11,12 +11,13 @@ import { DemoModeProvider } from "@/control-center/demo/DemoMode";
 import { mainAdminRouteLoaders } from "@/control-center/adminRouteLoaders";
 import Index from "./pages/Index"; // keep eager — it's the LCP page
 import { captureTrackingAttribution } from "@/lib/trackingAttribution";
+import { publicRouteLoaders } from "@/publicRouteLoaders";
 
 // Lazy-load secondary routes so their bundles + images don't ship with the homepage
-const Services = lazy(() => import("./pages/Services"));
-const Materials = lazy(() => import("./pages/Materials"));
-const Projects = lazy(() => import("./pages/Projects"));
-const Contact = lazy(() => import("./pages/Contact"));
+const Services = lazy(publicRouteLoaders.services);
+const Materials = lazy(publicRouteLoaders.materials);
+const Projects = lazy(publicRouteLoaders.projects);
+const Contact = lazy(publicRouteLoaders.contact);
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const Blog = lazy(() => import("./pages/Blog"));

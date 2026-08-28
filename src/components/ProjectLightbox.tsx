@@ -35,7 +35,7 @@ const ProjectLightbox = ({ image, title, category, isOpen, onClose }: ProjectLig
       <button
         onClick={onClose}
         aria-label="Close project preview"
-        className="absolute top-4 right-4 z-10 text-white/70 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-white/10 active:scale-95"
+        className="absolute right-4 top-4 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-black/45 text-white transition-colors duration-200 hover:bg-black/70 active:scale-95"
       >
         <X className="h-6 w-6" />
       </button>
@@ -51,7 +51,7 @@ const ProjectLightbox = ({ image, title, category, isOpen, onClose }: ProjectLig
           className="w-full h-auto max-h-[75vh] object-contain bg-black"
         />
         <div className="bg-industrial p-4">
-          <span className="text-xs font-semibold uppercase tracking-[0.15em] text-primary">{category}</span>
+          <span className="text-sm font-semibold text-primary">{category}</span>
           <h3 className="font-heading text-h4 text-white mt-1">{title}</h3>
         </div>
       </div>

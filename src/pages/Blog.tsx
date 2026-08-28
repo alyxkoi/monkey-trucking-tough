@@ -8,7 +8,7 @@ const Blog = () => {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Blog",
-    name: "Monkey Trucking Field Notes",
+    name: "Monkey Trucking Guides",
     url: "https://www.monkeytrucking.llc/blog",
     blogPost: POSTS.map((p) => ({
       "@type": "BlogPosting",
@@ -22,8 +22,8 @@ const Blog = () => {
   return (
     <>
       <Seo
-        title="Field Notes from the Plant | Monkey Trucking Blog"
-        description="Stories from the Kaufman crew: how we run our own material plant, why family ownership matters, and field notes from gravel jobs across DFW."
+        title="Materials and Property Work Guides | Monkey Trucking"
+        description="Straightforward guides to materials, driveway work, grading and aggregate delivery near Kaufman, Texas."
         path="/blog"
         jsonLd={jsonLd}
       />
@@ -31,16 +31,14 @@ const Blog = () => {
       {/* Hero */}
       <section className="relative bg-nearblack grain pt-32 pb-16 md:pt-40 md:pb-24">
         <div className="max-w-[1240px] mx-auto px-5 md:px-8">
-          <span className="eyebrow">Field Notes</span>
           <h1
-            className="font-heading uppercase text-white red-glow mt-4"
+            className="font-heading uppercase text-white red-glow"
             style={{ fontSize: "clamp(44px, 7vw, 96px)", lineHeight: 0.95, letterSpacing: "0.01em" }}
           >
-            Stories from the <span className="text-primary">plant</span> and the field.
+            Materials and <span className="text-primary">property work</span> guides
           </h1>
           <p className="text-white/70 text-lg max-w-2xl mt-6 leading-relaxed">
-            How we run, why we built our own material plant, and what we&apos;ve learned hauling
-            gravel across Kaufman County and all of DFW since 2010.
+            Clear information for planning material delivery, driveway work and dirt projects.
           </p>
         </div>
       </section>
@@ -73,7 +71,7 @@ const Blog = () => {
                     <div className="text-xs tracking-[0.22em] uppercase text-white/45 mb-3">
                       <time dateTime={post.datePublished}>{post.dateDisplay}</time>
                       <span className="mx-2 text-primary">/</span>
-                      Field Notes
+                      Guide
                     </div>
                     <h2 className="font-heading uppercase text-white text-2xl sm:text-3xl tracking-wide leading-tight mb-3 transition-colors group-hover:text-primary">
                       <Link to={`/blog/${post.slug}`}>{post.title}</Link>

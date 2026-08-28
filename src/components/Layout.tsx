@@ -7,12 +7,13 @@ import MobileCallBar from "./home/MobileCallBar";
 const Layout = ({ children }: { children?: ReactNode }) => {
   const { pathname } = useLocation();
   const onHome = pathname === "/";
+  const showMobileActions = ["/", "/services", "/materials", "/projects", "/contact"].includes(pathname);
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className={`flex-1 ${onHome ? "" : "pt-24"}`}>{children ?? <Outlet />}</main>
+      <main className={`flex-1 ${onHome ? "" : "pt-[76px]"} ${showMobileActions ? "pb-[70px] md:pb-0" : ""}`}>{children ?? <Outlet />}</main>
       <Footer />
-      {onHome && <MobileCallBar />}
+      {showMobileActions && <MobileCallBar />}
     </div>
   );
 };

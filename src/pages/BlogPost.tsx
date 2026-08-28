@@ -1,13 +1,10 @@
 import { useParams, Link, Navigate } from "react-router-dom";
-import { Phone, MessageSquare, ArrowLeft, ArrowRight } from "lucide-react";
+import { Phone, ArrowLeft, ArrowRight } from "lucide-react";
 import Seo from "@/components/Seo";
-import { Button } from "@/components/ui/button";
-import ContactActionSheet from "@/components/ContactActionSheet";
 import { POSTS } from "@/content/blog";
 import logo from "@/assets/monkey-trucking-logo.webp";
 
 const SITE = "https://www.monkeytrucking.llc";
-const PHONE = "+12146778466";
 
 const BlogPost = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -75,7 +72,7 @@ const BlogPost = () => {
             <div className="mt-6 flex items-center flex-wrap gap-x-4 gap-y-2 text-sm tracking-[0.18em] uppercase text-white/55">
               <span>Monkey Trucking LLC</span>
               <span className="text-primary">·</span>
-              <span>Established 2010</span>
+              <span>Monkey Trucking guide</span>
               <span className="text-primary">·</span>
               <time dateTime={post.datePublished}>{post.dateDisplay}</time>
             </div>
@@ -95,27 +92,16 @@ const BlogPost = () => {
               Need gravel, hauling, or dirt work?
             </h2>
             <p className="text-white/70 mt-4 mb-8 text-lg leading-relaxed">
-              Call or text the Kaufman crew for a free quote. We pick up the phone.
+              Call Monkey Trucking or send a quote request with what you need.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-              <ContactActionSheet>
-                {({ onClick }) => (
-                  <Button
-                    onClick={onClick}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 font-heading tracking-wider px-7 h-14 min-h-[52px] text-lg shadow-[0_18px_40px_rgba(255,59,59,0.35)] hover:-translate-y-0.5 transition-transform w-full sm:w-auto"
-                  >
-                    <Phone className="mr-2 h-5 w-5" />
-                    CALL FOR A QUOTE
-                  </Button>
-                )}
-              </ContactActionSheet>
-              <a
-                href={`sms:${PHONE}`}
-                className="inline-flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/15 text-white font-heading tracking-wider px-7 h-14 min-h-[52px] text-lg rounded-md transition-colors w-full sm:w-auto"
-              >
-                <MessageSquare className="mr-2 h-5 w-5" />
-                TEXT THE CREW
+              <a href="tel:+12146778466" className="inline-flex min-h-[52px] w-full items-center justify-center rounded-md bg-primary px-7 font-heading text-lg tracking-wider text-white transition-colors hover:bg-primary/90 sm:w-auto">
+                <Phone className="mr-2 h-5 w-5" />
+                CALL 214-677-8466
               </a>
+              <Link to="/contact" className="inline-flex min-h-[52px] w-full items-center justify-center rounded-md border border-white/20 bg-white/5 px-7 font-heading text-lg tracking-wider text-white transition-colors hover:bg-white/10 sm:w-auto">
+                GET A QUOTE
+              </Link>
             </div>
           </div>
         </section>
