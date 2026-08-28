@@ -139,6 +139,28 @@ describe("public website contracts", () => {
     expect(waves).not.toContain('addEventListener("touchmove"');
   });
 
+  it("uses architectural proof panels and an accurate grounded footer", () => {
+    const proof = read("src/components/public/TrustRail.tsx");
+    const footer = read("src/components/Footer.tsx");
+    const css = read("src/index.css");
+
+    for (const icon of ["MapPin", "Truck", "ClipboardCheck"]) expect(proof).toContain(icon);
+    expect(proof).toContain("public-proof-card");
+    expect(css).toContain(".public-proof-card-fill");
+    expect(css).toContain("transform: scaleY(0)");
+    expect(css).toContain("transition: transform 440ms");
+
+    for (const path of ["/", "/services", "/materials", "/projects", "/contact", "/blog", "/privacy-policy", "/terms"]) {
+      expect(footer).toContain(`to="${path}"`);
+    }
+    expect(footer).toContain('href="tel:+12146778466"');
+    expect(footer.match(/214-677-8466/g)).toHaveLength(1);
+    expect(footer).toContain("crushed-concrete.webp");
+    expect(footer).not.toMatch(/About|Site Map|Demolition|Facebook|Instagram/);
+    expect(footer).not.toContain("Call Monkey Trucking");
+    expect(footer).not.toContain("pointer-events-none select-none");
+  });
+
   it("contains no placeholder business identity or testimonial copy", () => {
     expect(publicSources).not.toMatch(/\[Your|\[Add one real|John Doe|Jane Doe|150\+ Jobs|12\+ Years/i);
     const html = read("index.html");
