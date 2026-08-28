@@ -13,6 +13,7 @@ const publicSources = [
   "src/pages/Blog.tsx",
   "src/pages/BlogPost.tsx",
   "src/components/Header.tsx",
+  "src/components/auth/UserMenu.tsx",
   "src/components/Footer.tsx",
   "src/components/CTASection.tsx",
   "src/components/home/MobileCallBar.tsx",
@@ -53,6 +54,30 @@ describe("public website contracts", () => {
       cursor = next;
     }
     expect(home).not.toMatch(/CTASection|marquee|testimonial|How it works|Years in Business|Jobs Completed/i);
+  });
+
+  it("keeps the public header centered and the Hero media contract exact", () => {
+    const header = read("src/components/Header.tsx");
+    const userMenu = read("src/components/auth/UserMenu.tsx");
+    const hero = read("src/components/public/HomeHero.tsx");
+    const css = read("src/index.css");
+    const html = read("index.html");
+
+    expect(header).toContain("public-header-grid");
+    expect(css).toContain("grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr)");
+    expect(header).toContain('to="/contact"');
+    expect(header).toContain('const PHONE_HREF = "tel:+12146778466"');
+    expect(userMenu).toContain("LayoutDashboard");
+    expect(userMenu).toContain("Dashboard");
+    expect(userMenu).not.toContain("Tickets");
+    expect(hero).toContain("https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job home hero.mp4");
+    expect(hero).toContain("autoPlay loop muted playsInline");
+    expect(hero).toContain("Material Delivery");
+    expect(hero).toContain("Driveway Installation");
+    expect(hero).toContain("Dirt &amp; Site Work");
+    expect(hero).toContain('to="/contact"');
+    expect(css).not.toContain(".public-home-hero-panel::after");
+    expect(html).toContain('href="https://dugmcjpistrxxryaubkd.supabase.co"');
   });
 
   it("publishes the exact approved material catalog without public prices", () => {

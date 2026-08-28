@@ -1,10 +1,22 @@
-import { ArrowDownRight, Phone } from "lucide-react";
+import { ArrowUpRight, Phone } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+import { Link } from "react-router-dom";
 import heroImage from "@/assets/services/aggregate-hauling.webp";
 
+export const HERO_VIDEO_URL = "https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job home hero.mp4";
+
 const sequence = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.075, delayChildren: 0.14 } },
+  hidden: { opacity: 0, x: -24 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: {
+      duration: 0.46,
+      ease: [0.16, 1, 0.3, 1] as const,
+      staggerChildren: 0.065,
+      delayChildren: 0.1,
+    },
+  },
 };
 
 const item = {
@@ -17,20 +29,26 @@ export default function HomeHero() {
 
   return (
     <section className="public-home-hero" aria-labelledby="home-hero-heading">
-      <motion.div className="public-home-hero-media" initial={reduceMotion ? false : { opacity: 0, clipPath: "inset(0 12% 0 0)" }} animate={{ opacity: 1, clipPath: "inset(0 0% 0 0)" }} transition={{ duration: reduceMotion ? 0 : 0.62, ease: [0.16, 1, 0.3, 1] }}>
-        <img src={heroImage} alt="Monkey Trucking delivering aggregate to a property" loading="eager" decoding="async" className="h-full w-full object-cover" />
+      <motion.div className="public-home-hero-media" initial={reduceMotion ? false : { opacity: 0, scale: 1.015 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: reduceMotion ? 0 : 0.56, ease: [0.16, 1, 0.3, 1] }}>
+        <img className="public-home-hero-poster" src={heroImage} alt="Monkey Trucking material delivery job" loading="eager" decoding="async" />
+        {!reduceMotion && (
+          <video autoPlay loop muted playsInline preload="metadata" poster={heroImage} aria-hidden="true" tabIndex={-1}>
+            <source src={HERO_VIDEO_URL} type="video/mp4" />
+          </video>
+        )}
         <div className="public-home-hero-media-shade" />
       </motion.div>
 
       <motion.div className="public-home-hero-panel" variants={reduceMotion ? undefined : sequence} initial={reduceMotion ? false : "hidden"} animate="visible">
-        <motion.h1 id="home-hero-heading" variants={reduceMotion ? undefined : item} className="font-heading text-[clamp(48px,7.4vw,102px)] uppercase leading-[0.84] tracking-[0.005em] text-white">
-          <span className="block whitespace-nowrap text-primary">Gravel, Delivery</span>
-          <span className="block whitespace-nowrap">&amp; Dirt Work</span>
+        <motion.h1 id="home-hero-heading" variants={reduceMotion ? undefined : item} className="public-home-hero-title font-display uppercase text-white">
+          <span className="block text-primary">Material Delivery</span>
+          <span className="block">Driveway Installation</span>
+          <span className="block">Dirt &amp; Site Work</span>
         </motion.h1>
-        <motion.p variants={reduceMotion ? undefined : item} className="mt-6 max-w-[590px] text-lg leading-relaxed text-white/[0.76] sm:text-xl">Materials, driveways, ponds and dirt work across Kaufman and surrounding areas.</motion.p>
-        <motion.div variants={reduceMotion ? undefined : item} className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <a href="tel:+12146778466" className="public-button public-button-primary"><Phone className="h-5 w-5" />Call 214-677-8466</a>
-          <a href="#quote-request" className="public-button public-button-light">Get a Quote<ArrowDownRight className="h-5 w-5" /></a>
+        <motion.p variants={reduceMotion ? undefined : item} className="public-home-hero-location">Based in Kaufman, Texas. Serving properties across DFW.</motion.p>
+        <motion.div variants={reduceMotion ? undefined : item} className="mt-7 flex flex-col gap-3 sm:flex-row">
+          <a href="tel:+12146778466" className="public-button public-hero-cta public-hero-cta-primary"><Phone className="h-5 w-5" />Call 214-677-8466</a>
+          <Link to="/contact" className="public-button public-hero-cta public-hero-cta-secondary">Get a Quote<ArrowUpRight className="h-5 w-5" /></Link>
         </motion.div>
       </motion.div>
     </section>

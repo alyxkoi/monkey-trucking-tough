@@ -5,6 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import PopularMaterialsSection from "@/components/public/PopularMaterialsSection";
 import RecentWorkSection from "@/components/public/RecentWorkSection";
 import ServiceFeatureGrid from "@/components/public/ServiceFeatureGrid";
+import HomeHero from "@/components/public/HomeHero";
 
 describe("public Home interactions", () => {
   beforeAll(() => {
@@ -21,6 +22,14 @@ describe("public Home interactions", () => {
         dispatchEvent() { return false; },
       }),
     });
+  });
+
+  it("uses the stable Hero poster instead of moving video under reduced motion", () => {
+    const { container } = render(<MemoryRouter><HomeHero /></MemoryRouter>);
+    expect(container.querySelector("video")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Monkey Trucking material delivery job" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Call 214-677-8466/i })).toHaveAttribute("href", "tel:+12146778466");
+    expect(screen.getByRole("link", { name: /Get a Quote/i })).toHaveAttribute("href", "/contact");
   });
 
   it("opens one service detail, closes with Escape, and restores trigger focus", async () => {

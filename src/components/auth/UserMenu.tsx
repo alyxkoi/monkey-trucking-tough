@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { User as UserIcon, Ticket, LogOut } from "lucide-react";
+import { LayoutDashboard, LogOut, User as UserIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,8 +41,8 @@ const UserMenu = ({ className = "" }: { className?: string }) => {
       <DropdownMenuContent align="end" className="w-40 rounded-none border-white/10 bg-nearblack">
         <DropdownMenuItem asChild className="cursor-pointer text-industrial-foreground focus:bg-white/5 focus:text-primary">
           <Link to="/admin">
-            <Ticket className="mr-2 h-4 w-4" />
-            Tickets
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            Dashboard
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
