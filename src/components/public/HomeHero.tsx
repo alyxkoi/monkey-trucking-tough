@@ -1,4 +1,4 @@
-import { ArrowUpRight, Award, Phone, Star, Truck } from "lucide-react";
+import { ArrowUpRight, ClipboardCheck, MapPin, Phone, Truck } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -41,9 +41,9 @@ const statItem = {
 };
 
 const HERO_STATS = [
-  { value: "10+", label: "Years in Service", Icon: Award },
-  { value: "200+", label: "Jobs Done", Icon: Truck },
-  { value: "5 Stars", label: "Reviews", Icon: Star },
+  { value: "Kaufman", label: "Local Service", Icon: MapPin },
+  { value: "Materials", label: "+ Delivery", Icon: Truck },
+  { value: "Upfront", label: "Quotes", Icon: ClipboardCheck },
 ] as const;
 
 const DESKTOP_QUERY = "(min-width: 1200px)";
@@ -93,13 +93,13 @@ export default function HomeHero() {
           <span className="block">Dirt &amp; Site Work</span>
         </motion.h1>
         <motion.p variants={reduceMotion ? undefined : item} className="public-home-hero-location">Based in Kaufman, Texas. Serving properties across DFW.</motion.p>
-        <motion.div variants={reduceMotion ? undefined : item} className="mt-7 flex flex-col gap-3 sm:flex-row">
+        <motion.div variants={reduceMotion ? undefined : item} className="public-home-hero-actions mt-7 flex flex-col gap-3 sm:flex-row">
           <a href="tel:+12146778466" className="public-button public-hero-cta public-hero-cta-primary"><Phone className="h-5 w-5" />Call 214-677-8466</a>
           <Link to="/contact" className="public-button public-hero-cta public-hero-cta-secondary">Get a Quote<ArrowUpRight className="h-5 w-5" /></Link>
         </motion.div>
         <motion.ul
           className="public-hero-stats"
-          aria-label="Monkey Trucking experience"
+          aria-label="Monkey Trucking proof points"
           variants={reduceMotion ? undefined : statsSequence}
         >
           {HERO_STATS.map(({ value, label, Icon }) => (

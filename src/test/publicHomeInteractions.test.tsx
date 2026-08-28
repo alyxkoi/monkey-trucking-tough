@@ -34,10 +34,14 @@ describe("public Home interactions", () => {
     expect(container.querySelector(".public-home-hero-media img")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Call 214-677-8466/i })).toHaveAttribute("href", "tel:+12146778466");
     expect(screen.getByRole("link", { name: /Get a Quote/i })).toHaveAttribute("href", "/contact");
-    expect(screen.getByRole("list", { name: "Monkey Trucking experience" })).toBeInTheDocument();
-    expect(screen.getByText("10+")).toBeInTheDocument();
-    expect(screen.getByText("200+")).toBeInTheDocument();
-    expect(screen.getByText("5 Stars")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Monkey Trucking proof points" })).toBeInTheDocument();
+    expect(screen.getByText("Kaufman")).toBeInTheDocument();
+    expect(screen.getByText("Local Service")).toBeInTheDocument();
+    expect(screen.getByText("Materials")).toBeInTheDocument();
+    expect(screen.getByText("+ Delivery")).toBeInTheDocument();
+    expect(screen.getByText("Upfront")).toBeInTheDocument();
+    expect(screen.getByText("Quotes")).toBeInTheDocument();
+    expect(screen.queryByText(/Years in Service|Jobs Done|5 Stars/i)).not.toBeInTheDocument();
   });
 
   it("opens one service detail, closes with Escape, and restores trigger focus", async () => {
