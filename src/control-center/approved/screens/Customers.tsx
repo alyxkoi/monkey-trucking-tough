@@ -3,6 +3,7 @@ import { ArrowUpDown, Check } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Panel } from '@/control-center/approved/components/ui/Panel'
 import { SearchField } from '@/control-center/approved/components/ui/SearchField'
+import { CustomerInitialAvatar } from '@/control-center/approved/components/ui/CustomerInitialAvatar'
 import { EmptyState } from '@/control-center/approved/components/ui/States'
 import { StatusPill } from '@/control-center/approved/components/ui/StatusPill'
 import { cn } from '@/control-center/approved/lib/cn'
@@ -98,20 +99,10 @@ export function Customers() {
                   onClick={() => navigate(`/admin/customers/${customer.id}`)}
                   className="row-hover flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-white/[0.04] active:bg-white/[0.07] lg:gap-6 lg:px-6 lg:py-[18px]"
                 >
-                  {/*
-                    A repeat customer is worth spotting from the initial alone, so
-                    the tile picks up the green that means settled money elsewhere
-                    in the product rather than another grey square.
-                  */}
-                  <span
-                    className={
-                      repeat
-                        ? 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ok/25 bg-ok/[0.12] font-label text-[16px] font-semibold text-ok'
-                        : 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ice/20 bg-ice/[0.09] font-label text-[16px] font-semibold text-ice'
-                    }
-                  >
-                    {customer.name.charAt(0)}
-                  </span>
+                  <CustomerInitialAvatar
+                    name={customer.name}
+                    className="h-11 w-11 rounded-xl text-[16px]"
+                  />
 
                   <span className="min-w-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,260px)] lg:items-center lg:gap-6">
                     <span className="flex min-w-0 flex-wrap items-center gap-2.5">

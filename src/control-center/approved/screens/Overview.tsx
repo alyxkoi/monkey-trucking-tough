@@ -54,8 +54,8 @@ export function Overview() {
 /**
  * The money hero.
  *
- * Collected is the hero, with the icy blue line built from the same payment
- * records that produce the figure, so the days on the line add up to the number
+ * Collected is the hero, with the Monkey Trucking red area built from the same payment
+ * records that produce the figure, so the days in the area add up to the number
  * beside it. Outstanding and overdue sit under it as real supporting information.
  * Worker pay is not here on purpose: it lives in Money, Worker Pay, and does not
  * belong in the executive read of how much came in and how much is still owed.

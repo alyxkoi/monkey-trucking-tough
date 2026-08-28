@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, UserRound, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/control-center/approved/lib/cn'
+import { CustomerInitialAvatar } from './CustomerInitialAvatar'
 import { PrimaryButton, SecondaryButton } from './Button'
 import { FieldLabel, TextField } from './Field'
 import { useAppState } from '@/control-center/approved/state/AppState'
@@ -198,9 +199,10 @@ export function CustomerPicker({
       <div className={cn('block', className)}>
         <FieldLabel>{label}</FieldLabel>
         <div className="flex items-center gap-3 rounded-xl border border-ice/25 bg-ice/[0.09] px-3 py-2.5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ice/[0.14] font-label text-[15px] font-semibold text-ice">
-            {selected.name.charAt(0)}
-          </span>
+          <CustomerInitialAvatar
+            name={selected.name}
+            className="h-10 w-10 rounded-lg text-[15px]"
+          />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[16px] font-bold text-ink">
               {selected.name}
@@ -305,9 +307,10 @@ export function CustomerPicker({
                       index === active ? 'bg-white/[0.07]' : 'hover:bg-white/[0.05]',
                     )}
                   >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ice/[0.1] font-label text-[14px] font-semibold text-ice">
-                      {customer.name.charAt(0)}
-                    </span>
+                    <CustomerInitialAvatar
+                      name={customer.name}
+                      className="h-9 w-9 rounded-lg text-[14px]"
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[16px] font-bold text-ink">
                         {customer.name}

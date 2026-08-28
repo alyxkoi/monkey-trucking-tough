@@ -27,7 +27,7 @@ export function RecordHeader({
   className,
 }: {
   /** What kind of record, and its number. `Ticket MT1101`, `Invoice 1046`. */
-  eyebrow: string
+  eyebrow: ReactNode
   /** Whose record it is. Usually the customer or company name. */
   title: ReactNode
   onBack?: () => void

@@ -114,7 +114,7 @@ export function Tickets() {
                     <span
                       className={cn(
                         'block font-display display-tight text-[19px]',
-                        pending ? 'text-warn' : voided ? 'text-idle line-through' : 'text-ice',
+                        pending ? 'text-warn' : voided ? 'text-idle line-through' : 'text-mt-red',
                       )}
                     >
                       {ticket.number ?? 'Waiting'}

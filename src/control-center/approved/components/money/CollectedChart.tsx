@@ -125,7 +125,7 @@ export function CollectedChart({
               {active.label}
             </div>
             {active.dayValue > 0 ? (
-              <div className="num-safe font-display display-tight tnum text-[21px] text-ice">
+              <div className="num-safe font-display display-tight tnum text-[21px] text-mt-red">
                 {usd(active.dayValue)}
               </div>
             ) : (
@@ -146,7 +146,7 @@ export function CollectedChart({
         <svg
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="none"
-          className="block h-full w-full"
+          className="block h-full w-full text-mt-red"
           role="img"
           aria-label={`Collected per day, biggest day ${usd(max)}`}
         >
@@ -157,10 +157,10 @@ export function CollectedChart({
               before it reaches the bottom of the plate.
             */}
             <linearGradient id={`fill-${uid}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#8FCBFF" stopOpacity="0.46" />
-              <stop offset="34%" stopColor="#8FCBFF" stopOpacity="0.2" />
-              <stop offset="72%" stopColor="#8FCBFF" stopOpacity="0.06" />
-              <stop offset="100%" stopColor="#8FCBFF" stopOpacity="0" />
+              <stop offset="0%" stopColor="currentColor" stopOpacity="0.46" />
+              <stop offset="34%" stopColor="currentColor" stopOpacity="0.2" />
+              <stop offset="72%" stopColor="currentColor" stopOpacity="0.06" />
+              <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
             </linearGradient>
           </defs>
 
@@ -177,7 +177,7 @@ export function CollectedChart({
           point.dayValue > 0 && index !== activeIndex ? (
             <span
               key={point.at}
-              className="pointer-events-none absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ice/80"
+              className="pointer-events-none absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-mt-red/80"
               style={{ left: `${leftPct(index)}%`, top: `${topPct(point.dayValue)}%` }}
             />
           ) : null,
@@ -186,7 +186,7 @@ export function CollectedChart({
         {active && (
           <>
             <span
-              className="pointer-events-none absolute w-px bg-ice/30"
+              className="pointer-events-none absolute w-px bg-mt-red/30"
               style={{
                 left: `${leftPct(activeIndex)}%`,
                 top: `${topPct(active.dayValue)}%`,
@@ -194,11 +194,11 @@ export function CollectedChart({
               }}
             />
             <span
-              className="pointer-events-none absolute h-[22px] w-[22px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-ice/15"
+              className="pointer-events-none absolute h-[22px] w-[22px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-mt-red/15"
               style={{ left: `${leftPct(activeIndex)}%`, top: `${topPct(active.dayValue)}%` }}
             />
             <span
-              className="pointer-events-none absolute h-[11px] w-[11px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[2.5px] border-ice bg-canvas"
+              className="pointer-events-none absolute h-[11px] w-[11px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[2.5px] border-mt-red bg-canvas"
               style={{ left: `${leftPct(activeIndex)}%`, top: `${topPct(active.dayValue)}%` }}
             />
           </>

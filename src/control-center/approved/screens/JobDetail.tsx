@@ -17,6 +17,7 @@ import { Panel } from '@/control-center/approved/components/ui/Panel'
 import { EmptyState } from '@/control-center/approved/components/ui/States'
 import { StatusPill, type PillTone } from '@/control-center/approved/components/ui/StatusPill'
 import { usd } from '@/control-center/approved/lib/format'
+import { cn } from '@/control-center/approved/lib/cn'
 import { QUOTE_LABEL, QUOTE_TONE, smsHref, telHref } from '@/control-center/approved/lib/status'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import {
@@ -446,7 +447,14 @@ export function JobDetail() {
                       onClick={() => navigate(`/admin/tickets/${ticket.id}`)}
                       className="row-hover flex w-full items-center gap-4 px-5 py-3.5 text-left hover:bg-white/[0.04]"
                     >
-                      <span className="w-[76px] shrink-0 font-display display-tight text-[18px] text-ice">
+                      <span className={cn(
+                        'w-[76px] shrink-0 font-display display-tight text-[18px]',
+                        ticket.status === 'VOID'
+                          ? 'text-idle line-through'
+                          : ticket.sync === 'PENDING'
+                            ? 'text-warn'
+                            : 'text-mt-red',
+                      )}>
                         {ticket.number ?? 'Waiting'}
                       </span>
                       <span className="min-w-0 flex-1 truncate text-[14px] text-cc-muted">

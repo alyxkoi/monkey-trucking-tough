@@ -271,7 +271,14 @@ export function InvoiceDetail() {
                     onClick={() => navigate(`/admin/tickets/${ticket.id}`)}
                     className="row-hover flex w-full items-center gap-4 px-5 py-3.5 text-left hover:bg-white/[0.04]"
                   >
-                    <span className="w-[80px] shrink-0 font-display display-tight text-[18px] text-ice">
+                    <span className={cn(
+                      'w-[80px] shrink-0 font-display display-tight text-[18px]',
+                      ticket.status === 'VOID'
+                        ? 'text-idle line-through'
+                        : ticket.sync === 'PENDING'
+                          ? 'text-warn'
+                          : 'text-mt-red',
+                    )}>
                       {ticket.number}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-[14px] text-cc-muted">

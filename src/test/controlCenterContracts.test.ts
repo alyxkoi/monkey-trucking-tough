@@ -118,6 +118,32 @@ describe("Phase 05 Control Center contracts", () => {
     expect(tickets).toContain("<CustomerPicker");
   });
 
+  it("uses the existing Monkey red for primary Ticket, customer, and Money accents", () => {
+    const tickets = read("src/control-center/approved/screens/Tickets.tsx");
+    const ticketDetail = read("src/control-center/approved/screens/TicketDetail.tsx");
+    const jobDetail = read("src/control-center/approved/screens/JobDetail.tsx");
+    const invoiceDetail = read("src/control-center/approved/screens/InvoiceDetail.tsx");
+    const customers = read("src/control-center/approved/screens/Customers.tsx");
+    const picker = read("src/control-center/approved/components/ui/CustomerPicker.tsx");
+    const avatar = read("src/control-center/approved/components/ui/CustomerInitialAvatar.tsx");
+    const chart = read("src/control-center/approved/components/money/CollectedChart.tsx");
+    const printPreview = read("src/control-center/approved/components/tickets/TicketLabelPreview.tsx");
+
+    for (const source of [tickets, ticketDetail, jobDetail, invoiceDetail]) {
+      expect(source).toContain("text-mt-red");
+    }
+    expect(customers).toContain("<CustomerInitialAvatar");
+    expect(picker).toContain("<CustomerInitialAvatar");
+    expect(avatar).toContain("bg-mt-red");
+    expect(avatar).toContain("text-canvas");
+    expect(avatar).toContain("font-black");
+    expect(avatar).toContain("toUpperCase()");
+    expect(chart).toContain('className="block h-full w-full text-mt-red"');
+    expect(chart).toContain('stopColor="currentColor"');
+    expect(chart).not.toContain("#8FCBFF");
+    expect(printPreview).not.toContain("text-mt-red");
+  });
+
   it("does not introduce prototype mock persistence", () => {
     const data = read("src/control-center/data.ts");
     const context = read("src/control-center/context.tsx");

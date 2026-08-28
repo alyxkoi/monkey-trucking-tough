@@ -12,6 +12,7 @@ import { Panel } from '@/control-center/approved/components/ui/Panel'
 import { Sheet } from '@/control-center/approved/components/shell/Sheet'
 import { EmptyState } from '@/control-center/approved/components/ui/States'
 import { StatusPill } from '@/control-center/approved/components/ui/StatusPill'
+import { cn } from '@/control-center/approved/lib/cn'
 import { formatTaxRate, usd, usdExact } from '@/control-center/approved/lib/format'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import { deliveryLabel } from '@/control-center/approved/state/pricing'
@@ -68,7 +69,16 @@ export function TicketDetail() {
   return (
     <div className="space-y-5">
       <RecordHeader
-        eyebrow={`Ticket ${ticket.number ?? 'waiting for a number'}`}
+        eyebrow={
+          <>
+            Ticket{' '}
+            <span className={cn(
+              voided ? 'text-idle line-through' : pending ? 'text-warn' : 'text-mt-red',
+            )}>
+              {ticket.number ?? 'waiting for a number'}
+            </span>
+          </>
+        }
         title={customer?.name ?? 'Ticket'}
         onBack={() => navigate('/admin/tickets')}
         right={
@@ -116,7 +126,10 @@ export function TicketDetail() {
                 <div className="font-label text-[11px] font-semibold uppercase tracking-[0.22em] text-canvas/70">
                   Ticket
                 </div>
-                <div className="num-safe mt-2 font-display display-tight text-[46px] sm:text-[54px]">
+                <div className={cn(
+                  'num-safe mt-2 font-display display-tight text-[46px] sm:text-[54px]',
+                  voided ? 'text-canvas/45 line-through' : pending ? 'text-warn' : 'text-mt-red',
+                )}>
                   {ticket.number ?? 'Pending'}
                 </div>
                 <div className="mt-2.5 font-label text-[13px] font-semibold uppercase tracking-[0.1em] text-canvas/75">
