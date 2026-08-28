@@ -391,6 +391,17 @@
   .public-home-hero-title { font-size: clamp(40px, 6vw, 52px); }
 }
 
+@media (min-width: 768px) and (max-width: 1199px) {
+  .public-home-hero-panel {
+    width: min(72vw, 860px);
+    clip-path: polygon(0 0, 70% 0, 100% 100%, 0 100%);
+    padding: clamp(3rem, 6vh, 4rem) 8vw 0 clamp(2rem, 7vw, 4rem);
+  }
+  .public-home-hero-title,
+  .public-home-hero-location { max-width: min(58vw, 560px); }
+  .public-home-hero-title { font-size: clamp(40px, 5.5vw, 52px); }
+}
+
 @media (max-width: 767px) {
   .public-button { width: 100%; }
   .public-page-hero { min-height: 390px; padding-block: 3.5rem; }

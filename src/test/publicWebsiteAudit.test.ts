@@ -70,6 +70,8 @@ describe("public website contracts", () => {
     expect(userMenu).toContain("LayoutDashboard");
     expect(userMenu).toContain("Dashboard");
     expect(userMenu).not.toContain("Tickets");
+    expect(hero).toContain("https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job1 cropped 3x2.mp4");
+    expect(hero).toContain('media="(min-width: 1200px)"');
     expect(hero).toContain("https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job home hero.mp4");
     expect(hero).toContain("autoPlay={!reduceMotion} loop muted playsInline");
     expect(hero).not.toContain("<img");

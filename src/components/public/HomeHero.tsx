@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { Link } from "react-router-dom";
 
 export const HERO_VIDEO_URL = "https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job home hero.mp4";
+export const DESKTOP_HERO_VIDEO_URL = "https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job1 cropped 3x2.mp4";
 
 const sequence = {
   hidden: { opacity: 0, x: -24 },
@@ -30,6 +31,7 @@ export default function HomeHero() {
     <section className="public-home-hero" aria-labelledby="home-hero-heading">
       <div className="public-home-hero-media">
         <video autoPlay={!reduceMotion} loop muted playsInline preload="auto" aria-hidden="true" tabIndex={-1}>
+          <source src={DESKTOP_HERO_VIDEO_URL} type="video/mp4" media="(min-width: 1200px)" />
           <source src={HERO_VIDEO_URL} type="video/mp4" />
         </video>
         <div className="public-home-hero-media-shade" />
