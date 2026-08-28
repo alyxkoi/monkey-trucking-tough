@@ -174,7 +174,9 @@ describe("public website contracts", () => {
     expect(contact).toContain("Continue to project details");
     expect(contact).toContain("Step {step} of 2");
     expect(contact).toContain('role="progressbar"');
-    expect(read("src/index.css")).not.toContain(".public-contact-heading::after");
+    const css = read("src/index.css");
+    expect(css).not.toContain(".public-contact-heading::after");
+    expect(css).not.toMatch(/\.public-contact-section-page\s*{[^}]*margin-top:/s);
     expect(handler).toContain("Location: ${location || 'Not provided'}");
     expect(handler).toContain("location ? `Location: ${location}`");
   });
