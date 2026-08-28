@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { TicketDeleteResult } from "@/control-center/ticketDeletion";
 import type { Json } from "@/integrations/supabase/types";
 
 export interface TicketDraft {
@@ -171,6 +172,20 @@ export const voidTicket = async (ticketId: string, reason: string) => {
   const voided = data?.[0];
   if (!voided) throw new Error("Ticket void returned no record.");
   return voided;
+};
+
+export const deleteTicketPermanently = async (
+  ticketId: string,
+  confirmation: string,
+  reason: string,
+): Promise<TicketDeleteResult> => {
+  const { data, error } = await supabase.rpc("delete_ticket_permanently", {
+    p_ticket_id: ticketId,
+    p_confirmation: confirmation,
+    p_reason: reason,
+  });
+  if (error) throw error;
+  return data as unknown as TicketDeleteResult;
 };
 
 export const isRetryableNetworkError = (error: unknown) => {

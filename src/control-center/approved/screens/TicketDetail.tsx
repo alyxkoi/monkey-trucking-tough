@@ -1,13 +1,13 @@
 import { useState } from 'react'
-import { Printer } from 'lucide-react'
+import { Printer, Trash2 } from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { MaterialLineRow } from '@/control-center/approved/components/sales/MaterialLineRow'
 import { TicketLabelPreview } from '@/control-center/approved/components/tickets/TicketLabelPreview'
-import { PrimaryButton, QuietButton, SecondaryButton } from '@/control-center/approved/components/ui/Button'
+import { BrandButton, PrimaryButton, QuietButton, SecondaryButton } from '@/control-center/approved/components/ui/Button'
 import { ContextualActionBar } from '@/control-center/approved/components/ui/ContextualActionBar'
 import { NextStep } from '@/control-center/approved/components/ui/Guidance'
 import { RecordHeader } from '@/control-center/approved/components/ui/RecordHeader'
-import { TextArea } from '@/control-center/approved/components/ui/Field'
+import { TextArea, TextField } from '@/control-center/approved/components/ui/Field'
 import { Panel } from '@/control-center/approved/components/ui/Panel'
 import { Sheet } from '@/control-center/approved/components/shell/Sheet'
 import { EmptyState } from '@/control-center/approved/components/ui/States'
@@ -27,6 +27,7 @@ export function TicketDetail() {
     jobById,
     printTicket,
     voidTicket,
+    deleteTicket,
     createInvoiceFromTicket,
     invoiceForTicket,
   } = useAppState()
@@ -34,6 +35,11 @@ export function TicketDetail() {
   const [printOpen, setPrintOpen] = useState(params.get('print') === '1')
   const [voidOpen, setVoidOpen] = useState(false)
   const [voidReason, setVoidReason] = useState('')
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deleteReason, setDeleteReason] = useState('')
+  const [deleteProblem, setDeleteProblem] = useState('')
+  const [deleting, setDeleting] = useState(false)
   const [editWarning, setEditWarning] = useState(false)
 
   const ticket = ticketById(ticketId)
@@ -90,7 +96,8 @@ export function TicketDetail() {
           </div>
           <p className="mt-1.5 text-[15px] leading-snug text-ink/80">{ticket.voidReason}</p>
           <p className="mt-2 text-[14px] text-cc-muted">
-            The record is kept exactly as it was written. Tickets are never deleted.
+            The record is kept exactly as it was written. Permanent deletion remains a
+            separate protected admin action and is blocked by any Invoice or Payment truth.
           </p>
         </div>
       )}
@@ -322,6 +329,29 @@ export function TicketDetail() {
             </Panel>
           )}
 
+          {!pending && ticket.number && (
+            <Panel title="Permanent deletion">
+              <p className="text-[14px] leading-snug text-cc-muted">
+                Only test records or mistakes with no downstream Invoice or Payment can be
+                removed. The MT number is never reused.
+              </p>
+              <div className="mt-4">
+                <SecondaryButton
+                  size="sm"
+                  icon={<Trash2 className="h-4 w-4" />}
+                  onClick={() => {
+                    setDeleteProblem('')
+                    setDeleteConfirmation('')
+                    setDeleteReason('')
+                    setDeleteOpen(true)
+                  }}
+                >
+                  Delete Ticket
+                </SecondaryButton>
+              </div>
+            </Panel>
+          )}
+
           {ticket.edits.length > 0 && (
             <Panel title="Ticket history" padded={false}>
               <div className="divide-y divide-line border-t border-line">
@@ -416,6 +446,76 @@ export function TicketDetail() {
             rows={3}
             placeholder="Written on the wrong customer, replaced the same day"
           />
+        </div>
+      </Sheet>
+
+      <Sheet
+        open={deleteOpen}
+        onClose={() => !deleting && setDeleteOpen(false)}
+        eyebrow="Protected admin action"
+        title={`Permanently delete ${ticket.number ?? 'this ticket'}?`}
+        footer={
+          <BrandButton
+            fullWidth
+            disabled={
+              deleting
+              || !ticket.number
+              || deleteConfirmation.trim() !== ticket.number
+              || deleteReason.trim().length === 0
+            }
+            onClick={async () => {
+              if (!ticket.number) return
+              setDeleting(true)
+              setDeleteProblem('')
+              try {
+                const result = await deleteTicket(ticket.id, deleteConfirmation.trim(), deleteReason.trim())
+                if (result.status === 'DELETED') {
+                  setDeleteOpen(false)
+                  navigate('/admin/tickets')
+                  return
+                }
+                if (result.status === 'PROTECTED') {
+                  setDeleteProblem(result.message)
+                  return
+                }
+                if (result.status === 'CONFIRMATION_MISMATCH') {
+                  setDeleteProblem(`Type ${result.ticket_number} exactly to confirm.`)
+                  return
+                }
+                setDeleteProblem('This Ticket no longer exists.')
+              } catch (error) {
+                setDeleteProblem(error instanceof Error ? error.message : 'This Ticket could not be deleted.')
+              } finally {
+                setDeleting(false)
+              }
+            }}
+          >
+            {deleting ? 'Deleting' : 'Delete permanently'}
+          </BrandButton>
+        }
+      >
+        <div className="space-y-4 p-5">
+          <p className="text-[15px] leading-snug text-cc-muted">
+            This removes the Ticket, its material lines and Ticket-only history. It cannot
+            be undone. Any attached Invoice or Payment blocks the deletion.
+          </p>
+          <TextField
+            label={`Type ${ticket.number ?? 'the Ticket number'} to confirm`}
+            value={deleteConfirmation}
+            onChange={setDeleteConfirmation}
+          />
+          <TextArea
+            label="Deletion reason"
+            value={deleteReason}
+            onChange={setDeleteReason}
+            rows={2}
+            placeholder="Test ticket or created by mistake"
+          />
+          {deleteProblem && (
+            <div className="rounded-panel border border-mt-red/40 bg-mt-red/10 p-4 text-[14px] leading-snug text-mt-red">
+              {deleteProblem}
+            </div>
+          )}
         </div>
       </Sheet>
     </div>

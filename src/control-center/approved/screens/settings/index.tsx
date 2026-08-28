@@ -12,7 +12,7 @@ import { StatusPill, type PillTone } from '@/control-center/approved/components/
 import { cn } from '@/control-center/approved/lib/cn'
 import { formatTaxRate, shortAgo, usd } from '@/control-center/approved/lib/format'
 import { useAppState } from '@/control-center/approved/state/AppState'
-import { AI_SAMPLES, type AutomationStatus } from '@/control-center/approved/state/automationData'
+import { AI_SAMPLES } from '@/control-center/approved/state/automationData'
 import { DELIVERY_OPTIONS, TAX_RATE } from '@/control-center/approved/state/pricing'
 import {
   BUSINESS,
@@ -28,6 +28,7 @@ import { outputTicketPng, renderTicketPng } from '@/lib/admin/print'
 import { BUILD_INFO } from '@/lib/buildInfo'
 import { buildAutomationPreviews } from '@/control-center/ai/automationDryRun'
 import { generateAutomationDraft } from '@/control-center/ai/service'
+import { deriveSettingsReadiness, readinessTone, type ReadinessItem } from '@/control-center/readiness'
 
 /* ------------------------------------------------------------------ shared */
 
@@ -77,16 +78,26 @@ function StatusRow({
   )
 }
 
-const AUTOMATION_TONE: Record<AutomationStatus, PillTone> = {
-  ON: 'ok',
-  SETUP_REQUIRED: 'warn',
-  OFF: 'idle',
-}
-
-const AUTOMATION_LABEL: Record<AutomationStatus, string> = {
-  ON: 'On',
-  SETUP_REQUIRED: 'Setup required',
-  OFF: 'Off',
+function ReadinessNotice({ state }: { state: ReadinessItem }) {
+  if (state.status === 'READY') return null
+  return (
+    <div className={cn(
+      'rounded-panel border p-4 sm:p-5',
+      state.status === 'ERROR'
+        ? 'border-mt-red/40 bg-mt-red/10'
+        : state.status === 'WAITING'
+          ? 'border-ice/35 bg-ice/[0.08]'
+          : 'border-warn/40 bg-warn/10',
+    )}>
+      <StatusPill tone={readinessTone(state.status)} size="sm">{state.label}</StatusPill>
+      <p className="mt-2 text-[14px] leading-snug text-ink/85">{state.reason}</p>
+      {state.actions.length > 0 && (
+        <ul className="mt-3 space-y-1.5 text-[13px] leading-snug text-cc-muted">
+          {state.actions.map((action) => <li key={action}>• {action}</li>)}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 /* ---------------------------------------------------------------- business */
@@ -99,10 +110,13 @@ export function SettingsBusiness() {
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [address, setAddress] = useState('')
+  const [cityStateZip, setCityStateZip] = useState('')
   const [dueDays, setDueDays] = useState(3)
   const [taxOnDelivery, setTaxOnDelivery] = useState(true)
   const [customWorkTax, setCustomWorkTax] = useState<'PENDING' | 'TAXED' | 'NOT_TAXED'>('PENDING')
   const [saving, setSaving] = useState(false)
+  const readiness = deriveSettingsReadiness(sourceData ?? null)
+  const paymentReadiness = readiness.capabilities.payments
 
   useEffect(() => {
     const business = sourceData?.appSettings
@@ -111,6 +125,7 @@ export function SettingsBusiness() {
       setName(business.company_name)
       setPhone(business.company_phone)
       setAddress(business.company_address)
+      setCityStateZip(business.company_city_state_zip)
       setTaxOnDelivery(business.tax_applies_to_delivery)
     }
     if (control) {
@@ -128,7 +143,7 @@ export function SettingsBusiness() {
         const now = new Date().toISOString()
         demo.updateData((current) => ({
           ...current,
-          appSettings: current.appSettings ? { ...current.appSettings, company_name: name.trim(), company_phone: phone.trim(), company_address: address.trim(), tax_applies_to_delivery: taxOnDelivery, updated_at: now } : null,
+          appSettings: current.appSettings ? { ...current.appSettings, company_name: name.trim(), company_phone: phone.trim(), company_address: address.trim(), company_city_state_zip: cityStateZip.trim(), tax_applies_to_delivery: taxOnDelivery, updated_at: now } : null,
           controlSettings: current.controlSettings ? { ...current.controlSettings, company_email: email.trim() || null, default_invoice_due_days: dueDays, custom_work_tax_rule: customWorkTax === 'NOT_TAXED' ? 'EXEMPT' : customWorkTax, updated_at: now } : null,
         }))
         toast.success('Business settings saved in demo memory.')
@@ -139,6 +154,7 @@ export function SettingsBusiness() {
           company_name: name.trim(),
           company_phone: phone.trim(),
           company_address: address.trim(),
+          company_city_state_zip: cityStateZip.trim(),
           tax_applies_to_delivery: taxOnDelivery,
         }).eq('id', sourceData.appSettings.id),
         controlDb.from('control_center_settings').update({
@@ -160,6 +176,7 @@ export function SettingsBusiness() {
 
   return (
     <SettingsScreen title="Business">
+      <ReadinessNotice state={readiness.categories.business} />
       <Panel title="Company">
         <div className="space-y-4">
           <TextField label="Company name" value={name} onChange={setName} />
@@ -180,6 +197,7 @@ export function SettingsBusiness() {
             hint={email ? undefined : 'Needed before launch.'}
           />
           <TextArea label="Address" value={address} onChange={setAddress} rows={2} />
+          <TextField label="City, state and ZIP" value={cityStateZip} onChange={setCityStateZip} />
         </div>
       </Panel>
 
@@ -215,7 +233,7 @@ export function SettingsBusiness() {
               </span>
               {customWorkTax === 'PENDING' && (
                 <StatusPill tone="warn" size="sm">
-                  Setup required
+                  Needs info
                 </StatusPill>
               )}
             </div>
@@ -270,14 +288,13 @@ export function SettingsBusiness() {
                 </p>
               </div>
               <StatusPill
-                tone={sourceData?.controlSettings?.payment_processor_status === 'READY' && sourceData?.stripeIntegration.status === 'READY' ? 'ok' : 'warn'}
+                tone={readinessTone(paymentReadiness.status)}
                 size="sm"
               >
-                {sourceData?.controlSettings?.payment_processor_status === 'READY' && sourceData?.stripeIntegration.status === 'READY'
-                  ? 'Ready'
-                  : 'Setup required'}
+                {paymentReadiness.label}
               </StatusPill>
             </div>
+            <p className="mt-2 text-[13px] leading-snug text-cc-muted">{paymentReadiness.reason}</p>
           </div>
         </div>
       </Panel>
@@ -286,9 +303,9 @@ export function SettingsBusiness() {
         <div className="border-t border-line">
           <StatusRow
             label="Printable logo"
-            value="Setup required"
-            tone="warn"
-            line="The label needs a bold, simplified, high contrast bitmap. The detailed logo turns to mud at 203 dpi."
+            value={sourceData?.controlSettings?.printable_logo_status === 'READY' ? 'Ready' : 'Deployment required'}
+            tone={sourceData?.controlSettings?.printable_logo_status === 'READY' ? 'ok' : 'ice'}
+            line="The approved Monkey Trucking logo is converted to pure black in the tested 4×6 Ticket output."
           />
         </div>
       </Panel>
@@ -314,6 +331,7 @@ export function SettingsMaterials() {
   const [perYard, setPerYard] = useState('')
   const [fullLoad, setFullLoad] = useState('')
   const [saving, setSaving] = useState(false)
+  const readiness = deriveSettingsReadiness(sourceData ?? null)
 
   const openMaterial = (id: string | 'new') => {
     const current = materials.find((material) => material.id === id)
@@ -442,16 +460,7 @@ export function SettingsMaterials() {
 
   return (
     <SettingsScreen title="Materials & Delivery">
-      {materials.length === 0 && (
-        <div className="rounded-panel border border-warn/40 bg-warn/10 p-4 sm:p-5">
-          <div className="font-label text-[13px] font-semibold uppercase tracking-[0.12em] text-warn">
-            Ticket setup required
-          </div>
-          <p className="mt-1 text-[14px] leading-snug text-ink/80">
-            The managed database has no material catalog. Apply and verify the approved Ticket setup migrations before creating Tickets.
-          </p>
-        </div>
-      )}
+      <ReadinessNotice state={readiness.categories.materials} />
       <Panel padded={false} title={`${materials.length} materials`}>
         <div className="flex justify-end border-t border-line px-5 py-3">
           <SecondaryButton size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openMaterial('new')}>
@@ -549,7 +558,14 @@ export function SettingsWorkers() {
   const drivers = sourceData?.drivers ?? []
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   const [driverName, setDriverName] = useState('')
+  const [workerEditingId, setWorkerEditingId] = useState<string | 'new' | null>(null)
+  const [workerName, setWorkerName] = useState('')
+  const [workerPayType, setWorkerPayType] = useState<'HOURLY' | 'BY_LOAD'>('HOURLY')
+  const [workerRate, setWorkerRate] = useState('')
+  const [workerIsDriver, setWorkerIsDriver] = useState(false)
+  const [workerNotes, setWorkerNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const readiness = deriveSettingsReadiness(sourceData ?? null)
 
   const openDriver = (id: string | 'new') => {
     setEditingId(id)
@@ -601,8 +617,82 @@ export function SettingsWorkers() {
     }
   }
 
+  const openWorker = (id: string | 'new') => {
+    const worker = workers.find((entry) => entry.id === id)
+    setWorkerEditingId(id)
+    setWorkerName(worker?.name ?? '')
+    setWorkerPayType(worker?.payType ?? 'HOURLY')
+    setWorkerRate(worker?.hourlyRate ? String(worker.hourlyRate) : '')
+    setWorkerIsDriver(worker?.isDriver ?? false)
+    setWorkerNotes(worker?.notes ?? '')
+  }
+
+  const saveWorker = async () => {
+    const hourlyRate = workerPayType === 'HOURLY' ? Number(workerRate) : null
+    if (!workerName.trim()) return toast.error('Worker name is required.')
+    if (workerPayType === 'HOURLY' && (!hourlyRate || hourlyRate <= 0)) return toast.error('An hourly rate is required.')
+    setSaving(true)
+    try {
+      const now = new Date().toISOString()
+      if (demo.enabled) {
+        demo.updateData((current) => {
+          const id = workerEditingId === 'new' ? `qa-runtime-worker-${current.workers.length + 1}` : workerEditingId as string
+          const previous = current.workers.find((worker) => worker.id === id)
+          const row = {
+            id,
+            name: workerName.trim(),
+            pay_type: workerPayType,
+            hourly_rate: hourlyRate,
+            is_driver: workerIsDriver,
+            is_active: previous?.is_active ?? true,
+            notes: workerNotes.trim() || null,
+            created_at: previous?.created_at ?? now,
+            updated_at: now,
+          }
+          return { ...current, workers: workerEditingId === 'new' ? [...current.workers, row] : current.workers.map((worker) => worker.id === id ? row : worker) }
+        })
+      } else if (workerEditingId === 'new') {
+        const { error } = await controlDb.from('workers').insert({
+          name: workerName.trim(), pay_type: workerPayType, hourly_rate: hourlyRate,
+          is_driver: workerIsDriver, is_active: true, notes: workerNotes.trim() || null,
+        })
+        if (error) throw new Error(error.message)
+      } else if (workerEditingId) {
+        const { error } = await controlDb.from('workers').update({
+          name: workerName.trim(), pay_type: workerPayType, hourly_rate: hourlyRate,
+          is_driver: workerIsDriver, notes: workerNotes.trim() || null, updated_at: now,
+        }).eq('id', workerEditingId)
+        if (error) throw new Error(error.message)
+      }
+      await refresh()
+      setWorkerEditingId(null)
+      toast.success('Worker roster updated.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Worker could not be saved.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const setWorkerActive = async (id: string, active: boolean) => {
+    try {
+      if (demo.enabled) {
+        const now = new Date().toISOString()
+        demo.updateData((current) => ({ ...current, workers: current.workers.map((worker) => worker.id === id ? { ...worker, is_active: active, updated_at: now } : worker) }))
+      } else {
+        const { error } = await controlDb.from('workers').update({ is_active: active, updated_at: new Date().toISOString() }).eq('id', id)
+        if (error) throw new Error(error.message)
+      }
+      await refresh()
+      toast.success(active ? 'Worker reactivated.' : 'Worker made inactive. Pay history remains intact.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Worker could not be updated.')
+    }
+  }
+
   return (
     <SettingsScreen title="Workers">
+      <ReadinessNotice state={readiness.categories.workers} />
       <Panel padded={false} title={`${drivers.length} drivers`}>
         <div className="flex justify-end border-t border-line px-5 py-3">
           <SecondaryButton size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openDriver('new')}>Add driver</SecondaryButton>
@@ -639,9 +729,36 @@ export function SettingsWorkers() {
       </Panel>
 
       <Panel padded={false} title={`${workers.length} on the crew`}>
+        <div className="flex justify-end border-t border-line px-5 py-3">
+          <SecondaryButton size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openWorker('new')}>Add worker</SecondaryButton>
+        </div>
+        {workerEditingId && (
+          <div className="space-y-4 border-t border-ice/25 bg-ice/[0.05] p-5">
+            <div className="font-label text-[13px] font-semibold uppercase tracking-[0.12em] text-ice">
+              {workerEditingId === 'new' ? 'New worker' : 'Edit worker'}
+            </div>
+            <TextField label="Worker name" value={workerName} onChange={setWorkerName} />
+            <SelectField
+              label="Pay type"
+              value={workerPayType}
+              onChange={setWorkerPayType}
+              options={['HOURLY', 'BY_LOAD'] as const}
+              renderOption={(value) => value === 'HOURLY' ? 'Hourly' : 'By loads and routes'}
+            />
+            {workerPayType === 'HOURLY' && (
+              <TextField label="Hourly rate" value={workerRate} onChange={setWorkerRate} inputMode="decimal" />
+            )}
+            <Toggle label="Driver work" line="This does not merge the Worker with the separate Ticket driver roster." value={workerIsDriver} onChange={setWorkerIsDriver} />
+            <TextArea label="Notes" value={workerNotes} onChange={setWorkerNotes} rows={2} />
+            <div className="flex flex-wrap gap-2">
+              <PrimaryButton size="sm" disabled={saving} onClick={() => void saveWorker()}>{saving ? 'Saving' : 'Save'}</PrimaryButton>
+              <SecondaryButton size="sm" onClick={() => setWorkerEditingId(null)}>Cancel</SecondaryButton>
+            </div>
+          </div>
+        )}
         <div className="divide-y divide-line border-t border-line">
           {workers.map((worker) => (
-            <div key={worker.id} className="flex items-start gap-4 px-5 py-4">
+            <div key={worker.id} className="flex flex-wrap items-start gap-4 px-5 py-4">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-raised font-label text-[15px] font-semibold text-cc-muted">
                 {worker.name.charAt(0)}
               </span>
@@ -666,13 +783,21 @@ export function SettingsWorkers() {
                   <div className="mt-1 text-[14px] leading-snug text-cc-muted">{worker.notes}</div>
                 )}
               </div>
+              <div className="flex w-full justify-end gap-2 sm:w-auto">
+                <SecondaryButton size="sm" icon={<Pencil className="h-4 w-4" />} onClick={() => openWorker(worker.id)}>Edit</SecondaryButton>
+                {worker.isActive ? (
+                  <SecondaryButton size="sm" onClick={() => void setWorkerActive(worker.id, false)}>Make inactive</SecondaryButton>
+                ) : (
+                  <BrandButton size="sm" onClick={() => void setWorkerActive(worker.id, true)}>Reactivate</BrandButton>
+                )}
+              </div>
             </div>
           ))}
         </div>
         <div className="border-t border-line px-5 py-4">
           {workers.length === 0 && (
             <StatusPill tone="warn" size="sm">
-              Setup required
+              Needs info
             </StatusPill>
           )}
           <p className="mt-2 text-[13px] leading-snug text-cc-muted">
@@ -704,6 +829,7 @@ export function SettingsCommunication() {
   const automations = sourceData?.automations ?? []
   const previews = useMemo(() => sourceData ? buildAutomationPreviews(sourceData) : [], [sourceData])
   const aiIntegration = sourceData?.aiIntegration
+  const readiness = deriveSettingsReadiness(sourceData ?? null)
 
   const generatePreview = async (ruleId: string) => {
     const preview = previews.find((item) => item.ruleId === ruleId)
@@ -756,6 +882,7 @@ export function SettingsCommunication() {
 
   return (
     <SettingsScreen title="Communication & AI">
+      <ReadinessNotice state={readiness.categories.communication} />
       <Panel title="The business number">
         <TextField
           label="Number"
@@ -769,15 +896,25 @@ export function SettingsCommunication() {
 
       <Panel padded={false} title="Channels">
         <div className="divide-y divide-line border-t border-line">
-          <StatusRow label="SMS" value={setupLabel(settings?.sms_status)} tone={setupTone(settings?.sms_status)} line={settings?.sms_status === 'READY' ? 'Connected.' : 'Not connected.'} />
-          <StatusRow label="Calling" value={setupLabel(settings?.calling_status)} tone={setupTone(settings?.calling_status)} line={settings?.calling_status === 'READY' ? 'Connected.' : 'Not connected.'} />
+          <StatusRow label="SMS" value={readiness.capabilities.sms.label} tone={readinessTone(readiness.capabilities.sms.status)} line={readiness.capabilities.sms.reason} />
+          <StatusRow label="Calling" value={readiness.capabilities.calling.label} tone={readinessTone(readiness.capabilities.calling.status)} line={readiness.capabilities.calling.reason} />
           <StatusRow
-            label="AI replies"
-            value={aiIntegration?.status === 'READY' ? 'Draft ready' : aiIntegration?.status === 'ERROR' ? 'Error' : 'Setup required'}
-            tone={aiIntegration?.status === 'READY' ? 'ice' : aiIntegration?.status === 'ERROR' ? 'now' : 'warn'}
-            line={aiIntegration?.status === 'READY'
-              ? 'OpenAI drafts and dry runs are available internally. No customer transport is enabled.'
-              : aiIntegration?.message ?? 'AI draft schema is not installed. Core Control Center data is unaffected.'}
+            label="AI drafts"
+            value={readiness.capabilities.ai.label}
+            tone={readinessTone(readiness.capabilities.ai.status)}
+            line={readiness.capabilities.ai.reason}
+          />
+          <StatusRow
+            label="Transactional email"
+            value={readiness.capabilities.email.label}
+            tone={readinessTone(readiness.capabilities.email.status)}
+            line={readiness.capabilities.email.reason}
+          />
+          <StatusRow
+            label="Automations"
+            value={readiness.capabilities.automations.label}
+            tone={readinessTone(readiness.capabilities.automations.status)}
+            line={readiness.capabilities.automations.reason}
           />
         </div>
       </Panel>
@@ -812,7 +949,6 @@ export function SettingsCommunication() {
         <div className="divide-y divide-line border-t border-line">
           {automations.map((rule) => {
             const open = openRule === rule.id
-            const status = rule.status as AutomationStatus
             return (
               <div key={rule.id}>
                 <button
@@ -826,8 +962,8 @@ export function SettingsCommunication() {
                       {rule.delay_description}
                     </span>
                   </span>
-                  <StatusPill tone={AUTOMATION_TONE[status]} size="sm" className="shrink-0">
-                    {AUTOMATION_LABEL[status]}
+                  <StatusPill tone={readinessTone(readiness.capabilities.automations.status)} size="sm" className="shrink-0">
+                    {readiness.capabilities.automations.label}
                   </StatusPill>
                 </button>
 
@@ -850,7 +986,7 @@ export function SettingsCommunication() {
                             <StatusPill tone={preview.eligible ? 'ok' : 'idle'} size="sm">
                               {preview.eligible ? 'Eligible' : 'Not eligible'}
                             </StatusPill>
-                            <StatusPill tone="warn" size="sm">SMS setup required</StatusPill>
+                            <StatusPill tone="ice" size="sm">Waiting on number</StatusPill>
                           </div>
                           <div className="mt-3 grid gap-3 text-[13px] sm:grid-cols-2">
                             <Detail label="Customer" value={preview.customerName} />
@@ -1097,6 +1233,7 @@ export function SettingsPrinting() {
   const [copies, setCopies] = useState(1)
   const [testPrint, setTestPrint] = useState<'IDLE' | 'SENT' | 'BUSY'>('IDLE')
   const [saving, setSaving] = useState(false)
+  const readiness = deriveSettingsReadiness(sourceData ?? null)
 
   useEffect(() => {
     const settings = sourceData?.appSettings
@@ -1213,16 +1350,16 @@ export function SettingsPrinting() {
       <Panel padded={false} title="Printer">
         <div className="divide-y divide-line border-t border-line">
           <StatusRow
-            label="On hand"
-            value="80mm only"
-            tone="warn"
-            line={PRINTING.printerName}
+            label="Physical Ticket output"
+            value="Ready"
+            tone="ok"
+            line="The 4×6 monochrome Ticket and real black Monkey Trucking logo have been physically tested."
           />
           <StatusRow
             label="Label format"
-            value="Setup required"
-            tone="warn"
-            line={`${PRINTING.labelSize}. The printer on hand cannot do 4 x 6, so the final printer path is still open.`}
+            value="Ready"
+            tone="ok"
+            line={PRINTING.labelSize}
           />
         </div>
       </Panel>
@@ -1230,7 +1367,7 @@ export function SettingsPrinting() {
       <Panel padded={false} title="System">
         <div className="divide-y divide-line border-t border-line">
           <StatusRow label="Database" value="Connected" tone="ok" line="Supabase." />
-          <StatusRow label="SMS" value="Setup required" tone="warn" line="No business number yet." />
+          <StatusRow label="SMS" value={readiness.capabilities.sms.label} tone={readinessTone(readiness.capabilities.sms.status)} line={readiness.capabilities.sms.reason} />
           <StatusRow
             label="Offline queue"
             value={queued === 0 ? 'Empty' : `${queued} waiting`}
@@ -1255,18 +1392,6 @@ export function SettingsPrinting() {
 }
 
 /* ----------------------------------------------------------------- helpers */
-
-function setupLabel(status?: string) {
-  if (status === 'READY') return 'Ready'
-  if (status === 'OFF') return 'Off'
-  return 'Setup required'
-}
-
-function setupTone(status?: string): PillTone {
-  if (status === 'READY') return 'ok'
-  if (status === 'OFF') return 'idle'
-  return 'warn'
-}
 
 function jsonTextList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []

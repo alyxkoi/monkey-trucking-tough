@@ -231,6 +231,7 @@ export type ControlSettings = {
   ai_status: "READY" | "SETUP_REQUIRED" | "OFF";
   payment_processor_status: "READY" | "SETUP_REQUIRED" | "OFF";
   printable_logo_status: "READY" | "SETUP_REQUIRED";
+  email_status?: "READY" | "SETUP_REQUIRED" | "OFF";
   ai_english: boolean;
   ai_spanish: boolean;
   human_takeover_on_reply: boolean;

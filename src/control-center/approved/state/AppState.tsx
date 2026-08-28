@@ -42,11 +42,13 @@ import { useDemoMode } from '@/control-center/demo/DemoMode'
 import { QA_FIXTURE_USER_ID } from '@/control-center/demo/constants'
 import {
   correctTicket,
+  deleteTicketPermanently,
   getQueue,
   saveTicket as saveTicketRecord,
   voidTicket as voidTicketRecord,
   type TicketDraft,
 } from '@/lib/admin/tickets'
+import { ticketDeleteProtection, type TicketDeleteResult } from '@/control-center/ticketDeletion'
 import { outputTicketPng, renderTicketPng } from '@/lib/admin/print'
 import { deriveAttention, type AttentionItem } from './attention'
 import { dateKey, type Job, type JobCategory } from './jobsData'
@@ -189,6 +191,7 @@ export type AppStateValue = {
   saveTicket: (input: SaveTicketInput) => Promise<string>
   updateTicket: (ticketId: string, input: SaveTicketInput, note: string) => Promise<void>
   voidTicket: (ticketId: string, reason: string) => void
+  deleteTicket: (ticketId: string, confirmation: string, reason: string) => Promise<TicketDeleteResult>
   printTicket: (ticketId: string) => void
   invoices: Invoice[]
   payments: Payment[]
@@ -781,6 +784,29 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => { const before = current.tickets.find((row) => row.id === id) ?? null; return { ...current, tickets: current.tickets.map((row) => row.id === id ? { ...row, status: 'void', voided_at: now, void_reason: reason, voided_by: QA_FIXTURE_USER_ID, updated_at: now } : row), ticketHistory: [{ id: `qa-runtime-ticket-history-${current.ticketHistory.length + 1}`, ticket_id: id, event_type: 'voided', reason, before_snapshot: before, after_snapshot: null, actor_id: QA_FIXTURE_USER_ID, actor_label: 'Salvador', created_at: now }, ...current.ticketHistory] } }); return }
     await voidTicketRecord(id, reason); await refresh()
   }), [demo, launch, refresh])
+  const deleteTicket = useCallback(async (id: string, confirmation: string, reason: string): Promise<TicketDeleteResult> => {
+    if (demo.enabled) {
+      if (!data) return { status: 'NOT_FOUND' }
+      const ticket = data.tickets.find((row) => row.id === id)
+      if (!ticket) return { status: 'NOT_FOUND' }
+      if (confirmation.trim() !== ticket.ticket_number) {
+        return { status: 'CONFIRMATION_MISMATCH', ticket_number: ticket.ticket_number }
+      }
+      const protectedResult = ticketDeleteProtection(data, id)
+      if (protectedResult) return protectedResult
+      demo.updateData((current) => ({
+        ...current,
+        tickets: current.tickets.filter((row) => row.id !== id),
+        ticketItems: current.ticketItems.filter((row) => row.ticket_id !== id),
+        ticketHistory: current.ticketHistory.filter((row) => row.ticket_id !== id),
+        activities: current.activities.filter((row) => !(row.entity_type === 'TICKET' && row.entity_id === id)),
+      }))
+      return { status: 'DELETED', ticket_number: ticket.ticket_number }
+    }
+    const result = await deleteTicketPermanently(id, confirmation, reason)
+    if (result.status === 'DELETED') await refresh()
+    return result
+  }, [data, demo, refresh])
   const printTicket = useCallback((id: string) => {
     const ticket = ticketById(id); if (!ticket || !ticket.number) return
     const customer = customerById(ticket.customerId); const totals = ticketTotals(ticket)
@@ -946,12 +972,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     newSheetOpen, setNewSheetOpen, newLeadSheetOpen, setNewLeadSheetOpen, newJobSheetOpen, setNewJobSheetOpen, pinnedBarActive, setPinnedBarActive,
     customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer,
     jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes,
-    tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, printTicket,
+    tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, deleteTicket, printTicket,
     invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor,
     createInvoiceFromJob, createInvoiceFromTicket, reviseInvoice, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment,
     findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote,
     communicationReady: data?.controlSettings?.sms_status === 'READY', emailSendingFor, sourceData: data,
-  }), [period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, showAllAttention, snoozeAttention, unsnoozeAttention, lastAction, undoLastAction, loading, moneyLoading, demo.enabled, online, syncing, pendingTickets, lastSyncAt, cycleSync, newSheetOpen, newLeadSheetOpen, newJobSheetOpen, pinnedBarActive, customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer, jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes, tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, printTicket, invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor, createInvoiceFromJob, createInvoiceFromTicket, reviseInvoice, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment, findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote, emailSendingFor, data])
+  }), [period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, showAllAttention, snoozeAttention, unsnoozeAttention, lastAction, undoLastAction, loading, moneyLoading, demo.enabled, online, syncing, pendingTickets, lastSyncAt, cycleSync, newSheetOpen, newLeadSheetOpen, newJobSheetOpen, pinnedBarActive, customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer, jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes, tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, deleteTicket, printTicket, invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor, createInvoiceFromJob, createInvoiceFromTicket, reviseInvoice, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment, findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote, emailSendingFor, data])
 
   if (loading && !data) {
     return <div className="min-h-screen" aria-label="Loading Control Center" />

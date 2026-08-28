@@ -27,7 +27,7 @@ export type Material = {
   sortOrder: number
 }
 
-export const MATERIALS: Material[] = [
+export const APPROVED_MATERIALS: readonly Material[] = [
   {
     id: 'mat-1',
     name: 'Commercial Crushed Concrete Clean',
@@ -119,6 +119,9 @@ export const MATERIALS: Material[] = [
     sortOrder: 10,
   },
 ]
+
+/** Mutable runtime catalog hydrated from Supabase for Quote and Ticket pickers. */
+export const MATERIALS: Material[] = APPROVED_MATERIALS.map((material) => ({ ...material }))
 
 export function materialById(id: string): Material | undefined {
   return MATERIALS.find((material) => material.id === id)
