@@ -61,7 +61,7 @@ const CATEGORIES: Category[] = [
   {
     key: 'tracking',
     label: 'Tracking Links',
-    line: 'Where leads come from, without an attribution platform',
+    line: 'Tracked visits, campaigns and Lead attribution',
     to: '/admin/settings/tracking',
     icon: Link2,
     iconClass: 'bg-[#685d7d] text-white',
@@ -134,7 +134,7 @@ export function SettingsHome() {
                       </StatusPill>
                     )}
                   </span>
-                  <span className="mt-0.5 block text-[14px] leading-snug text-cc-muted">{state.reason}</span>
+                  <span className="mt-0.5 block text-[14px] leading-snug text-cc-muted">{active ? state.reason : category.line}</span>
                 </span>
                 <ChevronRight className="h-5 w-5 shrink-0 text-idle" strokeWidth={2} />
               </button>
@@ -165,9 +165,6 @@ export function SettingsHome() {
             <div className="px-5 py-5 text-[15px] text-ok">No configuration blockers remain. Ready for final QA.</div>
           )}
         </div>
-        <p className="border-t border-line px-5 py-3 text-[13px] leading-snug text-cc-muted">
-          Computed from the same managed configuration shown inside each Settings section.
-        </p>
       </Panel>
     </div>
   )

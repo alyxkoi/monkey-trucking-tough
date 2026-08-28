@@ -622,7 +622,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const quoteNumber = `Q${1110 + (data?.quotes.length ?? 0)}`
       demo.updateData((current) => ({
         ...current,
-        quotes: [{ id: quoteId, quote_number: quoteNumber, customer_id: lead.customer_id, lead_id: id, status: 'DRAFT', description: lead.need, address: '', delivery_type: null, delivery_miles: null, delivery_fee_per_load: 0, delivery_load_count: 0, delivery_total: 0, materials_subtotal: 0, custom_work_subtotal: 0, tax_rate: effectiveTaxRate(current.appSettings), tax_applies_to_delivery: current.appSettings?.tax_applies_to_delivery ?? true, custom_work_tax_rule: current.controlSettings?.custom_work_tax_rule ?? 'PENDING', tax_amount: 0, grand_total: 0, notes: null, sent_at: null, accepted_at: null, declined_at: null, voided_at: null, void_reason: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.quotes],
+        quotes: [{ id: quoteId, quote_number: quoteNumber, customer_id: lead.customer_id, lead_id: id, status: 'DRAFT', description: lead.need, address: '', delivery_type: null, delivery_miles: null, delivery_fee_per_load: 0, delivery_load_count: 0, delivery_total: 0, materials_subtotal: 0, custom_work_subtotal: 0, tax_rate: effectiveTaxRate(current.appSettings), tax_applies_to_delivery: false, custom_work_tax_rule: 'EXEMPT', tax_amount: 0, grand_total: 0, notes: null, sent_at: null, accepted_at: null, declined_at: null, voided_at: null, void_reason: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.quotes],
         leads: current.leads.map((row) => row.id === id ? { ...row, status: 'QUOTED', updated_at: now } : row),
       }))
       return quoteId
@@ -657,8 +657,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           materials_subtotal: draft.materialsSubtotal,
           custom_work_subtotal: draft.customWorkSubtotal,
           tax_rate: draft.taxRate,
-          tax_applies_to_delivery: draft.taxOnDelivery,
-          custom_work_tax_rule: draft.customWorkTaxRule,
+          tax_applies_to_delivery: false,
+          custom_work_tax_rule: 'EXEMPT',
           tax_amount: draft.taxAmount,
           grand_total: draft.grandTotal,
           updated_at: now,
@@ -735,7 +735,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     const customer = customerById(input.customerId)
     const fee = deliveryFeePerLoad(input.delivery)
     const taxRate = effectiveTaxRate(data?.appSettings)
-    const taxOnDelivery = data?.appSettings?.tax_applies_to_delivery ?? true
+    const taxOnDelivery = false
     const totals = computeTotals({ materialLines: input.materialLines, customLines: [], delivery: input.delivery, deliveryLoads: input.deliveryLoads, taxRate, taxOnDelivery })
     return {
       customer_name: customer?.name ?? '', customer_phone: customer?.phone ?? '', job_site_address: input.address,

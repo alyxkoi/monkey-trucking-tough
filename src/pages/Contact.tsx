@@ -12,6 +12,7 @@ import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import CTASection from "@/components/CTASection";
 import ContactActionSheet from "@/components/ContactActionSheet";
+import { getTrackingAttribution } from "@/lib/trackingAttribution";
 
 const SMS_DISCLOSURE_VERSION = "website-contact-v1-2026-08-27";
 
@@ -33,7 +34,11 @@ const Contact = () => {
     setIsSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke("send-contact-email", {
-        body: { ...form, smsDisclosureVersion: SMS_DISCLOSURE_VERSION },
+        body: {
+          ...form,
+          smsDisclosureVersion: SMS_DISCLOSURE_VERSION,
+          trackingAttribution: getTrackingAttribution(),
+        },
       });
       if (error) throw error;
       toast("Message sent! We'll get back to you soon.", { description: "Thank you for contacting Monkey Trucking." });

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Check, Copy, Link2, Pencil, Plus, Printer, Sparkles, Trash2 } from 'lucide-react'
+import { Archive, Check, Copy, Link2, Pencil, Plus, Printer, RotateCcw, Sparkles, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
@@ -11,17 +11,17 @@ import { SegmentControl } from '@/control-center/approved/components/ui/SegmentC
 import { StatusPill, type PillTone } from '@/control-center/approved/components/ui/StatusPill'
 import { InitialAvatar } from '@/control-center/approved/components/ui/CustomerInitialAvatar'
 import { cn } from '@/control-center/approved/lib/cn'
-import { formatTaxRate, shortAgo, usd } from '@/control-center/approved/lib/format'
+import { shortAgo, usd } from '@/control-center/approved/lib/format'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import { AI_SAMPLES } from '@/control-center/approved/state/automationData'
 import { DELIVERY_OPTIONS } from '@/control-center/approved/state/pricing'
-import { effectiveTaxRate, percentagePoints } from '@/control-center/billing'
+import { effectiveTaxRate } from '@/control-center/billing'
 import {
   BUSINESS,
   LINK_SOURCES,
   PRINTING,
 } from '@/control-center/approved/state/settingsData'
-import { controlDb } from '@/control-center/data'
+import { controlDb, createTrackingLink, deleteTrackingLinkIfUnused, setTrackingLinkArchived, type TrackingLink } from '@/control-center/data'
 import { useControlCenter } from '@/control-center/context'
 import { useDemoMode } from '@/control-center/demo/DemoMode'
 import { QA_FIXTURE_USER_ID } from '@/control-center/demo/constants'
@@ -31,6 +31,7 @@ import { BUILD_INFO } from '@/lib/buildInfo'
 import { buildAutomationPreviews } from '@/control-center/ai/automationDryRun'
 import { generateAutomationDraft } from '@/control-center/ai/service'
 import { deriveSettingsReadiness, readinessTone, type ReadinessItem } from '@/control-center/readiness'
+import { trackingRedirectUrl } from '@/lib/trackingAttribution'
 
 /* ------------------------------------------------------------------ shared */
 
@@ -65,6 +66,7 @@ function StatusRow({
   tone?: PillTone
   line?: string
 }) {
+  const showValue = !value.trim().toLowerCase().endsWith('ready')
   return (
     <div className="flex items-start justify-between gap-4 px-5 py-4">
       <div className="min-w-0">
@@ -73,9 +75,9 @@ function StatusRow({
         </div>
         {line && <div className="mt-0.5 text-[14px] leading-snug text-cc-muted">{line}</div>}
       </div>
-      <StatusPill tone={tone} size="sm" className="shrink-0">
+      {showValue && <StatusPill tone={tone} size="sm" className="shrink-0">
         {value}
-      </StatusPill>
+      </StatusPill>}
     </div>
   )
 }
@@ -116,16 +118,11 @@ export function SettingsBusiness() {
   const [dueDays, setDueDays] = useState(3)
   const [taxEnabled, setTaxEnabled] = useState(false)
   const [taxRate, setTaxRate] = useState('0')
-  const [taxOnDelivery, setTaxOnDelivery] = useState(true)
-  const [customWorkTax, setCustomWorkTax] = useState<'PENDING' | 'TAXED' | 'NOT_TAXED'>('PENDING')
   const [processingFeeEnabled, setProcessingFeeEnabled] = useState(false)
   const [processingFeeRate, setProcessingFeeRate] = useState('0')
   const [saving, setSaving] = useState(false)
   const readiness = deriveSettingsReadiness(sourceData ?? null)
   const paymentReadiness = readiness.capabilities.payments
-  const configuredTaxRate = Number(taxRate)
-  const currentTaxRate = taxEnabled ? percentagePoints(configuredTaxRate) : 0
-  const hasZeroTax = !taxEnabled || Math.abs(currentTaxRate) < 0.001
 
   useEffect(() => {
     const business = sourceData?.appSettings
@@ -137,14 +134,12 @@ export function SettingsBusiness() {
       setCityStateZip(business.company_city_state_zip)
       setTaxEnabled(business.tax_enabled ?? effectiveTaxRate(business) > 0)
       setTaxRate(String(Number(business.tax_rate)))
-      setTaxOnDelivery(business.tax_applies_to_delivery)
     }
     if (control) {
       setEmail(control.company_email ?? '')
       setDueDays(control.default_invoice_due_days)
       setProcessingFeeEnabled(control.processing_fee_enabled ?? false)
       setProcessingFeeRate(String(Number(control.processing_fee_rate ?? 0)))
-      setCustomWorkTax(control.custom_work_tax_rule === 'EXEMPT' ? 'NOT_TAXED' : control.custom_work_tax_rule)
     }
   }, [sourceData])
 
@@ -174,8 +169,8 @@ export function SettingsBusiness() {
         const now = new Date().toISOString()
         demo.updateData((current) => ({
           ...current,
-          appSettings: current.appSettings ? { ...current.appSettings, company_name: name.trim(), company_phone: phone.trim(), company_address: address.trim(), company_city_state_zip: cityStateZip.trim(), tax_enabled: taxEnabled, tax_rate: nextTaxRate, tax_applies_to_delivery: taxOnDelivery, updated_at: now } : null,
-          controlSettings: current.controlSettings ? { ...current.controlSettings, company_email: email.trim() || null, default_invoice_due_days: dueDays, processing_fee_enabled: processingFeeEnabled, processing_fee_rate: nextProcessingFeeRate, custom_work_tax_rule: customWorkTax === 'NOT_TAXED' ? 'EXEMPT' : customWorkTax, updated_at: now } : null,
+          appSettings: current.appSettings ? { ...current.appSettings, company_name: name.trim(), company_phone: phone.trim(), company_address: address.trim(), company_city_state_zip: cityStateZip.trim(), tax_enabled: taxEnabled, tax_rate: nextTaxRate, tax_applies_to_delivery: false, updated_at: now } : null,
+          controlSettings: current.controlSettings ? { ...current.controlSettings, company_email: email.trim() || null, default_invoice_due_days: dueDays, processing_fee_enabled: processingFeeEnabled, processing_fee_rate: nextProcessingFeeRate, custom_work_tax_rule: 'EXEMPT', updated_at: now } : null,
         }))
         toast.success('Business settings saved in demo memory.')
         return
@@ -188,14 +183,14 @@ export function SettingsBusiness() {
           company_city_state_zip: cityStateZip.trim(),
           tax_enabled: taxEnabled,
           tax_rate: nextTaxRate,
-          tax_applies_to_delivery: taxOnDelivery,
+          tax_applies_to_delivery: false,
         }).eq('id', sourceData.appSettings.id),
         controlDb.from('control_center_settings').update({
           company_email: email.trim() || null,
           default_invoice_due_days: dueDays,
           processing_fee_enabled: processingFeeEnabled,
           processing_fee_rate: nextProcessingFeeRate,
-          custom_work_tax_rule: customWorkTax === 'NOT_TAXED' ? 'EXEMPT' : customWorkTax,
+          custom_work_tax_rule: 'EXEMPT',
         }).eq('id', 1),
       ])
       if (business.error) throw new Error(business.error.message)
@@ -237,23 +232,9 @@ export function SettingsBusiness() {
       </Panel>
 
       <Panel title="Tax">
-        <div className="space-y-5">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <div className="font-label text-[12px] font-semibold uppercase tracking-[0.16em] text-cc-muted">
-                Rate
-              </div>
-              <div className="mt-1 font-display display-tight tnum text-[36px]">
-                {formatTaxRate(currentTaxRate)}
-              </div>
-              <div className="mt-1 text-[14px] text-cc-muted">Applied to new records right now.</div>
-            </div>
-            <StatusPill tone={taxEnabled ? 'ok' : 'idle'} size="sm">{taxEnabled ? 'On' : 'Off'}</StatusPill>
-          </div>
-
+        <div className="space-y-4">
           <Toggle
             label="Charge tax"
-            line="When off, new Quotes and Tickets apply 0% while keeping the configured percentage available for later."
             value={taxEnabled}
             onChange={setTaxEnabled}
           />
@@ -263,59 +244,8 @@ export function SettingsBusiness() {
             value={taxRate}
             onChange={setTaxRate}
             inputMode="decimal"
-            hint="Enter percentage points. For example, 8.25 means 8.25%."
+            hint="Applied to material only. 8.25 means 8.25%."
           />
-
-          <Toggle
-            label="Charge tax on delivery"
-            line={taxEnabled ? 'Off means tax applies to material only.' : 'Saved for the next time tax is enabled.'}
-            value={taxOnDelivery}
-            onChange={setTaxOnDelivery}
-          />
-
-          {/*
-            Internal only. This question is never phrased on a customer facing
-            quote or invoice, it lives here as an admin decision.
-          */}
-          <div className={cn(
-            'rounded-panel border p-4',
-            hasZeroTax ? 'border-line bg-raised/55' : 'border-warn/40 bg-warn/10',
-          )}>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={cn(
-                'font-label text-[13px] font-semibold uppercase tracking-[0.12em]',
-                hasZeroTax ? 'text-ink' : 'text-warn',
-              )}>
-                Custom work tax
-              </span>
-              {hasZeroTax ? (
-                <StatusPill tone="ok" size="sm">
-                  0% current rate
-                </StatusPill>
-              ) : customWorkTax === 'PENDING' && (
-                <StatusPill tone="warn" size="sm">
-                  Needs info
-                </StatusPill>
-              )}
-            </div>
-            <p className="mt-2 text-[14px] leading-snug text-ink/80">
-              {hasZeroTax
-                ? 'Custom work is currently treated at the same 0% operational tax rate. The future tax rule remains configurable if the active rate changes.'
-                : 'The ticket system only defines tax on material and delivery. Until this is set, service work stays out of the taxable base.'}
-            </p>
-            {!hasZeroTax && <div className="mt-4">
-              <SegmentControl
-                options={[
-                  { value: 'PENDING' as const, label: 'Not set' },
-                  { value: 'TAXED' as const, label: 'Taxed' },
-                  { value: 'NOT_TAXED' as const, label: 'Not taxed' },
-                ]}
-                value={customWorkTax}
-                onChange={setCustomWorkTax}
-                size="sm"
-              />
-            </div>}
-          </div>
         </div>
       </Panel>
 
@@ -345,8 +275,8 @@ export function SettingsBusiness() {
             </div>
             <div className="mt-4 space-y-4">
               <Toggle
-                label="Add processing fee"
-                line="Adds one clearly labeled fee to each new Invoice. The rate is snapshotted so later changes never rewrite an existing Invoice."
+                label="Processing fee"
+                line="Adds this percentage to new invoices."
                 value={processingFeeEnabled}
                 onChange={setProcessingFeeEnabled}
               />
@@ -355,21 +285,17 @@ export function SettingsBusiness() {
                 value={processingFeeRate}
                 onChange={setProcessingFeeRate}
                 inputMode="decimal"
-                hint={processingFeeEnabled
-                  ? 'Applied once to the Invoice subtotal before payment. Stripe and manual payment collect the resulting full balance.'
-                  : 'Stored but not applied while the processing fee is off.'}
+                hint={processingFeeEnabled ? 'Added as a separate invoice line.' : undefined}
               />
             </div>
           </div>
-          <div className="border-t border-line pt-4">
+          {paymentReadiness.status !== 'READY' && <div className="border-t border-line pt-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="font-label text-[12px] font-semibold uppercase tracking-[0.16em] text-cc-muted">
                   Online invoice payment
                 </div>
-                <p className="mt-1 text-[14px] leading-snug text-cc-muted">
-                  Stripe-hosted Checkout on secure sent Invoices. Manual payment methods stay available.
-                </p>
+                <p className="mt-1 text-[14px] leading-snug text-cc-muted">Online payment for sent invoices.</p>
               </div>
               <StatusPill
                 tone={readinessTone(paymentReadiness.status)}
@@ -378,8 +304,7 @@ export function SettingsBusiness() {
                 {paymentReadiness.label}
               </StatusPill>
             </div>
-            <p className="mt-2 text-[13px] leading-snug text-cc-muted">{paymentReadiness.reason}</p>
-          </div>
+          </div>}
         </div>
       </Panel>
 
@@ -616,8 +541,7 @@ export function SettingsMaterials() {
           ))}
         </div>
         <p className="border-t border-line px-5 py-3 text-[13px] leading-snug text-cc-muted">
-          This is the one price list. Unused mistakes can be deleted. Materials already used
-          on a Quote or Ticket stay in history and can only be made inactive.
+          Used materials stay in history and can only be made inactive.
         </p>
       </Panel>
 
@@ -633,8 +557,7 @@ export function SettingsMaterials() {
           ))}
         </div>
         <p className="border-t border-line px-5 py-3 text-[13px] leading-snug text-cc-muted">
-          Delivery is charged per load and multiplied by the delivery load count on the
-          record. Everything is sold in yards, tons are not used anywhere.
+          Delivery is priced per delivery load. Material quantities stay in yards.
         </p>
       </Panel>
     </SettingsScreen>
@@ -816,7 +739,7 @@ export function SettingsWorkers() {
           )}
         </div>
         <p className="border-t border-line px-5 py-3 text-[13px] leading-snug text-cc-muted">
-          Drivers are operational records, not user accounts. Inactive drivers remain visible on historical tickets.
+          Drivers are records, not user accounts.
         </p>
       </Panel>
 
@@ -893,17 +816,16 @@ export function SettingsWorkers() {
             </div>
           ))}
         </div>
-        <div className="border-t border-line px-5 py-4">
-          {workers.length === 0 && (
+        {workers.length === 0 && <div className="border-t border-line px-5 py-4">
+          <div>
             <StatusPill tone="warn" size="sm">
               Needs info
             </StatusPill>
-          )}
+          </div>
           <p className="mt-2 text-[13px] leading-snug text-cc-muted">
-            {workers.length === 0 ? 'Add the real roster before launch. ' : ''}
-            Workers never get a login, a portal or a time clock.
+            Add the real roster before launch.
           </p>
-        </div>
+        </div>}
       </Panel>
     </SettingsScreen>
   )
@@ -989,7 +911,7 @@ export function SettingsCommunication() {
           onChange={setNumber}
           inputMode="tel"
           placeholder="Not connected yet"
-          hint="This is what keeps business texts off Salvador's personal phone. Every customer automation stays off until it is connected."
+          hint="Required for business SMS and calling."
         />
       </Panel>
 
@@ -1020,23 +942,20 @@ export function SettingsCommunication() {
 
       <Panel title="How it talks">
         <div className="space-y-4">
-          <Toggle label="English" line="Replies naturally in English." value={english} onChange={setEnglish} />
+          <Toggle label="English" value={english} onChange={setEnglish} />
           <Toggle
             label="Spanish"
-            line="Replies naturally in Spanish, and understands Spanglish either way."
+            line="Includes Spanish and Spanglish."
             value={spanish}
             onChange={setSpanish}
           />
           <Toggle
             label="Human takeover"
-            line="When you reply, the AI stops talking on that conversation."
+            line="Stops AI when Salvador replies."
             value={takeover}
             onChange={setTakeover}
           />
         </div>
-        <p className="mt-4 text-[13px] leading-snug text-cc-muted">
-          Dashboard copy stays English. The language rules apply to what customers receive.
-        </p>
         <div className="mt-5">
           <PrimaryButton onClick={() => void save()} disabled={saving}>
             {saving ? 'Saving' : 'Save Changes'}
@@ -1061,9 +980,9 @@ export function SettingsCommunication() {
                       {rule.delay_description}
                     </span>
                   </span>
-                  <StatusPill tone={readinessTone(readiness.capabilities.automations.status)} size="sm" className="shrink-0">
+                  {readiness.capabilities.automations.status !== 'READY' && <StatusPill tone={readinessTone(readiness.capabilities.automations.status)} size="sm" className="shrink-0">
                     {readiness.capabilities.automations.label}
-                  </StatusPill>
+                  </StatusPill>}
                 </button>
 
                 {open && (
@@ -1085,7 +1004,7 @@ export function SettingsCommunication() {
                             <StatusPill tone={preview.eligible ? 'ok' : 'idle'} size="sm">
                               {preview.eligible ? 'Eligible' : 'Not eligible'}
                             </StatusPill>
-                            <StatusPill tone="ice" size="sm">Waiting on number</StatusPill>
+                            {readiness.capabilities.sms.status !== 'READY' && <StatusPill tone="ice" size="sm">{readiness.capabilities.sms.label}</StatusPill>}
                           </div>
                           <div className="mt-3 grid gap-3 text-[13px] sm:grid-cols-2">
                             <Detail label="Customer" value={preview.customerName} />
@@ -1138,9 +1057,7 @@ export function SettingsCommunication() {
           ))}
         </div>
         <p className="border-t border-line px-5 py-3 text-[13px] leading-snug text-cc-muted">
-          Lowercase start, short, friendly, no hyphens and no em dashes. It reads the whole
-          conversation first and only asks for what is still missing. Anything that needs
-          business judgement goes to Salvador instead of being guessed.
+          Short, friendly, context-aware. Business judgment always goes to Salvador.
         </p>
       </Panel>
     </SettingsScreen>
@@ -1155,36 +1072,49 @@ export function SettingsTracking() {
   const demo = useDemoMode()
   const [source, setSource] = useState(LINK_SOURCES[0])
   const [campaign, setCampaign] = useState('')
-  const [destination, setDestination] = useState('monkeytrucking.llc')
+  const [destination, setDestination] = useState('https://monkeytrucking.llc/contact')
+  const [view, setView] = useState<'ACTIVE' | 'ARCHIVED'>('ACTIVE')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [workingId, setWorkingId] = useState<string | null>(null)
   const links = sourceData?.trackingLinks ?? []
+  const readiness = deriveSettingsReadiness(sourceData ?? null)
+  const integrationReady = demo.enabled || sourceData?.trackingIntegration.status === 'READY'
 
-  const slug = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '-')
-  const preview = `${destination}/?source=${slug(source)}${campaign ? `&campaign=${slug(campaign)}` : ''}`
+  const slug = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  const preview = trackingRedirectUrl(`${slug(campaign || 'campaign')}-xxxxxx`)
+  const visibleLinks = links.filter((link) => view === 'ACTIVE' ? link.is_active !== false : link.is_active === false)
 
   const generate = async () => {
     if (!campaign.trim()) {
       toast.error('Campaign is required.')
       return
     }
+    if (!integrationReady) {
+      toast.error('Tracking deployment is required before creating tracked links.')
+      return
+    }
+    let safeDestination: string
+    try {
+      const value = /^https?:\/\//i.test(destination.trim()) ? destination.trim() : `https://${destination.trim()}`
+      const parsed = new URL(value)
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error()
+      safeDestination = parsed.toString()
+    } catch {
+      toast.error('Enter a valid public destination URL.')
+      return
+    }
     setSaving(true)
     try {
-      const uniqueSlug = `${slug(source)}-${slug(campaign)}-${Date.now().toString(36)}`
+      const uniqueSlug = `${slug(campaign)}-${crypto.randomUUID().slice(0, 6)}`
       if (demo.enabled) {
         const now = new Date().toISOString()
-        demo.updateData((current) => ({ ...current, trackingLinks: [{ id: `qa-runtime-link-${current.trackingLinks.length + 1}`, source, campaign: campaign.trim(), destination: destination.trim(), slug: uniqueSlug, visits: 0, leads: 0, customers: 0, created_by: QA_FIXTURE_USER_ID, created_at: now }, ...current.trackingLinks] }))
+        demo.updateData((current) => ({ ...current, trackingLinks: [{ id: `qa-runtime-link-${current.trackingLinks.length + 1}`, source, campaign: campaign.trim(), destination: safeDestination, slug: uniqueSlug, visits: 0, leads: 0, customers: 0, is_active: true, archived_at: null, archived_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now }, ...current.trackingLinks] }))
         setCampaign('')
         toast.success('Tracking link created in demo memory.')
         return
       }
-      const { error } = await controlDb.from('tracking_links').insert({
-        source,
-        campaign: campaign.trim(),
-        destination: destination.trim(),
-        slug: uniqueSlug,
-      })
-      if (error) throw new Error(error.message)
+      await createTrackingLink({ source, campaign, destination: safeDestination })
       await refresh()
       setCampaign('')
       toast.success('Tracking link created.')
@@ -1195,38 +1125,100 @@ export function SettingsTracking() {
     }
   }
 
-  const linkUrl = (link: (typeof links)[number]) =>
-    `${link.destination}/?source=${slug(link.source)}${link.campaign ? `&campaign=${slug(link.campaign)}` : ''}`
+  const linkUrl = (link: TrackingLink) => trackingRedirectUrl(link.slug)
 
-  const copy = (link: (typeof links)[number]) => {
-    navigator.clipboard?.writeText(linkUrl(link))
-    setCopiedId(link.id)
-    window.setTimeout(() => setCopiedId((current) => (current === link.id ? null : current)), 2000)
+  const copy = async (link: TrackingLink) => {
+    if (!integrationReady) {
+      toast.error('Tracking deployment is required before this URL can be used.')
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(linkUrl(link))
+      setCopiedId(link.id)
+      window.setTimeout(() => setCopiedId((current) => (current === link.id ? null : current)), 2000)
+    } catch {
+      toast.error('Copy failed. Select the tracked URL and copy it manually.')
+    }
+  }
+
+  const setArchived = async (link: TrackingLink, archived: boolean) => {
+    setWorkingId(link.id)
+    try {
+      if (demo.enabled) {
+        const now = new Date().toISOString()
+        demo.updateData((current) => ({
+          ...current,
+          trackingLinks: current.trackingLinks.map((item) => item.id === link.id ? {
+            ...item,
+            is_active: !archived,
+            archived_at: archived ? now : null,
+            archived_by: archived ? QA_FIXTURE_USER_ID : null,
+          } : item),
+        }))
+      } else {
+        await setTrackingLinkArchived(link.id, archived)
+        await refresh()
+      }
+      toast.success(archived ? 'Tracking link archived.' : 'Tracking link reactivated.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Tracking link could not be updated.')
+    } finally {
+      setWorkingId(null)
+    }
+  }
+
+  const remove = async (link: TrackingLink) => {
+    if (!window.confirm(`Delete this unused tracking link?\n\n${link.campaign}`)) return
+    setWorkingId(link.id)
+    try {
+      const result = demo.enabled
+        ? link.visits + link.leads + link.customers === 0
+          ? { status: 'DELETED' as const }
+          : { status: 'PROTECTED' as const }
+        : await deleteTrackingLinkIfUnused(link.id)
+
+      if (result.status === 'PROTECTED') {
+        toast.error('This link has attributed activity. Archive it instead.')
+        return
+      }
+      if (result.status !== 'DELETED') throw new Error('Tracking link no longer exists.')
+      if (demo.enabled) {
+        demo.updateData((current) => ({ ...current, trackingLinks: current.trackingLinks.filter((item) => item.id !== link.id) }))
+      } else {
+        await refresh()
+      }
+      toast.success('Unused tracking link deleted.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Tracking link could not be deleted.')
+    } finally {
+      setWorkingId(null)
+    }
   }
 
   return (
     <SettingsScreen title="Tracking Links">
-      <Panel title="Make a link">
-        <div className="space-y-4">
+      <ReadinessNotice state={readiness.categories.tracking} />
+      <Panel title="New link">
+        <div className="grid gap-4 lg:grid-cols-[180px_minmax(220px,0.8fr)_minmax(280px,1.2fr)]">
           <SelectField label="Source" value={source} onChange={setSource} options={LINK_SOURCES} />
           <TextField
             label="Campaign"
             value={campaign}
             onChange={setCampaign}
-            placeholder="spring-flyer"
+            placeholder="August driveway campaign"
           />
           <TextField label="Destination" value={destination} onChange={setDestination} />
-
-          <div className="rounded-xl border border-line bg-raised px-4 py-3">
+        </div>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="min-w-0 flex-1 rounded-xl border border-line bg-raised px-4 py-3">
             <div className="font-label text-[12px] font-semibold uppercase tracking-[0.14em] text-cc-muted">
-              Preview
+              Tracked URL preview
             </div>
-            <div className="mt-1 break-all text-[14px] text-ice">{preview}</div>
+            <div className="mt-1 truncate text-[14px] text-ice" title={preview}>{preview}</div>
           </div>
-
           <PrimaryButton
             onClick={() => void generate()}
-            disabled={saving}
+            disabled={saving || !integrationReady}
             icon={<Link2 className="h-4 w-4" strokeWidth={2.2} />}
           >
             {saving ? 'Generating' : 'Generate Link'}
@@ -1234,46 +1226,67 @@ export function SettingsTracking() {
         </div>
       </Panel>
 
-      <Panel padded={false} title={`${links.length} links`}>
-        <div className="divide-y divide-line border-t border-line">
-          {links.map((link) => (
-            <div key={link.id} className="px-5 py-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[15px] font-semibold text-ink">{link.source}</span>
-                {link.campaign && (
-                  <StatusPill tone="neutral" size="sm">
-                    {link.campaign}
-                  </StatusPill>
-                )}
-              </div>
-              <div className="mt-1 break-all text-[13px] text-cc-muted">{linkUrl(link)}</div>
+      <div className="flex justify-end">
+        <SegmentControl
+          options={[
+            { value: 'ACTIVE' as const, label: `Active ${links.filter((link) => link.is_active !== false).length}` },
+            { value: 'ARCHIVED' as const, label: `Archived ${links.filter((link) => link.is_active === false).length}` },
+          ]}
+          value={view}
+          onChange={setView}
+          size="sm"
+        />
+      </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-5">
-                <Metric label="Visits" value={link.visits} />
-                <Metric label="Leads" value={link.leads} />
-                <Metric label="Customers" value={link.customers} />
-                <SecondaryButton
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => copy(link)}
-                  icon={
-                    copiedId === link.id ? (
-                      <Check className="h-4 w-4" strokeWidth={2.6} />
-                    ) : (
-                      <Copy className="h-4 w-4" strokeWidth={2.2} />
-                    )
-                  }
-                >
-                  {copiedId === link.id ? 'Copied' : 'Copy Link'}
-                </SecondaryButton>
+      <Panel padded={false} title={`${visibleLinks.length} ${view === 'ACTIVE' ? 'active' : 'archived'}`}>
+        <div className="divide-y divide-line border-t border-line">
+          {visibleLinks.map((link) => {
+            const protectedHistory = link.visits > 0 || link.leads > 0 || link.customers > 0
+            return <div key={link.id} className={cn('px-4 py-4 sm:px-5', !link.is_active && 'opacity-70')}>
+              <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(280px,1fr)_auto_auto] lg:items-center">
+                <div className="flex min-w-0 items-center gap-3.5">
+                  <span className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]', trackingSourceStyle(link.source))}>
+                    <Link2 className="h-5 w-5" strokeWidth={2.5} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="font-label text-[12px] font-semibold uppercase tracking-[0.12em] text-cc-muted">{link.source}</span>
+                      {!link.is_active && <StatusPill tone="idle" size="sm">Archived</StatusPill>}
+                    </div>
+                    <div className="truncate text-[16px] font-semibold text-ink" title={link.campaign}>{link.campaign}</div>
+                    <div className="mt-0.5 truncate text-[12px] text-cc-muted" title={linkUrl(link)}>{linkUrl(link)}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-5 sm:gap-7">
+                  <Metric label="Visits" value={link.visits} />
+                  <Metric label="Leads" value={link.leads} />
+                  <Metric label="Customers" value={link.customers} />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                  <SecondaryButton
+                    size="sm"
+                    disabled={!integrationReady}
+                    onClick={() => void copy(link)}
+                    icon={copiedId === link.id ? <Check className="h-4 w-4" strokeWidth={2.6} /> : <Copy className="h-4 w-4" strokeWidth={2.2} />}
+                  >
+                    {copiedId === link.id ? 'Copied' : 'Copy Link'}
+                  </SecondaryButton>
+                  {link.is_active ? (
+                    <SecondaryButton size="sm" disabled={!integrationReady || workingId === link.id} onClick={() => void setArchived(link, true)} icon={<Archive className="h-4 w-4" />}>Archive</SecondaryButton>
+                  ) : (
+                    <SecondaryButton size="sm" disabled={!integrationReady || workingId === link.id} onClick={() => void setArchived(link, false)} icon={<RotateCcw className="h-4 w-4" />}>Reactivate</SecondaryButton>
+                  )}
+                  {!protectedHistory && (
+                    <SecondaryButton size="sm" disabled={!integrationReady || workingId === link.id} onClick={() => void remove(link)} icon={<Trash2 className="h-4 w-4" />}>Delete</SecondaryButton>
+                  )}
+                </div>
               </div>
             </div>
-          ))}
+          })}
+          {visibleLinks.length === 0 && <div className="px-5 py-8 text-[15px] text-cc-muted">No {view.toLowerCase()} tracking links.</div>}
         </div>
-        <p className="border-t border-line px-5 py-3 text-[13px] leading-snug text-cc-muted">
-          A lead created from one of these links carries its source and campaign. That is
-          the whole point, this is not an attribution platform.
-        </p>
       </Panel>
     </SettingsScreen>
   )
@@ -1311,8 +1324,7 @@ export function SettingsUsers() {
           })}
         </div>
         <p className="border-t border-line px-5 py-3 text-[13px] leading-snug text-cc-muted">
-          Access is read from the existing user roles table. Public signup is off, and
-          workers never get an account.
+          Access comes from user roles. Workers do not receive accounts.
         </p>
       </Panel>
       <div className={demo.enabled ? 'hidden' : 'lg:hidden'}>
@@ -1412,8 +1424,8 @@ export function SettingsPrinting() {
             />
             <p className="mt-3 text-[14px] leading-snug text-cc-muted">
               {method === 'SHARE_SHEET'
-                ? 'The label goes to the iOS share menu and you pick the printer app. Two extra taps, and it works over Bluetooth.'
-                : 'Opens the print dialog set to 4 x 6 with no margins. Only works if the printer supports AirPrint.'}
+                ? 'Opens the iOS share menu for the printer app.'
+                : 'Opens the 4×6 print dialog for AirPrint.'}
             </p>
           </div>
 
@@ -1434,8 +1446,7 @@ export function SettingsPrinting() {
             </SecondaryButton>
             {testPrint === 'SENT' && (
               <p className="mt-3 text-[14px] leading-snug text-ok">
-                Sample label sent. Check the alignment and how dark it came out before you
-                print a real ticket.
+                Sample label sent. Check alignment before printing a real ticket.
               </p>
             )}
           </div>
@@ -1575,6 +1586,13 @@ function DetailList({ label, values }: { label: string; values: string[] }) {
       </ul>
     </div>
   )
+}
+
+function trackingSourceStyle(source: string) {
+  if (source === 'Facebook') return 'bg-[#1877F2]'
+  if (source === 'Website') return 'bg-mt-red text-canvas'
+  if (source === 'QR code') return 'bg-[#6D28D9]'
+  return 'bg-[#B7791F] text-canvas'
 }
 
 function Metric({ label, value }: { label: string; value: number }) {

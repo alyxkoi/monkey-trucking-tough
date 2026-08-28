@@ -41,6 +41,7 @@ Deno.serve(async (req) => {
       message,
       smsConsent: requestedSmsConsent,
       smsDisclosureVersion,
+      trackingAttribution,
     } = await req.json()
 
     if (!name || !phone || !email) {
@@ -113,7 +114,7 @@ Deno.serve(async (req) => {
 
     const messageId = crypto.randomUUID()
 
-    const { error: submissionError } = await supabase.from('contact_submissions').insert({
+    const baseSubmission = {
       email_message_id: messageId,
       name,
       email,
@@ -125,7 +126,30 @@ Deno.serve(async (req) => {
       consent_source: SMS_CONSENT_SOURCE,
       consent_disclosure_version: SMS_CONSENT_VERSION,
       consent_disclosure_text: SMS_CONSENT_DISCLOSURE,
-    })
+    }
+    const trackingLinkId = trackingAttribution && typeof trackingAttribution === 'object'
+      && typeof trackingAttribution.trackingLinkId === 'string'
+      && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trackingAttribution.trackingLinkId)
+      ? trackingAttribution.trackingLinkId
+      : null
+    const trackedSubmission = trackingAttribution && typeof trackingAttribution === 'object'
+      ? {
+          ...baseSubmission,
+          tracking_link_id: trackingLinkId,
+          source: typeof trackingAttribution.source === 'string' ? trackingAttribution.source : null,
+          campaign: typeof trackingAttribution.campaign === 'string' ? trackingAttribution.campaign : null,
+        }
+      : baseSubmission
+
+    let { error: submissionError } = await supabase.from('contact_submissions').insert(trackedSubmission)
+
+    // Keep the public form available if source is deployed before the forward
+    // attribution migration. The legacy insert still preserves consent/email;
+    // Settings will continue to report Tracking as deployment-required.
+    if (submissionError && trackedSubmission !== baseSubmission && ['PGRST204', '42703'].includes(submissionError.code ?? '')) {
+      const retry = await supabase.from('contact_submissions').insert(baseSubmission)
+      submissionError = retry.error
+    }
 
     if (submissionError) {
       console.error('Failed to record contact submission:', submissionError)

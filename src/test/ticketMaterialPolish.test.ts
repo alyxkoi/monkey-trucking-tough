@@ -25,6 +25,26 @@ describe('Ticket and material final polish', () => {
     expect(computeTotals({ ...totalsInput(), taxRate: TAX_RATE }).tax).toBe(0)
   })
 
+  it('taxes material only for every new calculation', () => {
+    const material = MATERIALS[0]
+    const totals = computeTotals({
+      materialLines: [{ id: 'line', materialId: material.id, materialName: material.name, isFullLoad: false, loads: 0, yards: 1, rateUsed: 1_000, lineTotal: 1_000 }],
+      customLines: [{ id: 'service', label: 'Driveway work', amount: 500 }],
+      delivery: { mode: 'TIER_3_5' },
+      deliveryLoads: 1,
+      taxRate: 8.25,
+      taxOnDelivery: true,
+      customWorkTax: 'TAXED',
+    })
+    expect(totals.materials).toBe(1_000)
+    expect(totals.delivery).toBe(60)
+    expect(totals.custom).toBe(500)
+    expect(totals.taxable).toBe(1_000)
+    expect(totals.tax).toBe(82.5)
+    expect(totals.total).toBe(1_642.5)
+    expect(totals.customTaxed).toBe(false)
+  })
+
   it('converts colored and gray print pixels to pure one-bit output', () => {
     const pixels = new Uint8ClampedArray([
       255, 49, 49, 180,

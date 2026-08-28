@@ -260,7 +260,7 @@ export function QuoteScreen() {
               <Row
                 label={`Tax ${formatTaxRate(totals.taxRate)}`}
                 value={usdExact(totals.tax)}
-                hint={quote.taxOnDelivery ? 'On material and delivery' : 'On material only'}
+                hint={editable ? 'On material only' : quote.taxOnDelivery ? 'Historical snapshot: material and delivery' : 'On material only'}
               />
             </dl>
 

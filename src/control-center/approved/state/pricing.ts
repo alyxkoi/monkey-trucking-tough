@@ -202,24 +202,16 @@ export function deliveryLabel(delivery: DeliverySelection): string {
 /** Current operational rate, stored as percentage points. 8.25 means 8.25%. */
 export const TAX_RATE = CURRENT_TAX_RATE_PERCENT
 
-/** Applied to materials plus delivery by default. Settings can switch it to materials only. */
-export const TAX_ON_DELIVERY = true
+/** Current operations tax material only. Historical snapshots keep their stored value. */
+export const TAX_ON_DELIVERY = false
 
 /**
- * Custom work tax treatment is UNRESOLVED.
- *
- * The Ticket System Handoff only defines tax behaviour for materials and delivery.
- * It says nothing about service labour, and section 13 already lists sales tax as
- * something to confirm with the bookkeeper. So the prototype does not guess.
- *
- * PENDING means custom work is excluded from the taxable base and the quote says
- * so on screen. Once the bookkeeper confirms, this becomes a real setting in
- * Settings, and the value is snapshotted onto each quote so the answer can change
- * later without rewriting old quotes.
+ * Legacy records may still contain earlier snapshot values. New calculations use
+ * NOT_TAXED because Monkey Trucking's current rule excludes every service charge.
  */
 export type CustomWorkTaxRule = 'PENDING' | 'TAXED' | 'NOT_TAXED'
 
-export const TAX_ON_CUSTOM_WORK: CustomWorkTaxRule = 'PENDING'
+export const TAX_ON_CUSTOM_WORK: CustomWorkTaxRule = 'NOT_TAXED'
 
 /**
  * Hydrates the approved UI's single pricing catalog from the managed Supabase
@@ -368,18 +360,15 @@ export function computeTotals(input: {
   customWorkTax?: CustomWorkTaxRule
 }): Totals {
   const taxRate = input.taxRate ?? TAX_RATE
-  const taxOnDelivery = input.taxOnDelivery ?? TAX_ON_DELIVERY
-  const customWorkTax = input.customWorkTax ?? TAX_ON_CUSTOM_WORK
+  const customWorkTax: CustomWorkTaxRule = 'NOT_TAXED'
 
   const materials = input.materialLines.reduce((sum, line) => sum + line.lineTotal, 0)
   const custom = input.customLines.reduce((sum, line) => sum + line.amount, 0)
   const deliveryPerLoad = deliveryFeePerLoad(input.delivery)
   const delivery = deliveryPerLoad * Math.max(0, input.deliveryLoads)
 
-  // Custom work is only taxed once someone has actually decided that it should be.
-  const customTaxed = customWorkTax === 'TAXED'
-  const taxable =
-    materials + (customTaxed ? custom : 0) + (taxOnDelivery ? delivery : 0)
+  const customTaxed = false
+  const taxable = materials
   const tax = Math.round(taxable * taxRateMultiplier(taxRate) * 100) / 100
   const total = Math.round((materials + custom + delivery + tax) * 100) / 100
 

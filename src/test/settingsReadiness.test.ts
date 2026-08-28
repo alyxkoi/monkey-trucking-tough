@@ -29,7 +29,7 @@ describe('Settings readiness is derived from managed configuration', () => {
     expect(readiness.categories.workers.reason).toContain('real crew and pay information')
   })
 
-  it('does not require a custom-work tax decision while the active tax rate is zero', () => {
+  it('never requires a custom-work tax decision', () => {
     const data = fixture()
     data.appSettings!.tax_enabled = false
     data.appSettings!.tax_rate = 0
@@ -38,6 +38,9 @@ describe('Settings readiness is derived from managed configuration', () => {
     expect(readiness.categories.business.status).toBe('READY')
     expect(readiness.categories.business.reason).not.toMatch(/custom work tax/i)
     expect(readiness.blockers.some((blocker) => blocker.key === 'business')).toBe(false)
+    data.appSettings!.tax_enabled = true
+    data.appSettings!.tax_rate = 8.25
+    expect(deriveSettingsReadiness(data).categories.business.status).toBe('READY')
   })
 
   it('detects catalog drift and optional integration errors without hiding them', () => {

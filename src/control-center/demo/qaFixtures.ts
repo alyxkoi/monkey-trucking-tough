@@ -85,6 +85,7 @@ function lead(
     status,
     source,
     campaign: null,
+    tracking_link_id: null,
     need,
     human_takeover: false,
     last_contact_at: updatedAt,
@@ -169,8 +170,8 @@ function quote(
     materials_subtotal: Math.max(0, amount - 60),
     custom_work_subtotal: 0,
     tax_rate: 0,
-    tax_applies_to_delivery: true,
-    custom_work_tax_rule: 'PENDING',
+    tax_applies_to_delivery: false,
+    custom_work_tax_rule: 'EXEMPT',
     tax_amount: 0,
     grand_total: amount,
     notes: null,
@@ -499,7 +500,9 @@ export function createQaFixtureData(reference = new Date()): ControlData {
   ]
 
   const trackingLinks: TrackingLink[] = [
-    { id: 'qa-link-august', source: 'Facebook', campaign: 'August Driveway Campaign', destination: 'monkeytrucking.llc', slug: 'facebook-august-driveway', visits: 42, leads: 8, customers: 3, created_by: QA_FIXTURE_USER_ID, created_at: at(-20) },
+    { id: 'qa-link-august', source: 'Facebook', campaign: 'August Driveway Campaign', destination: 'https://monkeytrucking.llc', slug: 'facebook-august-driveway', visits: 42, leads: 8, customers: 3, is_active: true, archived_at: null, archived_by: null, created_by: QA_FIXTURE_USER_ID, created_at: at(-20) },
+    { id: 'qa-link-unused', source: 'Website', campaign: 'North Texas landing page', destination: 'https://monkeytrucking.llc/contact', slug: 'north-texas-landing-page', visits: 0, leads: 0, customers: 0, is_active: true, archived_at: null, archived_by: null, created_by: QA_FIXTURE_USER_ID, created_at: at(-8) },
+    { id: 'qa-link-archived', source: 'QR code', campaign: 'Spring yard sign', destination: 'https://monkeytrucking.llc/contact', slug: 'spring-yard-sign', visits: 18, leads: 2, customers: 1, is_active: false, archived_at: at(-2), archived_by: QA_FIXTURE_USER_ID, created_by: QA_FIXTURE_USER_ID, created_at: at(-90) },
   ]
 
   return {
@@ -545,7 +548,7 @@ export function createQaFixtureData(reference = new Date()): ControlData {
       next_ticket_number: 1110,
       print_copies: 1,
       print_method: 'share',
-      tax_applies_to_delivery: true,
+      tax_applies_to_delivery: false,
       tax_enabled: false,
       tax_rate: 0,
       ticket_prefix: 'MT',
@@ -560,7 +563,7 @@ export function createQaFixtureData(reference = new Date()): ControlData {
       default_invoice_due_days: 3,
       processing_fee_enabled: false,
       processing_fee_rate: 0,
-      custom_work_tax_rule: 'PENDING',
+      custom_work_tax_rule: 'EXEMPT',
       review_url: null,
       business_number: null,
       sms_status: 'SETUP_REQUIRED',
@@ -576,6 +579,7 @@ export function createQaFixtureData(reference = new Date()): ControlData {
     },
     automations,
     trackingLinks,
+    trackingIntegration: { status: 'READY', message: null },
     snoozes: [],
     aiConversationStates: [],
     aiAuditLogs: [],

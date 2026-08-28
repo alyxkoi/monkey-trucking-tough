@@ -119,7 +119,6 @@ export function deriveSettingsReadiness(data: ControlData | null): SettingsReadi
   const appliedTaxRate = effectiveTaxRate(app)
   if (!Number.isFinite(configuredTaxRate) || configuredTaxRate < 0 || configuredTaxRate > 100) businessMissing.push('a valid tax percentage from 0 to 100')
   if (taxEnabled && configuredTaxRate <= 0) businessMissing.push('a tax percentage greater than 0 while tax is enabled')
-  if (taxEnabled && appliedTaxRate > 0 && control?.custom_work_tax_rule === 'PENDING') businessMissing.push('custom work tax treatment')
   const processingRate = percentagePoints(control?.processing_fee_rate)
   if (control?.processing_fee_enabled && processingRate <= 0) businessMissing.push('a processing fee percentage greater than 0 while the fee is enabled')
   const business = !app || !control
@@ -197,7 +196,11 @@ export function deriveSettingsReadiness(data: ControlData | null): SettingsReadi
         ? item('TEST_REQUIRED', 'Test required', 'One or more connected communication capabilities still needs deployment or verification.', ['Complete the capability tests shown inside Communication & AI.'])
         : ready('AI drafts, email, SMS, calling and automation controls are verified.')
 
-  const tracking = ready('Tracking links store simple source and campaign metadata and can be created from this screen.')
+  const tracking = data.trackingIntegration.status === 'READY'
+    ? ready('Tracked redirects, visit metrics and Lead attribution are available.')
+    : data.trackingIntegration.status === 'SETUP_REQUIRED'
+      ? item('WAITING', 'Deployment required', data.trackingIntegration.message ?? 'Tracking deployment is required.', ['Apply the Tracking Links migration and deploy tracking-redirect.'])
+      : item('ERROR', 'Error', data.trackingIntegration.message ?? 'Tracking could not be loaded.', ['Review the Tracking Links migration, function and access policies.'])
   const authorizedRoles = data.userRoles.filter((role) => role.role === 'admin' || role.role === 'staff')
   const users = authorizedRoles.length > 0
     ? ready(`${authorizedRoles.length} authorized admin/staff role${authorizedRoles.length === 1 ? '' : 's'} loaded. Workers have no login.`)

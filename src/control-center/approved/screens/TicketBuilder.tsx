@@ -98,7 +98,7 @@ export function TicketBuilder() {
       delivery,
       deliveryLoads,
       taxRate: effectiveTaxRate(sourceData?.appSettings),
-      taxOnDelivery: sourceData?.appSettings?.tax_applies_to_delivery ?? true,
+      taxOnDelivery: false,
     }),
     [delivery, deliveryLoads, lines, sourceData?.appSettings],
   )

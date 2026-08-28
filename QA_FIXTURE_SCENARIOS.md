@@ -41,6 +41,9 @@ The fixture clock anchors records to the local day when the browser session star
 | Parker Family Farm | Customers | Prior paid work more than 60 days ago, eligible for reactivation. |
 | Empty State Test | Customers → Empty State Test | Deliberately has no leads, quotes, jobs, tickets, invoices, payments, photos, or activity. |
 | Disconnected providers | Settings → Communication & AI | OpenAI drafts are internal-only; SMS, calling, and payment transport are setup-required and no provider is faked. |
+| August Driveway Campaign | Settings → Tracking Links → Active | Used Facebook link with Visits, Leads and Customers; Archive is allowed and permanent delete is protected. |
+| North Texas landing page | Settings → Tracking Links → Active | Unused Website link with zero metrics; safe Delete confirmation is available. |
+| Spring yard sign | Settings → Tracking Links → Archived | Muted QR-code link retains history and offers Reactivate; deletion remains protected. |
 
 ## Stable fixture IDs
 

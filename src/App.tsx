@@ -1,15 +1,16 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import ScrollToTop from "@/components/ScrollToTop";
 import Layout from "@/components/Layout";
 import { AuthProvider } from "@/hooks/useAuth";
 import { DemoModeProvider } from "@/control-center/demo/DemoMode";
 import { mainAdminRouteLoaders } from "@/control-center/adminRouteLoaders";
 import Index from "./pages/Index"; // keep eager — it's the LCP page
+import { captureTrackingAttribution } from "@/lib/trackingAttribution";
 
 // Lazy-load secondary routes so their bundles + images don't ship with the homepage
 const Services = lazy(() => import("./pages/Services"));
@@ -68,6 +69,14 @@ const RouteFallback = () => (
   </div>
 );
 
+const AttributionCapture = () => {
+  const location = useLocation();
+  useEffect(() => {
+    captureTrackingAttribution(location.search);
+  }, [location.search]);
+  return null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <DemoModeProvider>
@@ -76,9 +85,10 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-          <ScrollToTop />
-          <Suspense fallback={<RouteFallback />}>
-            <Routes>
+            <AttributionCapture />
+            <ScrollToTop />
+            <Suspense fallback={<RouteFallback />}>
+              <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={<Index />} />
                 <Route path="/services" element={<Services />} />
@@ -124,8 +134,8 @@ const App = () => (
                 <Route path="ticket/:ticketId/edit" element={<TicketBuilder />} />
               </Route>
               <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
+              </Routes>
+            </Suspense>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

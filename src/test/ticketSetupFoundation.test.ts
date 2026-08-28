@@ -37,7 +37,7 @@ describe('Ticket setup foundation', () => {
     expect(deliveryFeePerLoad({ mode: 'OVER_10', miles: 15 })).toBe(150)
     expect(deliveryFeePerLoad({ mode: 'PICKUP' })).toBe(0)
     expect(TAX_RATE).toBe(0)
-    expect(TAX_ON_DELIVERY).toBe(true)
+    expect(TAX_ON_DELIVERY).toBe(false)
   })
 
   it('reconciles only current master data and never touches ticket history or numbering', () => {

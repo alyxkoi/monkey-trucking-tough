@@ -31,8 +31,9 @@ export type Lead = {
   id: string;
   customer_id: string;
   status: "NEW" | "ACTIVE" | "QUOTED" | "WON" | "LOST";
-  source: "Word of mouth" | "Facebook" | "Website" | "Walk in" | "Other";
+  source: "Word of mouth" | "Facebook" | "Website" | "Walk in" | "QR code" | "Other";
   campaign: string | null;
+  tracking_link_id: string | null;
   need: string;
   human_takeover: boolean;
   last_contact_at: string | null;
@@ -279,6 +280,9 @@ export type TrackingLink = {
   visits: number;
   leads: number;
   customers: number;
+  is_active: boolean;
+  archived_at: string | null;
+  archived_by: string | null;
   created_by: string | null;
   created_at: string;
 };
@@ -376,7 +380,12 @@ type ControlDatabase = {
       ai_drafts: Table<AiDraftRow>;
       stripe_webhook_events: Table<StripeWebhookIssue>;
     };
-    Views: { [_ in never]: never };
+    Views: {
+      tracking_link_metrics: {
+        Row: TrackingLink;
+        Relationships: [];
+      };
+    };
     Functions: { [_ in never]: never };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
@@ -416,6 +425,7 @@ export type ControlData = {
   controlSettings: ControlSettings | null;
   automations: AutomationRule[];
   trackingLinks: TrackingLink[];
+  trackingIntegration: AiIntegrationState;
   snoozes: AttentionSnooze[];
   aiConversationStates: AiConversationState[];
   aiAuditLogs: AiAuditLog[];
@@ -522,16 +532,52 @@ async function loadOptionalStripeData(): Promise<{ issues: StripeWebhookIssue[];
   }
 }
 
+async function loadOptionalTrackingData(): Promise<{ links: TrackingLink[]; integration: AiIntegrationState }> {
+  try {
+    const metrics = await controlDb.from("tracking_link_metrics").select("*").order("created_at", { ascending: false });
+    if (!metrics.error) return { links: metrics.data ?? [], integration: { status: "READY", message: null } };
+
+    const fallback = await controlDb.from("tracking_links").select("*").order("created_at", { ascending: false });
+    if (fallback.error) {
+      return { links: [], integration: { status: "ERROR", message: `Tracking links could not be loaded: ${fallback.error.message}` } };
+    }
+    const setupRequired = AI_SCHEMA_MISSING_CODES.has(metrics.error.code ?? "");
+    return {
+      links: (fallback.data ?? []).map((link) => ({
+        ...link,
+        is_active: link.is_active ?? true,
+        archived_at: link.archived_at ?? null,
+        archived_by: link.archived_by ?? null,
+      })),
+      integration: {
+        status: setupRequired ? "SETUP_REQUIRED" : "ERROR",
+        message: setupRequired
+          ? "Apply the Tracking Links migration and deploy tracking-redirect before using tracked URLs."
+          : `Tracking metrics could not be loaded: ${metrics.error.message}`,
+      },
+    };
+  } catch (error) {
+    return {
+      links: [],
+      integration: {
+        status: "ERROR",
+        message: `Tracking links could not be loaded: ${error instanceof Error ? error.message : "Unknown tracking error"}`,
+      },
+    };
+  }
+}
+
 export async function loadControlData(): Promise<ControlData> {
   // Optional integrations start in parallel, but their failures are isolated.
   // Core business queries below remain strict and still fail the shell when real
   // business data, authorization, or RLS cannot be loaded safely.
   const optionalAiPromise = loadOptionalAiData();
   const optionalStripePromise = loadOptionalStripeData();
+  const optionalTrackingPromise = loadOptionalTrackingData();
   const [
     customers, leads, quotes, quoteItems, jobs, tickets, ticketItems, ticketHistory, invoices,
     invoiceTickets, payments, workers, workerPayments, activities, messages, financialHistory,
-    materials, drivers, appSettings, userRoles, controlSettings, automations, trackingLinks, snoozes,
+    materials, drivers, appSettings, userRoles, controlSettings, automations, snoozes,
   ] = await Promise.all([
     controlDb.from("customers").select("*").order("last_activity_at", { ascending: false }),
     controlDb.from("leads").select("*").order("created_at", { ascending: false }),
@@ -555,11 +601,11 @@ export async function loadControlData(): Promise<ControlData> {
     supabase.from("user_roles").select("*").order("created_at"),
     controlDb.from("control_center_settings").select("*").eq("id", 1).maybeSingle(),
     controlDb.from("automation_rules").select("*").order("name"),
-    controlDb.from("tracking_links").select("*").order("created_at", { ascending: false }),
     controlDb.from("attention_snoozes").select("*"),
   ]);
   const optionalAi = await optionalAiPromise;
   const optionalStripe = await optionalStripePromise;
+  const optionalTracking = await optionalTrackingPromise;
 
   return {
     customers: unwrap(customers, "Customers") ?? [],
@@ -584,7 +630,8 @@ export async function loadControlData(): Promise<ControlData> {
     userRoles: unwrap(userRoles, "User roles") ?? [],
     controlSettings: unwrap(controlSettings, "Control Center settings"),
     automations: unwrap(automations, "Automation rules") ?? [],
-    trackingLinks: unwrap(trackingLinks, "Tracking links") ?? [],
+    trackingLinks: optionalTracking.links,
+    trackingIntegration: optionalTracking.integration,
     snoozes: unwrap(snoozes, "Attention snoozes") ?? [],
     aiConversationStates: optionalAi.conversationStates,
     aiAuditLogs: optionalAi.auditLogs,
@@ -720,8 +767,8 @@ export const saveQuote = (draft: QuoteDraft) => runRpc<Array<{ id: string; quote
       materials_subtotal: draft.materialsSubtotal,
       custom_work_subtotal: draft.customWorkSubtotal,
       tax_rate: draft.taxRate,
-      tax_applies_to_delivery: draft.taxOnDelivery,
-      custom_work_tax_rule: draft.customWorkTaxRule,
+      tax_applies_to_delivery: false,
+      custom_work_tax_rule: "EXEMPT",
       tax_amount: draft.taxAmount,
       grand_total: draft.grandTotal,
       notes: draft.notes ?? "",
@@ -754,8 +801,8 @@ export const saveQuoteChanges = (quoteId: string, draft: QuoteDraft) => runRpc<v
       materials_subtotal: draft.materialsSubtotal,
       custom_work_subtotal: draft.customWorkSubtotal,
       tax_rate: draft.taxRate,
-      tax_applies_to_delivery: draft.taxOnDelivery,
-      custom_work_tax_rule: draft.customWorkTaxRule,
+      tax_applies_to_delivery: false,
+      custom_work_tax_rule: "EXEMPT",
       tax_amount: draft.taxAmount,
       grand_total: draft.grandTotal,
       notes: draft.notes ?? "",
@@ -917,6 +964,15 @@ export const createTrackingLink = async (input: { source: TrackingLink["source"]
   if (error) throw new Error(error.message);
   return data.id;
 };
+
+export const setTrackingLinkArchived = (id: string, archived: boolean) =>
+  runRpc<void>("set_tracking_link_archived", { p_tracking_link_id: id, p_archived: archived });
+
+export const deleteTrackingLinkIfUnused = (id: string) =>
+  runRpc<{ status: "DELETED" | "PROTECTED" | "NOT_FOUND"; visits?: number; leads?: number; customers?: number; attribution_records?: number }>(
+    "delete_tracking_link_if_unused",
+    { p_tracking_link_id: id },
+  );
 
 export type NewWorkerPayment = {
   workerId: string;
