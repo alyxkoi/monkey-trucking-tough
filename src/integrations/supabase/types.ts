@@ -61,6 +61,211 @@ export type Database = {
           },
         ]
       }
+      ai_audit_logs: {
+        Row: {
+          actor_id: string | null
+          automation_rule_id: string | null
+          concise_rationale: string | null
+          created_at: string
+          customer_id: string | null
+          decision: Json | null
+          error_code: string | null
+          error_message: string | null
+          evaluation_type: string
+          id: string
+          language: string | null
+          latency_ms: number | null
+          lead_id: string | null
+          model_id: string | null
+          prompt_version: string
+          status: string
+          tool_results: Json
+        }
+        Insert: {
+          actor_id?: string | null
+          automation_rule_id?: string | null
+          concise_rationale?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decision?: Json | null
+          error_code?: string | null
+          error_message?: string | null
+          evaluation_type: string
+          id?: string
+          language?: string | null
+          latency_ms?: number | null
+          lead_id?: string | null
+          model_id?: string | null
+          prompt_version: string
+          status: string
+          tool_results?: Json
+        }
+        Update: {
+          actor_id?: string | null
+          automation_rule_id?: string | null
+          concise_rationale?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decision?: Json | null
+          error_code?: string | null
+          error_message?: string | null
+          evaluation_type?: string
+          id?: string
+          language?: string | null
+          latency_ms?: number | null
+          lead_id?: string | null
+          model_id?: string | null
+          prompt_version?: string
+          status?: string
+          tool_results?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_audit_logs_automation_rule_id_fkey"
+            columns: ["automation_rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_audit_logs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_audit_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_conversation_state: {
+        Row: {
+          customer_id: string
+          known_facts: Json
+          last_evaluated_message_id: string | null
+          lead_id: string
+          missing_facts: Json
+          uncertain_facts: Json
+          updated_at: string
+        }
+        Insert: {
+          customer_id: string
+          known_facts?: Json
+          last_evaluated_message_id?: string | null
+          lead_id: string
+          missing_facts?: Json
+          uncertain_facts?: Json
+          updated_at?: string
+        }
+        Update: {
+          customer_id?: string
+          known_facts?: Json
+          last_evaluated_message_id?: string | null
+          lead_id?: string
+          missing_facts?: Json
+          uncertain_facts?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_conversation_state_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_conversation_state_last_evaluated_message_id_fkey"
+            columns: ["last_evaluated_message_id"]
+            isOneToOne: false
+            referencedRelation: "lead_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_conversation_state_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_drafts: {
+        Row: {
+          audit_log_id: string
+          automation_rule_id: string | null
+          body: string
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          decision: Json
+          id: string
+          language: string
+          lead_id: string | null
+          status: string
+        }
+        Insert: {
+          audit_log_id: string
+          automation_rule_id?: string | null
+          body: string
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          decision: Json
+          id?: string
+          language: string
+          lead_id?: string | null
+          status?: string
+        }
+        Update: {
+          audit_log_id?: string
+          automation_rule_id?: string | null
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          decision?: Json
+          id?: string
+          language?: string
+          lead_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_drafts_audit_log_id_fkey"
+            columns: ["audit_log_id"]
+            isOneToOne: false
+            referencedRelation: "ai_audit_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_drafts_automation_rule_id_fkey"
+            columns: ["automation_rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_drafts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_drafts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           company_address: string
@@ -196,6 +401,54 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_submissions: {
+        Row: {
+          consent_disclosure_text: string
+          consent_disclosure_version: string
+          consent_source: string
+          email: string
+          email_message_id: string
+          id: string
+          message: string | null
+          name: string
+          phone: string
+          project_type: string | null
+          sms_consent: boolean
+          sms_consent_at: string | null
+          submitted_at: string
+        }
+        Insert: {
+          consent_disclosure_text: string
+          consent_disclosure_version: string
+          consent_source: string
+          email: string
+          email_message_id: string
+          id?: string
+          message?: string | null
+          name: string
+          phone: string
+          project_type?: string | null
+          sms_consent?: boolean
+          sms_consent_at?: string | null
+          submitted_at?: string
+        }
+        Update: {
+          consent_disclosure_text?: string
+          consent_disclosure_version?: string
+          consent_source?: string
+          email?: string
+          email_message_id?: string
+          id?: string
+          message?: string | null
+          name?: string
+          phone?: string
+          project_type?: string | null
+          sms_consent?: boolean
+          sms_consent_at?: string | null
+          submitted_at?: string
+        }
+        Relationships: []
+      }
       control_center_settings: {
         Row: {
           ai_status: string
@@ -203,8 +456,8 @@ export type Database = {
           calling_status: string
           company_email: string | null
           custom_work_tax_rule: string
-          email_status: string
           default_invoice_due_days: number
+          email_status: string
           id: number
           payment_processor_status: string
           printable_logo_status: string
@@ -218,8 +471,8 @@ export type Database = {
           calling_status?: string
           company_email?: string | null
           custom_work_tax_rule?: string
-          email_status?: string
           default_invoice_due_days?: number
+          email_status?: string
           id?: number
           payment_processor_status?: string
           printable_logo_status?: string
@@ -233,8 +486,8 @@ export type Database = {
           calling_status?: string
           company_email?: string | null
           custom_work_tax_rule?: string
-          email_status?: string
           default_invoice_due_days?: number
+          email_status?: string
           id?: number
           payment_processor_status?: string
           printable_logo_status?: string
@@ -243,6 +496,63 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      customer_document_tokens: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          created_by: string | null
+          document_type: string
+          first_viewed_at: string | null
+          id: string
+          invoice_id: string | null
+          latest_viewed_at: string | null
+          quote_id: string | null
+          revoked_at: string | null
+          token_hash: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_type: string
+          first_viewed_at?: string | null
+          id?: string
+          invoice_id?: string | null
+          latest_viewed_at?: string | null
+          quote_id?: string | null
+          revoked_at?: string | null
+          token_hash: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_type?: string
+          first_viewed_at?: string | null
+          id?: string
+          invoice_id?: string | null
+          latest_viewed_at?: string | null
+          quote_id?: string | null
+          revoked_at?: string | null
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_document_tokens_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_document_tokens_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customers: {
         Row: {
@@ -257,6 +567,9 @@ export type Database = {
           normalized_phone: string | null
           notes: string | null
           phone: string | null
+          sms_consent_at: string | null
+          sms_consent_source: string | null
+          sms_opted_out_at: string | null
           updated_at: string
         }
         Insert: {
@@ -271,6 +584,9 @@ export type Database = {
           normalized_phone?: string | null
           notes?: string | null
           phone?: string | null
+          sms_consent_at?: string | null
+          sms_consent_source?: string | null
+          sms_opted_out_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -285,6 +601,9 @@ export type Database = {
           normalized_phone?: string | null
           notes?: string | null
           phone?: string | null
+          sms_consent_at?: string | null
+          sms_consent_source?: string | null
+          sms_opted_out_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -315,36 +634,108 @@ export type Database = {
       }
       email_send_log: {
         Row: {
+          accepted_at: string | null
+          attempted_at: string | null
           created_at: string
+          customer_id: string | null
+          document_token_id: string | null
           error_message: string | null
           id: string
+          idempotency_key: string | null
+          invoice_id: string | null
           message_id: string | null
           metadata: Json | null
+          payment_id: string | null
+          provider_message_id: string | null
+          quote_id: string | null
           recipient_email: string
+          reply_to: string | null
+          sender_email: string | null
           status: string
           template_name: string
+          template_type: string | null
         }
         Insert: {
+          accepted_at?: string | null
+          attempted_at?: string | null
           created_at?: string
+          customer_id?: string | null
+          document_token_id?: string | null
           error_message?: string | null
           id?: string
+          idempotency_key?: string | null
+          invoice_id?: string | null
           message_id?: string | null
           metadata?: Json | null
+          payment_id?: string | null
+          provider_message_id?: string | null
+          quote_id?: string | null
           recipient_email: string
+          reply_to?: string | null
+          sender_email?: string | null
           status: string
           template_name: string
+          template_type?: string | null
         }
         Update: {
+          accepted_at?: string | null
+          attempted_at?: string | null
           created_at?: string
+          customer_id?: string | null
+          document_token_id?: string | null
           error_message?: string | null
           id?: string
+          idempotency_key?: string | null
+          invoice_id?: string | null
           message_id?: string | null
           metadata?: Json | null
+          payment_id?: string | null
+          provider_message_id?: string | null
+          quote_id?: string | null
           recipient_email?: string
+          reply_to?: string | null
+          sender_email?: string | null
           status?: string
           template_name?: string
+          template_type?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "email_send_log_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_log_document_token_id_fkey"
+            columns: ["document_token_id"]
+            isOneToOne: false
+            referencedRelation: "customer_document_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_log_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_log_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_log_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_send_state: {
         Row: {
@@ -818,9 +1209,14 @@ export type Database = {
           invoice_id: string
           method: string
           note: string | null
+          payment_source: string | null
+          provider_payment_method_type: string | null
           received_at: string
           recorded_at: string
           recorded_by: string | null
+          stripe_checkout_session_id: string | null
+          stripe_event_id: string | null
+          stripe_payment_intent_id: string | null
           void_reason: string | null
           voided_at: string | null
           voided_by: string | null
@@ -833,9 +1229,14 @@ export type Database = {
           invoice_id: string
           method: string
           note?: string | null
+          payment_source?: string | null
+          provider_payment_method_type?: string | null
           received_at: string
           recorded_at?: string
           recorded_by?: string | null
+          stripe_checkout_session_id?: string | null
+          stripe_event_id?: string | null
+          stripe_payment_intent_id?: string | null
           void_reason?: string | null
           voided_at?: string | null
           voided_by?: string | null
@@ -848,9 +1249,14 @@ export type Database = {
           invoice_id?: string
           method?: string
           note?: string | null
+          payment_source?: string | null
+          provider_payment_method_type?: string | null
           received_at?: string
           recorded_at?: string
           recorded_by?: string | null
+          stripe_checkout_session_id?: string | null
+          stripe_event_id?: string | null
+          stripe_payment_intent_id?: string | null
           void_reason?: string | null
           voided_at?: string | null
           voided_by?: string | null
@@ -1033,6 +1439,138 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stripe_checkout_sessions: {
+        Row: {
+          amount_cents: number
+          checkout_url: string | null
+          created_at: string
+          currency: string
+          document_token_id: string
+          expires_at: string | null
+          failure_reason: string | null
+          id: string
+          invoice_id: string
+          livemode: boolean | null
+          status: string
+          stripe_payment_intent_id: string | null
+          stripe_session_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          checkout_url?: string | null
+          created_at?: string
+          currency?: string
+          document_token_id: string
+          expires_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          invoice_id: string
+          livemode?: boolean | null
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          checkout_url?: string | null
+          created_at?: string
+          currency?: string
+          document_token_id?: string
+          expires_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          invoice_id?: string
+          livemode?: boolean | null
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_checkout_sessions_document_token_id_fkey"
+            columns: ["document_token_id"]
+            isOneToOne: false
+            referencedRelation: "customer_document_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stripe_checkout_sessions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stripe_webhook_events: {
+        Row: {
+          attempt_count: number
+          error_message: string | null
+          event_type: string
+          invoice_id: string | null
+          livemode: boolean | null
+          payment_id: string | null
+          processed_at: string | null
+          provider_event_id: string
+          receipt_email_status: string | null
+          received_at: string
+          status: string
+          stripe_payment_intent_id: string | null
+          stripe_session_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          error_message?: string | null
+          event_type: string
+          invoice_id?: string | null
+          livemode?: boolean | null
+          payment_id?: string | null
+          processed_at?: string | null
+          provider_event_id: string
+          receipt_email_status?: string | null
+          received_at?: string
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          error_message?: string | null
+          event_type?: string
+          invoice_id?: string | null
+          livemode?: boolean | null
+          payment_id?: string | null
+          processed_at?: string | null
+          provider_event_id?: string
+          receipt_email_status?: string | null
+          received_at?: string
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_webhook_events_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stripe_webhook_events_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
             referencedColumns: ["id"]
           },
         ]
@@ -1485,6 +2023,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_public_quote: {
+        Args: { p_token_hash: string }
+        Returns: {
+          accepted_at: string
+          quote_id: string
+          status: string
+        }[]
+      }
+      activate_stripe_checkout_session: {
+        Args: {
+          p_checkout_url: string
+          p_expires_at: string
+          p_livemode: boolean
+          p_reservation_id: string
+          p_stripe_session_id: string
+        }
+        Returns: undefined
+      }
+      complete_job_and_prepare_invoice: {
+        Args: { p_job_id: string }
+        Returns: string
+      }
       confirm_worker_payment_details: {
         Args: { p_worker_payment_id: string }
         Returns: undefined
@@ -1667,17 +2227,25 @@ export type Database = {
         Returns: Json
       }
       delete_ticket_permanently: {
-        Args: {
-          p_confirmation: string
-          p_reason: string
-          p_ticket_id: string
-        }
+        Args: { p_confirmation: string; p_reason: string; p_ticket_id: string }
         Returns: Json
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      fail_stripe_checkout_session: {
+        Args: { p_reason: string; p_reservation_id: string }
+        Returns: undefined
+      }
+      finalize_customer_email_send: {
+        Args: {
+          p_due_at?: string
+          p_log_id: string
+          p_provider_message_id: string
+        }
+        Returns: undefined
       }
       find_or_create_customer: {
         Args: { p_email?: string; p_name: string; p_phone?: string }
@@ -1693,6 +2261,9 @@ export type Database = {
           normalized_phone: string | null
           notes: string | null
           phone: string | null
+          sms_consent_at: string | null
+          sms_consent_source: string | null
+          sms_opted_out_at: string | null
           updated_at: string
         }
         SetofOptions: {
@@ -1705,6 +2276,16 @@ export type Database = {
       is_admin_or_staff:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
+      mark_stripe_checkout_terminal: {
+        Args: {
+          p_event_id: string
+          p_event_type: string
+          p_livemode: boolean
+          p_status: string
+          p_stripe_session_id: string
+        }
+        Returns: undefined
+      }
       mark_worker_payment_paid: {
         Args: { p_worker_payment_id: string }
         Returns: undefined
@@ -1721,6 +2302,20 @@ export type Database = {
       next_invoice_number: { Args: never; Returns: string }
       next_quote_number: { Args: never; Returns: string }
       next_ticket_number: { Args: never; Returns: string }
+      process_stripe_checkout_payment: {
+        Args: {
+          p_amount_cents: number
+          p_currency: string
+          p_event_id: string
+          p_event_type: string
+          p_livemode: boolean
+          p_paid_at: string
+          p_provider_payment_method_type: string
+          p_stripe_payment_intent_id: string
+          p_stripe_session_id: string
+        }
+        Returns: Json
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -1737,6 +2332,44 @@ export type Database = {
           p_received_at: string
         }
         Returns: string
+      }
+      reserve_stripe_checkout_session: {
+        Args: {
+          p_amount_cents: number
+          p_document_token_id: string
+          p_invoice_id: string
+        }
+        Returns: {
+          amount_cents: number
+          checkout_url: string | null
+          created_at: string
+          currency: string
+          document_token_id: string
+          expires_at: string | null
+          failure_reason: string | null
+          id: string
+          invoice_id: string
+          livemode: boolean | null
+          status: string
+          stripe_payment_intent_id: string | null
+          stripe_session_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "stripe_checkout_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      revise_draft_invoice: {
+        Args: {
+          p_amount: number
+          p_description: string
+          p_invoice_id: string
+          p_reason: string
+        }
+        Returns: undefined
       }
       save_quote_atomic: {
         Args: { p_items: Json; p_quote: Json }
