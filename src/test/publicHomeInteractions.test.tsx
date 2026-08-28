@@ -46,6 +46,19 @@ describe("public Home interactions", () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
+  it("keeps one service detail open and closes it from the backdrop", async () => {
+    render(<MemoryRouter><ServiceFeatureGrid /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: /Driveways & Roads/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /Driveways & Roads/i });
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /View Service/i })).toHaveAttribute("href", "/services");
+    expect(screen.getByRole("link", { name: /Get a Quote/i })).toHaveAttribute("href", "/contact");
+
+    fireEvent.click(screen.getByRole("button", { name: "Close service details backdrop" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
   it("keeps only one Recent Work row open at a time", () => {
     render(<MemoryRouter><RecentWorkSection /></MemoryRouter>);
     const driveway = screen.getByRole("button", { name: /New Gravel Driveway/i });
