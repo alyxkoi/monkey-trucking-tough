@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
@@ -35,51 +36,65 @@ const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm bg-nearblack border border-white/10 rounded-none">
-        <DialogTitle className="font-heading text-h3 tracking-wider text-industrial-foreground">
-          Sign in
-        </DialogTitle>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3 pt-1">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="admin-email" className="text-xs uppercase tracking-widest text-gravel">
-              Email
-            </label>
-            <Input
-              id="admin-email"
-              type="email"
-              autoComplete="username"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-12 rounded-none bg-black/40 border-white/15 text-industrial-foreground"
-            />
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="public-login-backdrop" />
+        <DialogPrimitive.Content
+          className="public-login-modal"
+          aria-describedby={undefined}
+        >
+          <div className="public-login-heading">
+            <DialogPrimitive.Title className="public-login-title">
+              SIGN IN
+            </DialogPrimitive.Title>
+            <span className="public-login-accent" aria-hidden="true" />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="admin-password" className="text-xs uppercase tracking-widest text-gravel">
-              Password
-            </label>
-            <Input
-              id="admin-password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="h-12 rounded-none bg-black/40 border-white/15 text-industrial-foreground"
-            />
-          </div>
-          {error && <p className="text-sm text-primary">{error}</p>}
-          <Button
-            type="submit"
-            disabled={busy}
-            className="mt-1 h-12 min-h-[48px] rounded-none bg-primary text-primary-foreground hover:bg-primary/85 font-heading text-h4 tracking-wider"
-          >
-            {busy ? "SIGNING IN…" : "SIGN IN"}
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
+
+          <form onSubmit={handleSubmit} className="public-login-form">
+            <div className="public-login-field">
+              <label htmlFor="admin-email" className="public-login-label">
+                Email
+              </label>
+              <Input
+                id="admin-email"
+                type="email"
+                autoComplete="username"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="public-login-input"
+              />
+            </div>
+            <div className="public-login-field">
+              <label htmlFor="admin-password" className="public-login-label">
+                Password
+              </label>
+              <Input
+                id="admin-password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="public-login-input"
+              />
+            </div>
+            {error && <p role="alert" className="public-login-error">{error}</p>}
+            <Button
+              type="submit"
+              disabled={busy}
+              className="public-login-submit"
+            >
+              {busy ? "SIGNING IN…" : "SIGN IN"}
+            </Button>
+          </form>
+
+          <DialogPrimitive.Close className="public-login-close" aria-label="Close sign in">
+            <X aria-hidden="true" />
+          </DialogPrimitive.Close>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 };
 
