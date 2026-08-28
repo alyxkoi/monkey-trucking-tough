@@ -42,6 +42,11 @@ export type Invoice = {
   /** Delivery proof attached to the invoice. Never summed into the amount for a job. */
   ticketIds: string[]
   description: string
+  /** Original agreed/source amount before the snapshotted Invoice processing fee. */
+  subtotalAmount?: number
+  processingFeeRate?: number
+  processingFeeAmount?: number
+  /** Authoritative amount due, including the snapshotted processing fee. */
   amount: number
   amountSource: InvoiceAmountSource
   status: InvoiceStatus

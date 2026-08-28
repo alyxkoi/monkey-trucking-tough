@@ -49,6 +49,7 @@ import {
   type TicketDraft,
 } from '@/lib/admin/tickets'
 import { ticketDeleteProtection, type TicketDeleteResult } from '@/control-center/ticketDeletion'
+import { effectiveTaxRate, processingFeeFor } from '@/control-center/billing'
 import { outputTicketPng, renderTicketPng } from '@/lib/admin/print'
 import { deriveAttention, type AttentionItem } from './attention'
 import { dateKey, type Job, type JobCategory } from './jobsData'
@@ -537,6 +538,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         const alreadyInvoiced = current.invoices.some((invoice) => invoice.job_id === id && invoice.status !== 'VOID')
         const quote = job.quote_id ? current.quotes.find((row) => row.id === job.quote_id) : undefined
         const invoiceId = `qa-runtime-invoice-${current.invoices.length + 1}`
+        const billing = processingFeeFor(Number(quote?.grand_total ?? job.agreed_amount), current.controlSettings)
         return {
           ...current,
           jobs: current.jobs.map((row) => row.id === id ? { ...row, status: 'COMPLETED', completed_at: now, updated_at: now } : row),
@@ -544,7 +546,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             id: invoiceId, invoice_number: String(1100 + current.invoices.length), customer_id: job.customer_id,
             job_id: id, quote_id: job.quote_id, standalone_ticket_id: null,
             amount_source: job.quote_id ? 'QUOTE' : 'JOB', description: job.description,
-            amount: quote?.grand_total ?? job.agreed_amount, status: 'DRAFT', issued_at: null, due_at: null,
+            subtotal_amount: billing.subtotal, processing_fee_rate: billing.rate,
+            processing_fee_amount: billing.amount, amount: billing.total,
+            status: 'DRAFT', issued_at: null, due_at: null,
             paid_at: null, disputed: false, dispute_note: null, payment_claimed_at: null,
             payment_claim_method: null, payment_claim_note: null, voided_at: null, void_reason: null,
             voided_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now,
@@ -618,7 +622,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const quoteNumber = `Q${1110 + (data?.quotes.length ?? 0)}`
       demo.updateData((current) => ({
         ...current,
-        quotes: [{ id: quoteId, quote_number: quoteNumber, customer_id: lead.customer_id, lead_id: id, status: 'DRAFT', description: lead.need, address: '', delivery_type: null, delivery_miles: null, delivery_fee_per_load: 0, delivery_load_count: 0, delivery_total: 0, materials_subtotal: 0, custom_work_subtotal: 0, tax_rate: Number(current.appSettings?.tax_rate ?? 0), tax_applies_to_delivery: current.appSettings?.tax_applies_to_delivery ?? true, custom_work_tax_rule: current.controlSettings?.custom_work_tax_rule ?? 'PENDING', tax_amount: 0, grand_total: 0, notes: null, sent_at: null, accepted_at: null, declined_at: null, voided_at: null, void_reason: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.quotes],
+        quotes: [{ id: quoteId, quote_number: quoteNumber, customer_id: lead.customer_id, lead_id: id, status: 'DRAFT', description: lead.need, address: '', delivery_type: null, delivery_miles: null, delivery_fee_per_load: 0, delivery_load_count: 0, delivery_total: 0, materials_subtotal: 0, custom_work_subtotal: 0, tax_rate: effectiveTaxRate(current.appSettings), tax_applies_to_delivery: current.appSettings?.tax_applies_to_delivery ?? true, custom_work_tax_rule: current.controlSettings?.custom_work_tax_rule ?? 'PENDING', tax_amount: 0, grand_total: 0, notes: null, sent_at: null, accepted_at: null, declined_at: null, voided_at: null, void_reason: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.quotes],
         leads: current.leads.map((row) => row.id === id ? { ...row, status: 'QUOTED', updated_at: now } : row),
       }))
       return quoteId
@@ -730,7 +734,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const toTicketDraft = useCallback((input: SaveTicketInput): TicketDraft => {
     const customer = customerById(input.customerId)
     const fee = deliveryFeePerLoad(input.delivery)
-    const taxRate = Number(data?.appSettings?.tax_rate ?? 0)
+    const taxRate = effectiveTaxRate(data?.appSettings)
     const taxOnDelivery = data?.appSettings?.tax_applies_to_delivery ?? true
     const totals = computeTotals({ materialLines: input.materialLines, customLines: [], delivery: input.delivery, deliveryLoads: input.deliveryLoads, taxRate, taxOnDelivery })
     return {
@@ -741,7 +745,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       tax_amount: totals.tax, grand_total: totals.total, notes: input.notes || null,
       items: input.materialLines.map((line) => ({ source_item_id: line.id, material_id: line.materialId || null, material_name: line.materialName, yards: line.yards, is_full_load: line.isFullLoad, rate_used: line.rateUsed, line_total: line.lineTotal, loads: line.loads })),
     }
-  }, [customerById, data?.appSettings?.tax_applies_to_delivery, data?.appSettings?.tax_rate])
+  }, [customerById, data?.appSettings])
   const saveTicket = useCallback(async (input: SaveTicketInput) => {
     if (demo.enabled) {
       const draft = toTicketDraft(input)
@@ -837,7 +841,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const quote = job.quote_id ? data?.quotes.find((row) => row.id === job.quote_id) : undefined
       const now = new Date().toISOString()
       const invoiceId = `qa-runtime-invoice-${(data?.invoices.length ?? 0) + 1}`
-      demo.updateData((current) => ({ ...current, invoices: [{ id: invoiceId, invoice_number: String(1100 + current.invoices.length), customer_id: job.customer_id, job_id: id, quote_id: job.quote_id, standalone_ticket_id: null, amount_source: job.quote_id ? 'QUOTE' : 'JOB', description: job.description, amount: quote?.grand_total ?? job.agreed_amount, status: 'DRAFT', issued_at: null, due_at: null, paid_at: null, disputed: false, dispute_note: null, payment_claimed_at: null, payment_claim_method: null, payment_claim_note: null, voided_at: null, void_reason: null, voided_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.invoices] }))
+      demo.updateData((current) => {
+        const billing = processingFeeFor(Number(quote?.grand_total ?? job.agreed_amount), current.controlSettings)
+        return { ...current, invoices: [{ id: invoiceId, invoice_number: String(1100 + current.invoices.length), customer_id: job.customer_id, job_id: id, quote_id: job.quote_id, standalone_ticket_id: null, amount_source: job.quote_id ? 'QUOTE' : 'JOB', description: job.description, subtotal_amount: billing.subtotal, processing_fee_rate: billing.rate, processing_fee_amount: billing.amount, amount: billing.total, status: 'DRAFT', issued_at: null, due_at: null, paid_at: null, disputed: false, dispute_note: null, payment_claimed_at: null, payment_claim_method: null, payment_claim_note: null, voided_at: null, void_reason: null, voided_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.invoices] }
+      })
       return invoiceId
     }
     return refreshAfter(() => createInvoiceFromJobRecord(id))
@@ -848,7 +855,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       if (!ticket || ticket.status === 'void' || ticket.job_id) throw new Error('Only a finalized standalone ticket can create an invoice')
       const now = new Date().toISOString()
       const invoiceId = `qa-runtime-invoice-${(data?.invoices.length ?? 0) + 1}`
-      demo.updateData((current) => ({ ...current, invoices: [{ id: invoiceId, invoice_number: String(1100 + current.invoices.length), customer_id: ticket.customer_id ?? '', job_id: null, quote_id: null, standalone_ticket_id: id, amount_source: 'TICKET', description: `Direct material order ${ticket.ticket_number}`, amount: Number(ticket.grand_total), status: 'DRAFT', issued_at: null, due_at: null, paid_at: null, disputed: false, dispute_note: null, payment_claimed_at: null, payment_claim_method: null, payment_claim_note: null, voided_at: null, void_reason: null, voided_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.invoices], invoiceTickets: [...current.invoiceTickets, { invoice_id: invoiceId, ticket_id: id, created_at: now }] }))
+      demo.updateData((current) => {
+        const billing = processingFeeFor(Number(ticket.grand_total), current.controlSettings)
+        return { ...current, invoices: [{ id: invoiceId, invoice_number: String(1100 + current.invoices.length), customer_id: ticket.customer_id ?? '', job_id: null, quote_id: null, standalone_ticket_id: id, amount_source: 'TICKET', description: `Direct material order ${ticket.ticket_number}`, subtotal_amount: billing.subtotal, processing_fee_rate: billing.rate, processing_fee_amount: billing.amount, amount: billing.total, status: 'DRAFT', issued_at: null, due_at: null, paid_at: null, disputed: false, dispute_note: null, payment_claimed_at: null, payment_claim_method: null, payment_claim_note: null, voided_at: null, void_reason: null, voided_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now, updated_at: now }, ...current.invoices], invoiceTickets: [...current.invoiceTickets, { invoice_id: invoiceId, ticket_id: id, created_at: now }] }
+      })
       return invoiceId
     }
     return refreshAfter(() => createInvoiceFromTicketRecord(id))
@@ -858,9 +868,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const now = new Date().toISOString()
       demo.updateData((current) => ({
         ...current,
-        invoices: current.invoices.map((row) => row.id === id && row.status === 'DRAFT'
-          ? { ...row, amount: input.amount, description: input.description, updated_at: now }
-          : row),
+        invoices: current.invoices.map((row) => {
+          if (row.id !== id || row.status !== 'DRAFT') return row
+          const billing = processingFeeFor(input.amount, {
+            processing_fee_enabled: Number(row.processing_fee_rate) > 0,
+            processing_fee_rate: row.processing_fee_rate,
+          })
+          return { ...row, subtotal_amount: billing.subtotal, processing_fee_amount: billing.amount, amount: billing.total, description: input.description, updated_at: now }
+        }),
         financialHistory: [{
           id: `qa-runtime-financial-${current.financialHistory.length + 1}`,
           record_type: 'INVOICE', record_id: id, event_type: 'DRAFT_REVISED', reason: input.reason,

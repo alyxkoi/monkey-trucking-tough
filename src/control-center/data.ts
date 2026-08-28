@@ -121,6 +121,9 @@ export type Invoice = {
   standalone_ticket_id: string | null;
   amount_source: "JOB" | "QUOTE" | "TICKET";
   description: string;
+  subtotal_amount: number | null;
+  processing_fee_rate: number | null;
+  processing_fee_amount: number | null;
   amount: number;
   status: "DRAFT" | "SENT" | "PAID" | "VOID";
   issued_at: string | null;
@@ -223,6 +226,8 @@ export type ControlSettings = {
   id: number;
   company_email: string | null;
   default_invoice_due_days: number;
+  processing_fee_enabled: boolean;
+  processing_fee_rate: number;
   custom_work_tax_rule: "PENDING" | "TAXED" | "EXEMPT";
   review_url: string | null;
   business_number: string | null;

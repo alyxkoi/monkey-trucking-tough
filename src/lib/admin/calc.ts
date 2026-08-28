@@ -1,4 +1,5 @@
 import type { Tables } from "@/integrations/supabase/types";
+import { effectiveTaxRate } from "@/control-center/billing";
 
 export type Settings = Tables<"app_settings">;
 export type Material = Tables<"materials">;
@@ -86,7 +87,7 @@ export const computeTotals = (input: TotalsInput) => {
   const fee = perLoadFee(input);
   const loads = Math.max(1, input.loads || 1);
   const delivery_total = Math.round(fee * loads * 100) / 100;
-  const tax_rate = Number(input.settings?.tax_rate ?? 0);
+  const tax_rate = effectiveTaxRate(input.settings);
   const taxable = input.settings?.tax_applies_to_delivery
     ? materials_subtotal + delivery_total
     : materials_subtotal;

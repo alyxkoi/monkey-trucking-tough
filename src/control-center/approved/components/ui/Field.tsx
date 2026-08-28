@@ -5,10 +5,14 @@ import { cn } from '@/control-center/approved/lib/cn'
 /** Every input is 48px tall with 16px text so iOS never zooms the page on focus. */
 const CONTROL =
   'w-full rounded-xl border border-line bg-raised px-4 text-[16px] text-ink placeholder:text-cc-muted transition-colors focus:border-ice/60 focus:outline-none'
+type FieldTone = 'default' | 'onSolid'
 
-export function FieldLabel({ children }: { children: ReactNode }) {
+export function FieldLabel({ children, tone = 'default' }: { children: ReactNode; tone?: FieldTone }) {
   return (
-    <span className="mb-2 block font-label text-[12px] font-semibold uppercase tracking-[0.16em] text-cc-muted">
+    <span className={cn(
+      'mb-2 block font-label text-[12px] font-semibold uppercase tracking-[0.16em]',
+      tone === 'onSolid' ? 'text-canvas/80' : 'text-cc-muted',
+    )}>
       {children}
     </span>
   )
@@ -23,6 +27,7 @@ export function TextField({
   inputMode,
   hint,
   className,
+  tone = 'default',
 }: {
   label?: string
   value: string
@@ -32,10 +37,11 @@ export function TextField({
   inputMode?: 'text' | 'tel' | 'email' | 'numeric' | 'decimal'
   hint?: ReactNode
   className?: string
+  tone?: FieldTone
 }) {
   return (
     <label className={cn('block', className)}>
-      {label && <FieldLabel>{label}</FieldLabel>}
+      {label && <FieldLabel tone={tone}>{label}</FieldLabel>}
       <input
         type={type}
         inputMode={inputMode}
@@ -44,7 +50,7 @@ export function TextField({
         onChange={(event) => onChange(event.target.value)}
         className={cn(CONTROL, 'h-12')}
       />
-      {hint && <span className="mt-2 block text-[13px] text-cc-muted">{hint}</span>}
+      {hint && <span className={cn('mt-2 block text-[13px]', tone === 'onSolid' ? 'text-canvas/75' : 'text-cc-muted')}>{hint}</span>}
     </label>
   )
 }
@@ -56,6 +62,7 @@ export function TextArea({
   placeholder,
   rows = 3,
   className,
+  tone = 'default',
 }: {
   label?: string
   value: string
@@ -63,10 +70,11 @@ export function TextArea({
   placeholder?: string
   rows?: number
   className?: string
+  tone?: FieldTone
 }) {
   return (
     <label className={cn('block', className)}>
-      {label && <FieldLabel>{label}</FieldLabel>}
+      {label && <FieldLabel tone={tone}>{label}</FieldLabel>}
       <textarea
         value={value}
         rows={rows}
@@ -85,6 +93,7 @@ export function SelectField<T extends string>({
   options,
   renderOption,
   className,
+  tone = 'default',
 }: {
   label?: string
   value: T
@@ -93,10 +102,11 @@ export function SelectField<T extends string>({
   /** Maps a stored value to the label shown, for id backed selects. */
   renderOption?: (value: T) => string
   className?: string
+  tone?: FieldTone
 }) {
   return (
     <label className={cn('block', className)}>
-      {label && <FieldLabel>{label}</FieldLabel>}
+      {label && <FieldLabel tone={tone}>{label}</FieldLabel>}
       <select
         value={value}
         onChange={(event) => onChange(event.target.value as NoInfer<T>)}

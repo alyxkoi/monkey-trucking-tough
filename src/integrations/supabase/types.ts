@@ -288,6 +288,7 @@ export type Database = {
           tax_rate: number
           ticket_prefix: string
           updated_at: string
+          tax_enabled: boolean
         }
         Insert: {
           company_address?: string
@@ -310,6 +311,7 @@ export type Database = {
           tax_rate?: number
           ticket_prefix?: string
           updated_at?: string
+          tax_enabled?: boolean
         }
         Update: {
           company_address?: string
@@ -332,6 +334,7 @@ export type Database = {
           tax_rate?: number
           ticket_prefix?: string
           updated_at?: string
+          tax_enabled?: boolean
         }
         Relationships: []
       }
@@ -460,6 +463,8 @@ export type Database = {
           email_status: string
           id: number
           payment_processor_status: string
+          processing_fee_enabled: boolean
+          processing_fee_rate: number
           printable_logo_status: string
           review_url: string | null
           sms_status: string
@@ -475,6 +480,8 @@ export type Database = {
           email_status?: string
           id?: number
           payment_processor_status?: string
+          processing_fee_enabled?: boolean
+          processing_fee_rate?: number
           printable_logo_status?: string
           review_url?: string | null
           sms_status?: string
@@ -490,6 +497,8 @@ export type Database = {
           email_status?: string
           id?: number
           payment_processor_status?: string
+          processing_fee_enabled?: boolean
+          processing_fee_rate?: number
           printable_logo_status?: string
           review_url?: string | null
           sms_status?: string
@@ -882,9 +891,12 @@ export type Database = {
           payment_claim_method: string | null
           payment_claim_note: string | null
           payment_claimed_at: string | null
+          processing_fee_amount: number | null
+          processing_fee_rate: number | null
           quote_id: string | null
           standalone_ticket_id: string | null
           status: string
+          subtotal_amount: number | null
           updated_at: string
           void_reason: string | null
           voided_at: string | null
@@ -908,9 +920,12 @@ export type Database = {
           payment_claim_method?: string | null
           payment_claim_note?: string | null
           payment_claimed_at?: string | null
+          processing_fee_amount?: number | null
+          processing_fee_rate?: number | null
           quote_id?: string | null
           standalone_ticket_id?: string | null
           status?: string
+          subtotal_amount?: number | null
           updated_at?: string
           void_reason?: string | null
           voided_at?: string | null
@@ -934,9 +949,12 @@ export type Database = {
           payment_claim_method?: string | null
           payment_claim_note?: string | null
           payment_claimed_at?: string | null
+          processing_fee_amount?: number | null
+          processing_fee_rate?: number | null
           quote_id?: string | null
           standalone_ticket_id?: string | null
           status?: string
+          subtotal_amount?: number | null
           updated_at?: string
           void_reason?: string | null
           voided_at?: string | null

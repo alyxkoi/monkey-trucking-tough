@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type ReactNode, type RefObject } from 'react
 import { AlertCircle, CheckCircle2, Plus, X } from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { effectiveTaxRate } from '@/control-center/billing'
 import { DeliverySheet } from '@/control-center/approved/components/sales/DeliverySheet'
 import { MaterialLineRow } from '@/control-center/approved/components/sales/MaterialLineRow'
 import { MaterialSheet } from '@/control-center/approved/components/sales/MaterialSheet'
@@ -96,10 +97,10 @@ export function TicketBuilder() {
       customLines: [],
       delivery,
       deliveryLoads,
-      taxRate: Number(sourceData?.appSettings?.tax_rate ?? 0),
+      taxRate: effectiveTaxRate(sourceData?.appSettings),
       taxOnDelivery: sourceData?.appSettings?.tax_applies_to_delivery ?? true,
     }),
-    [delivery, deliveryLoads, lines, sourceData?.appSettings?.tax_applies_to_delivery, sourceData?.appSettings?.tax_rate],
+    [delivery, deliveryLoads, lines, sourceData?.appSettings],
   )
 
   const suggested = suggestedDeliveryLoads(lines)
@@ -113,12 +114,15 @@ export function TicketBuilder() {
     ticketSettings.delivery_overage_base_fee,
     ticketSettings.delivery_overage_per_mile,
   ].every((value) => Number.isFinite(Number(value))))
-  const configuredTaxRate = Number(ticketSettings?.tax_rate)
+  const rawConfiguredTaxRate = Number(ticketSettings?.tax_rate)
+  const taxEnabled = ticketSettings?.tax_enabled ?? (Number.isFinite(rawConfiguredTaxRate) && rawConfiguredTaxRate > 0)
   const taxPricingReady = Boolean(
     ticketSettings
-      && Number.isFinite(configuredTaxRate)
-      && configuredTaxRate >= 0
-      && configuredTaxRate <= 100,
+      && (!taxEnabled || (
+        Number.isFinite(rawConfiguredTaxRate)
+        && rawConfiguredTaxRate > 0
+        && rawConfiguredTaxRate <= 100
+      )),
   )
   const setupProblems = [
     !materialCatalogReady && 'No active materials are configured',

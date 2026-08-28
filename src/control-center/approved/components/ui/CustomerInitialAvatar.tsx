@@ -13,11 +13,13 @@ export function CustomerInitialAvatar({
     <span
       aria-hidden="true"
       className={cn(
-        'flex shrink-0 items-center justify-center bg-mt-red font-label font-black uppercase leading-none text-canvas',
+        'flex shrink-0 items-center justify-center bg-mt-red font-display text-[22px] font-black uppercase leading-none tracking-[-0.04em] text-canvas',
         className,
       )}
     >
-      {initial}
+      <span className="-skew-x-[7deg]">{initial}</span>
     </span>
   )
 }
+
+export const InitialAvatar = CustomerInitialAvatar

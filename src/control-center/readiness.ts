@@ -1,6 +1,7 @@
 import type { ControlData } from '@/control-center/data'
 import { APPROVED_MATERIALS } from '@/control-center/approved/state/pricing'
 import type { PillTone } from '@/control-center/approved/components/ui/StatusPill'
+import { effectiveTaxRate, percentagePoints } from '@/control-center/billing'
 
 export type ReadinessStatus = 'READY' | 'NEEDS_INFO' | 'WAITING' | 'TEST_REQUIRED' | 'ERROR'
 export type ReadinessKey = 'business' | 'materials' | 'workers' | 'communication' | 'tracking' | 'users' | 'printing'
@@ -28,6 +29,59 @@ export type SettingsReadiness = {
 const ready = (reason: string): ReadinessItem => ({ status: 'READY', label: 'Ready', reason, actions: [] })
 const item = (status: ReadinessStatus, label: string, reason: string, actions: string[]): ReadinessItem => ({ status, label, reason, actions })
 const sameNumber = (left: unknown, right: number) => Math.abs(Number(left) - right) < 0.001
+const materialKey = (name: string) => name
+  .normalize('NFKD')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim()
+  .replace(/\s+/g, ' ')
+const rateLabel = (value: unknown) => Number.isFinite(Number(value)) ? `$${Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 })}` : 'missing'
+
+function materialCatalogIssues(data: ControlData): string[] {
+  const active = data.materials.filter((material) => material.is_active)
+  const approvedKeys = new Set(APPROVED_MATERIALS.map((material) => materialKey(material.name)))
+  const issues: string[] = []
+
+  for (const approved of APPROVED_MATERIALS) {
+    const matches = active.filter((material) => materialKey(material.name) === materialKey(approved.name))
+    if (matches.length === 0) {
+      issues.push(`Missing active material: ${approved.name}.`)
+      continue
+    }
+    if (matches.length > 1) issues.push(`Duplicate active material: ${approved.name} (${matches.length} rows).`)
+    const current = matches[0]
+    if (!sameNumber(current.price_per_yard, approved.pricePerYard)) {
+      issues.push(`${approved.name}: per-yard rate is ${rateLabel(current.price_per_yard)}; expected ${rateLabel(approved.pricePerYard)}.`)
+    }
+    if (!sameNumber(current.full_load_price, approved.fullLoadPrice)) {
+      issues.push(`${approved.name}: 20-yard full-load rate is ${rateLabel(current.full_load_price)}; expected ${rateLabel(approved.fullLoadPrice)}.`)
+    }
+    if (!sameNumber(current.full_load_yards, approved.fullLoadYards)) {
+      issues.push(`${approved.name}: full-load size is ${Number(current.full_load_yards) || 'missing'} yards; expected ${approved.fullLoadYards}.`)
+    }
+  }
+
+  const unexpected = active.filter((material) => !approvedKeys.has(materialKey(material.name)))
+  for (const material of unexpected) issues.push(`Unexpected active material: ${material.name}. Make it inactive if it is a test or retired item.`)
+  return issues
+}
+
+function deliveryIssues(app: ControlData['appSettings']): string[] {
+  if (!app) return ['Delivery settings are unavailable.']
+  const expected: Array<[keyof typeof app, number, string]> = [
+    ['delivery_tier_1_max_miles', 2, 'Free-zone maximum'],
+    ['delivery_tier_1_fee', 0, 'Free-zone fee per load'],
+    ['delivery_tier_2_max_miles', 5, '3–5 mile maximum'],
+    ['delivery_tier_2_fee', 60, '3–5 mile fee per load'],
+    ['delivery_tier_3_max_miles', 10, '6–10 mile maximum'],
+    ['delivery_tier_3_fee', 100, '6–10 mile fee per load'],
+    ['delivery_overage_base_fee', 100, 'Over-10 base fee per load'],
+    ['delivery_overage_per_mile', 10, 'Over-10 extra-mile fee'],
+  ]
+  return expected.flatMap(([key, value, label]) => sameNumber(app[key], value)
+    ? []
+    : [`${label} is ${Number(app[key])}; expected ${value}.`])
+}
 
 export function readinessTone(status: ReadinessStatus): PillTone {
   if (status === 'READY') return 'ok'
@@ -50,44 +104,35 @@ export function deriveSettingsReadiness(data: ControlData | null): SettingsReadi
   const control = data.controlSettings
 
   const businessMissing: string[] = []
+  const businessSchemaActions: string[] = []
+  if (app && typeof app.tax_enabled !== 'boolean') businessSchemaActions.push('Apply the Business tax-toggle migration.')
+  if (control && (typeof control.processing_fee_enabled !== 'boolean' || !Number.isFinite(Number(control.processing_fee_rate)))) {
+    businessSchemaActions.push('Apply the Invoice processing-fee settings migration.')
+  }
   if (!app?.company_name?.trim()) businessMissing.push('company name')
   if (!app?.company_phone?.trim()) businessMissing.push('public business phone')
   if (!control?.company_email?.trim()) businessMissing.push('business email')
   if (!app?.company_address?.trim()) businessMissing.push('street or service address')
   if (!app?.company_city_state_zip?.trim()) businessMissing.push('city, state and ZIP')
-  if (!sameNumber(app?.tax_rate, 0) && control?.custom_work_tax_rule === 'PENDING') businessMissing.push('custom work tax treatment')
+  const configuredTaxRate = Number(app?.tax_rate)
+  const taxEnabled = app?.tax_enabled ?? (Number.isFinite(configuredTaxRate) && configuredTaxRate > 0)
+  const appliedTaxRate = effectiveTaxRate(app)
+  if (!Number.isFinite(configuredTaxRate) || configuredTaxRate < 0 || configuredTaxRate > 100) businessMissing.push('a valid tax percentage from 0 to 100')
+  if (taxEnabled && configuredTaxRate <= 0) businessMissing.push('a tax percentage greater than 0 while tax is enabled')
+  if (taxEnabled && appliedTaxRate > 0 && control?.custom_work_tax_rule === 'PENDING') businessMissing.push('custom work tax treatment')
+  const processingRate = percentagePoints(control?.processing_fee_rate)
+  if (control?.processing_fee_enabled && processingRate <= 0) businessMissing.push('a processing fee percentage greater than 0 while the fee is enabled')
   const business = !app || !control
     ? item('ERROR', 'Error', 'Business settings tables are unavailable.', ['Apply and verify the Control Center settings migration.'])
-    : !sameNumber(app.tax_rate, 0)
-      ? item('ERROR', 'Error', 'Current tax does not match the approved 0% setting.', ['Set the current app tax rate to 0 without rewriting historical snapshots.'])
+    : businessSchemaActions.length > 0
+      ? item('ERROR', 'Deployment required', businessSchemaActions.join(' '), businessSchemaActions)
       : businessMissing.length > 0
-        ? item('NEEDS_INFO', 'Needs info', `Missing ${businessMissing.join(', ')}.`, businessMissing)
-        : ready(`Company information is complete. Tax is 0% and invoices default to ${control.default_invoice_due_days} days.`)
+      ? item('NEEDS_INFO', 'Needs info', `Missing ${businessMissing.join(', ')}.`, businessMissing)
+      : ready(`Company information is complete. Tax is ${taxEnabled ? `${appliedTaxRate}%` : 'off'}; processing fee is ${control.processing_fee_enabled ? `${processingRate}%` : 'off'}; invoices default to ${control.default_invoice_due_days} days.`)
 
-  const activeMaterials = data.materials.filter((material) => material.is_active)
-  const catalogMatches = activeMaterials.length === APPROVED_MATERIALS.length && APPROVED_MATERIALS.every((approved) => {
-    const current = activeMaterials.find((material) => material.name.trim().toLowerCase() === approved.name.toLowerCase())
-    return Boolean(current)
-      && sameNumber(current?.price_per_yard, approved.pricePerYard)
-      && sameNumber(current?.full_load_price, approved.fullLoadPrice)
-      && sameNumber(current?.full_load_yards, approved.fullLoadYards)
-  })
-  const deliveryMatches = Boolean(app)
-    && sameNumber(app?.delivery_tier_1_max_miles, 2)
-    && sameNumber(app?.delivery_tier_1_fee, 0)
-    && sameNumber(app?.delivery_tier_2_max_miles, 5)
-    && sameNumber(app?.delivery_tier_2_fee, 60)
-    && sameNumber(app?.delivery_tier_3_max_miles, 10)
-    && sameNumber(app?.delivery_tier_3_fee, 100)
-    && sameNumber(app?.delivery_overage_base_fee, 100)
-    && sameNumber(app?.delivery_overage_per_mile, 10)
-  const materialActions = [
-    ...(!catalogMatches ? ['Reconcile the 10 approved active materials, rates and 20-yard load values.'] : []),
-    ...(!deliveryMatches ? ['Reconcile the approved delivery tiers.'] : []),
-    ...(!sameNumber(app?.tax_rate, 0) ? ['Set current tax to 0%.'] : []),
-  ]
+  const materialActions = [...materialCatalogIssues(data), ...deliveryIssues(app)]
   const materials = materialActions.length === 0
-    ? ready('The approved catalog, load size, delivery tiers and current tax are loaded.')
+    ? ready('The 10 approved active materials, rates, 20-yard load values and delivery tiers match managed configuration.')
     : item('ERROR', 'Error', materialActions.join(' '), materialActions)
 
   const workerActions: string[] = []

@@ -9,11 +9,13 @@ import { SelectField, Stepper, TextArea, TextField } from '@/control-center/appr
 import { Panel } from '@/control-center/approved/components/ui/Panel'
 import { SegmentControl } from '@/control-center/approved/components/ui/SegmentControl'
 import { StatusPill, type PillTone } from '@/control-center/approved/components/ui/StatusPill'
+import { InitialAvatar } from '@/control-center/approved/components/ui/CustomerInitialAvatar'
 import { cn } from '@/control-center/approved/lib/cn'
 import { formatTaxRate, shortAgo, usd } from '@/control-center/approved/lib/format'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import { AI_SAMPLES } from '@/control-center/approved/state/automationData'
-import { DELIVERY_OPTIONS, TAX_RATE } from '@/control-center/approved/state/pricing'
+import { DELIVERY_OPTIONS } from '@/control-center/approved/state/pricing'
+import { effectiveTaxRate, percentagePoints } from '@/control-center/billing'
 import {
   BUSINESS,
   LINK_SOURCES,
@@ -112,13 +114,18 @@ export function SettingsBusiness() {
   const [address, setAddress] = useState('')
   const [cityStateZip, setCityStateZip] = useState('')
   const [dueDays, setDueDays] = useState(3)
+  const [taxEnabled, setTaxEnabled] = useState(false)
+  const [taxRate, setTaxRate] = useState('0')
   const [taxOnDelivery, setTaxOnDelivery] = useState(true)
   const [customWorkTax, setCustomWorkTax] = useState<'PENDING' | 'TAXED' | 'NOT_TAXED'>('PENDING')
+  const [processingFeeEnabled, setProcessingFeeEnabled] = useState(false)
+  const [processingFeeRate, setProcessingFeeRate] = useState('0')
   const [saving, setSaving] = useState(false)
   const readiness = deriveSettingsReadiness(sourceData ?? null)
   const paymentReadiness = readiness.capabilities.payments
-  const currentTaxRate = Number(sourceData?.appSettings?.tax_rate ?? TAX_RATE)
-  const hasZeroTax = Math.abs(currentTaxRate) < 0.001
+  const configuredTaxRate = Number(taxRate)
+  const currentTaxRate = taxEnabled ? percentagePoints(configuredTaxRate) : 0
+  const hasZeroTax = !taxEnabled || Math.abs(currentTaxRate) < 0.001
 
   useEffect(() => {
     const business = sourceData?.appSettings
@@ -128,25 +135,47 @@ export function SettingsBusiness() {
       setPhone(business.company_phone)
       setAddress(business.company_address)
       setCityStateZip(business.company_city_state_zip)
+      setTaxEnabled(business.tax_enabled ?? effectiveTaxRate(business) > 0)
+      setTaxRate(String(Number(business.tax_rate)))
       setTaxOnDelivery(business.tax_applies_to_delivery)
     }
     if (control) {
       setEmail(control.company_email ?? '')
       setDueDays(control.default_invoice_due_days)
+      setProcessingFeeEnabled(control.processing_fee_enabled ?? false)
+      setProcessingFeeRate(String(Number(control.processing_fee_rate ?? 0)))
       setCustomWorkTax(control.custom_work_tax_rule === 'EXEMPT' ? 'NOT_TAXED' : control.custom_work_tax_rule)
     }
   }, [sourceData])
 
   const save = async () => {
     if (!sourceData?.appSettings || !sourceData.controlSettings) return
+    const nextTaxRate = Number(taxRate)
+    const nextProcessingFeeRate = Number(processingFeeRate)
+    if (!Number.isFinite(nextTaxRate) || nextTaxRate < 0 || nextTaxRate > 100) {
+      toast.error('Tax percentage must be between 0 and 100.')
+      return
+    }
+    if (taxEnabled && nextTaxRate <= 0) {
+      toast.error('Enter a tax percentage greater than 0, or turn tax off.')
+      return
+    }
+    if (!Number.isFinite(nextProcessingFeeRate) || nextProcessingFeeRate < 0 || nextProcessingFeeRate > 100) {
+      toast.error('Processing fee percentage must be between 0 and 100.')
+      return
+    }
+    if (processingFeeEnabled && nextProcessingFeeRate <= 0) {
+      toast.error('Enter a processing fee percentage greater than 0, or turn the fee off.')
+      return
+    }
     setSaving(true)
     try {
       if (demo.enabled) {
         const now = new Date().toISOString()
         demo.updateData((current) => ({
           ...current,
-          appSettings: current.appSettings ? { ...current.appSettings, company_name: name.trim(), company_phone: phone.trim(), company_address: address.trim(), company_city_state_zip: cityStateZip.trim(), tax_applies_to_delivery: taxOnDelivery, updated_at: now } : null,
-          controlSettings: current.controlSettings ? { ...current.controlSettings, company_email: email.trim() || null, default_invoice_due_days: dueDays, custom_work_tax_rule: customWorkTax === 'NOT_TAXED' ? 'EXEMPT' : customWorkTax, updated_at: now } : null,
+          appSettings: current.appSettings ? { ...current.appSettings, company_name: name.trim(), company_phone: phone.trim(), company_address: address.trim(), company_city_state_zip: cityStateZip.trim(), tax_enabled: taxEnabled, tax_rate: nextTaxRate, tax_applies_to_delivery: taxOnDelivery, updated_at: now } : null,
+          controlSettings: current.controlSettings ? { ...current.controlSettings, company_email: email.trim() || null, default_invoice_due_days: dueDays, processing_fee_enabled: processingFeeEnabled, processing_fee_rate: nextProcessingFeeRate, custom_work_tax_rule: customWorkTax === 'NOT_TAXED' ? 'EXEMPT' : customWorkTax, updated_at: now } : null,
         }))
         toast.success('Business settings saved in demo memory.')
         return
@@ -157,11 +186,15 @@ export function SettingsBusiness() {
           company_phone: phone.trim(),
           company_address: address.trim(),
           company_city_state_zip: cityStateZip.trim(),
+          tax_enabled: taxEnabled,
+          tax_rate: nextTaxRate,
           tax_applies_to_delivery: taxOnDelivery,
         }).eq('id', sourceData.appSettings.id),
         controlDb.from('control_center_settings').update({
           company_email: email.trim() || null,
           default_invoice_due_days: dueDays,
+          processing_fee_enabled: processingFeeEnabled,
+          processing_fee_rate: nextProcessingFeeRate,
           custom_work_tax_rule: customWorkTax === 'NOT_TAXED' ? 'EXEMPT' : customWorkTax,
         }).eq('id', 1),
       ])
@@ -213,13 +246,29 @@ export function SettingsBusiness() {
               <div className="mt-1 font-display display-tight tnum text-[36px]">
                 {formatTaxRate(currentTaxRate)}
               </div>
-              <div className="mt-1 text-[14px] text-cc-muted">Current operational rate.</div>
+              <div className="mt-1 text-[14px] text-cc-muted">Applied to new records right now.</div>
             </div>
+            <StatusPill tone={taxEnabled ? 'ok' : 'idle'} size="sm">{taxEnabled ? 'On' : 'Off'}</StatusPill>
           </div>
 
           <Toggle
+            label="Charge tax"
+            line="When off, new Quotes and Tickets apply 0% while keeping the configured percentage available for later."
+            value={taxEnabled}
+            onChange={setTaxEnabled}
+          />
+
+          <TextField
+            label="Tax percentage"
+            value={taxRate}
+            onChange={setTaxRate}
+            inputMode="decimal"
+            hint="Enter percentage points. For example, 8.25 means 8.25%."
+          />
+
+          <Toggle
             label="Charge tax on delivery"
-            line="Off means tax applies to material only."
+            line={taxEnabled ? 'Off means tax applies to material only.' : 'Saved for the next time tax is enabled.'}
             value={taxOnDelivery}
             onChange={setTaxOnDelivery}
           />
@@ -288,6 +337,28 @@ export function SettingsBusiness() {
                   {method}
                 </StatusPill>
               ))}
+            </div>
+          </div>
+          <div className="border-t border-line pt-4">
+            <div className="font-label text-[12px] font-semibold uppercase tracking-[0.16em] text-cc-muted">
+              Billing rules
+            </div>
+            <div className="mt-4 space-y-4">
+              <Toggle
+                label="Add processing fee"
+                line="Adds one clearly labeled fee to each new Invoice. The rate is snapshotted so later changes never rewrite an existing Invoice."
+                value={processingFeeEnabled}
+                onChange={setProcessingFeeEnabled}
+              />
+              <TextField
+                label="Processing fee percentage"
+                value={processingFeeRate}
+                onChange={setProcessingFeeRate}
+                inputMode="decimal"
+                hint={processingFeeEnabled
+                  ? 'Applied once to the Invoice subtotal before payment. Stripe and manual payment collect the resulting full balance.'
+                  : 'Stored but not applied while the processing fee is off.'}
+              />
             </div>
           </div>
           <div className="border-t border-line pt-4">
@@ -481,18 +552,26 @@ export function SettingsMaterials() {
           </SecondaryButton>
         </div>
         {editingId && (
-          <div className="space-y-4 border-t border-ice/25 bg-ice/[0.05] p-5">
-            <div className="font-label text-[13px] font-semibold uppercase tracking-[0.12em] text-ice">
-              {editingId === 'new' ? 'New material' : 'Edit current pricing'}
+          <div className={cn(
+            'space-y-4 border-t p-5',
+            editingId === 'new'
+              ? 'border-mt-red bg-mt-red shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]'
+              : 'border-ice/25 bg-ice/[0.05]',
+          )}>
+            <div className={cn(
+              'font-label text-[13px] font-semibold uppercase tracking-[0.12em]',
+              editingId === 'new' ? 'text-canvas' : 'text-ice',
+            )}>
+              {editingId === 'new' ? 'Add new material' : 'Edit current pricing'}
             </div>
-            <TextField label="Material name" value={name} onChange={setName} />
+            <TextField tone={editingId === 'new' ? 'onSolid' : 'default'} label="Material name" value={name} onChange={setName} />
             <div className="grid gap-4 sm:grid-cols-2">
-              <TextField label="Per yard" value={perYard} onChange={setPerYard} inputMode="decimal" />
-              <TextField label="20 yd full load" value={fullLoad} onChange={setFullLoad} inputMode="decimal" />
+              <TextField tone={editingId === 'new' ? 'onSolid' : 'default'} label="Per yard" value={perYard} onChange={setPerYard} inputMode="decimal" />
+              <TextField tone={editingId === 'new' ? 'onSolid' : 'default'} label="20 yd full load" value={fullLoad} onChange={setFullLoad} inputMode="decimal" />
             </div>
             <div className="flex flex-wrap gap-2">
-              <PrimaryButton size="sm" disabled={saving} onClick={() => void saveMaterial()}>{saving ? 'Saving' : 'Save'}</PrimaryButton>
-              <SecondaryButton size="sm" onClick={() => setEditingId(null)}>Cancel</SecondaryButton>
+              <PrimaryButton tone={editingId === 'new' ? 'onSolid' : 'default'} size="sm" disabled={saving} onClick={() => void saveMaterial()}>{saving ? 'Saving' : 'Save'}</PrimaryButton>
+              <SecondaryButton tone={editingId === 'new' ? 'onSolid' : 'default'} size="sm" onClick={() => setEditingId(null)}>Cancel</SecondaryButton>
             </div>
           </div>
         )}
@@ -746,12 +825,21 @@ export function SettingsWorkers() {
           <SecondaryButton size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openWorker('new')}>Add worker</SecondaryButton>
         </div>
         {workerEditingId && (
-          <div className="space-y-4 border-t border-ice/25 bg-ice/[0.05] p-5">
-            <div className="font-label text-[13px] font-semibold uppercase tracking-[0.12em] text-ice">
-              {workerEditingId === 'new' ? 'New worker' : 'Edit worker'}
+          <div className={cn(
+            'space-y-4 border-t p-5',
+            workerEditingId === 'new'
+              ? 'border-mt-red bg-mt-red shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]'
+              : 'border-ice/25 bg-ice/[0.05]',
+          )}>
+            <div className={cn(
+              'font-label text-[13px] font-semibold uppercase tracking-[0.12em]',
+              workerEditingId === 'new' ? 'text-canvas' : 'text-ice',
+            )}>
+              {workerEditingId === 'new' ? 'Add new worker' : 'Edit worker'}
             </div>
-            <TextField label="Worker name" value={workerName} onChange={setWorkerName} />
+            <TextField tone={workerEditingId === 'new' ? 'onSolid' : 'default'} label="Worker name" value={workerName} onChange={setWorkerName} />
             <SelectField
+              tone={workerEditingId === 'new' ? 'onSolid' : 'default'}
               label="Pay type"
               value={workerPayType}
               onChange={setWorkerPayType}
@@ -759,22 +847,20 @@ export function SettingsWorkers() {
               renderOption={(value) => value === 'HOURLY' ? 'Hourly' : 'By loads and routes'}
             />
             {workerPayType === 'HOURLY' && (
-              <TextField label="Hourly rate" value={workerRate} onChange={setWorkerRate} inputMode="decimal" />
+              <TextField tone={workerEditingId === 'new' ? 'onSolid' : 'default'} label="Hourly rate" value={workerRate} onChange={setWorkerRate} inputMode="decimal" />
             )}
-            <Toggle label="Driver work" line="This does not merge the Worker with the separate Ticket driver roster." value={workerIsDriver} onChange={setWorkerIsDriver} />
-            <TextArea label="Notes" value={workerNotes} onChange={setWorkerNotes} rows={2} />
+            <Toggle tone={workerEditingId === 'new' ? 'onSolid' : 'default'} label="Driver work" line="This does not merge the Worker with the separate Ticket driver roster." value={workerIsDriver} onChange={setWorkerIsDriver} />
+            <TextArea tone={workerEditingId === 'new' ? 'onSolid' : 'default'} label="Notes" value={workerNotes} onChange={setWorkerNotes} rows={2} />
             <div className="flex flex-wrap gap-2">
-              <PrimaryButton size="sm" disabled={saving} onClick={() => void saveWorker()}>{saving ? 'Saving' : 'Save'}</PrimaryButton>
-              <SecondaryButton size="sm" onClick={() => setWorkerEditingId(null)}>Cancel</SecondaryButton>
+              <PrimaryButton tone={workerEditingId === 'new' ? 'onSolid' : 'default'} size="sm" disabled={saving} onClick={() => void saveWorker()}>{saving ? 'Saving' : 'Save'}</PrimaryButton>
+              <SecondaryButton tone={workerEditingId === 'new' ? 'onSolid' : 'default'} size="sm" onClick={() => setWorkerEditingId(null)}>Cancel</SecondaryButton>
             </div>
           </div>
         )}
         <div className="divide-y divide-line border-t border-line">
           {workers.map((worker) => (
             <div key={worker.id} className="flex flex-wrap items-start gap-4 px-5 py-4">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-raised font-label text-[15px] font-semibold text-cc-muted">
-                {worker.name.charAt(0)}
-              </span>
+              <InitialAvatar name={worker.name} className="h-11 w-11 rounded-xl" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[16px] font-semibold text-ink">{worker.name}</span>
@@ -1415,11 +1501,13 @@ function Toggle({
   line,
   value,
   onChange,
+  tone = 'default',
 }: {
   label: string
   line?: string
   value: boolean
   onChange: (value: boolean) => void
+  tone?: 'default' | 'onSolid'
 }) {
   return (
     <button
@@ -1428,21 +1516,31 @@ function Toggle({
       className="flex min-h-[44px] w-full items-start justify-between gap-4 py-1 text-left"
     >
       <span className="min-w-0">
-        <span className="block font-label text-[14px] font-semibold uppercase tracking-[0.08em] text-ink">
+        <span className={cn(
+          'block font-label text-[14px] font-semibold uppercase tracking-[0.08em]',
+          tone === 'onSolid' ? 'text-canvas' : 'text-ink',
+        )}>
           {label}
         </span>
-        {line && <span className="mt-0.5 block text-[14px] leading-snug text-cc-muted">{line}</span>}
+        {line && <span className={cn(
+          'mt-0.5 block text-[14px] leading-snug',
+          tone === 'onSolid' ? 'text-canvas/75' : 'text-cc-muted',
+        )}>{line}</span>}
       </span>
       <span
         className={cn(
-          'relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors',
-          value ? 'bg-ice' : 'bg-raised border border-line',
+          'relative mt-1 h-7 w-12 shrink-0 rounded-full border transition-colors',
+          value
+            ? tone === 'onSolid' ? 'border-canvas bg-canvas' : 'border-ice bg-ice'
+            : tone === 'onSolid' ? 'border-canvas/40 bg-canvas/15' : 'border-line bg-raised',
         )}
       >
         <span
           className={cn(
             'absolute top-1 h-5 w-5 rounded-full transition-all',
-            value ? 'left-6 bg-canvas' : 'left-1 bg-cc-muted',
+            value
+              ? tone === 'onSolid' ? 'left-6 bg-mt-red' : 'left-6 bg-canvas'
+              : tone === 'onSolid' ? 'left-1 bg-canvas/70' : 'left-1 bg-cc-muted',
           )}
         />
       </span>

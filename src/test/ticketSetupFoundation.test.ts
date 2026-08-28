@@ -77,7 +77,7 @@ describe('Ticket setup foundation', () => {
     expect(materialPicker).toContain('Search material')
     expect(materialPicker).toContain('No active materials configured')
     expect(read('src/control-center/approved/screens/TicketBuilder.tsx')).toContain('No active materials are configured')
-    expect(read('src/control-center/readiness.ts')).toContain('Reconcile the 10 approved active materials')
+    expect(read('src/control-center/readiness.ts')).toContain('Missing active material:')
     expect(driverPicker).toContain('Search driver')
     expect(driverPicker).toContain('No drivers configured')
     expect(drivers).toContain('export const DRIVERS: Driver[] = []')

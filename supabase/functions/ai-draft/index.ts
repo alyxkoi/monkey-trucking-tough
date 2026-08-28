@@ -114,7 +114,8 @@ function materialTool(messages: any[], materials: any[], settings: any) {
   const deliveryTotal = deliveryPerLoad == null ? null : deliveryPerLoad * deliveryLoads
   const taxable = deliveryTotal == null ? null : materialTotal + (settings.tax_applies_to_delivery ? deliveryTotal : 0)
   // app_settings.tax_rate uses percentage points: 8.25 means 8.25%.
-  const tax = taxable == null ? null : Math.round(taxable * (Number(settings.tax_rate) / 100) * 100) / 100
+  const appliedTaxRate = settings?.tax_enabled === false ? 0 : Number(settings?.tax_rate ?? 0)
+  const tax = taxable == null ? null : Math.round(taxable * (appliedTaxRate / 100) * 100) / 100
   return {
     status: 'MATERIAL_CALCULATED', material_id: material.id, material_name: material.name,
     yards, full_loads: loads, remainder_yards: remainder,
@@ -199,7 +200,7 @@ Deno.serve(async (req) => {
       service.from('invoices').select('id,invoice_number,status,amount,due_at,disputed,dispute_note,payment_claimed_at,payment_claim_note').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(3),
       service.from('payments').select('invoice_id,amount,method,received_at,voided_at').eq('customer_id', customerId).order('received_at', { ascending: false }).limit(5),
       service.from('materials').select('id,name,price_per_yard,full_load_price,full_load_yards').eq('is_active', true).order('sort_order'),
-      service.from('app_settings').select('delivery_tier_1_fee,delivery_tier_1_max_miles,delivery_tier_2_fee,delivery_tier_2_max_miles,delivery_tier_3_fee,delivery_tier_3_max_miles,delivery_overage_base_fee,delivery_overage_per_mile,tax_rate,tax_applies_to_delivery').limit(1).maybeSingle(),
+      service.from('app_settings').select('delivery_tier_1_fee,delivery_tier_1_max_miles,delivery_tier_2_fee,delivery_tier_2_max_miles,delivery_tier_3_fee,delivery_tier_3_max_miles,delivery_overage_base_fee,delivery_overage_per_mile,tax_enabled,tax_rate,tax_applies_to_delivery').limit(1).maybeSingle(),
       service.from('control_center_settings').select('ai_english,ai_spanish,human_takeover_on_reply,sms_status,calling_status,custom_work_tax_rule').eq('id', 1).maybeSingle(),
     ])
     if (customerResult.error || messageResult.error || materialResult.error) throw new Error('Required conversation context could not be loaded.')

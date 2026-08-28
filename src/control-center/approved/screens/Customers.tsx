@@ -101,7 +101,7 @@ export function Customers() {
                 >
                   <CustomerInitialAvatar
                     name={customer.name}
-                    className="h-11 w-11 rounded-xl text-[16px]"
+                    className="h-11 w-11 rounded-xl"
                   />
 
                   <span className="min-w-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,260px)] lg:items-center lg:gap-6">

@@ -31,6 +31,7 @@ describe('Settings readiness is derived from managed configuration', () => {
 
   it('does not require a custom-work tax decision while the active tax rate is zero', () => {
     const data = fixture()
+    data.appSettings!.tax_enabled = false
     data.appSettings!.tax_rate = 0
     data.controlSettings!.custom_work_tax_rule = 'PENDING'
     const readiness = deriveSettingsReadiness(data)
@@ -45,6 +46,8 @@ describe('Settings readiness is derived from managed configuration', () => {
     data.aiIntegration = { status: 'ERROR', message: 'AI service failed its authenticated check.' }
     const readiness = deriveSettingsReadiness(data)
     expect(readiness.categories.materials.status).toBe('ERROR')
+    expect(readiness.categories.materials.reason).toContain('20-yard full-load rate is $999; expected $350')
+    expect(readiness.categories.materials.reason).not.toContain('Reconcile the 10 approved')
     expect(readiness.capabilities.ai).toMatchObject({ status: 'ERROR', reason: 'AI service failed its authenticated check.' })
     expect(readiness.categories.communication.status).toBe('ERROR')
   })
@@ -53,6 +56,26 @@ describe('Settings readiness is derived from managed configuration', () => {
     const data = fixture()
     data.materials.push({ ...data.materials[0], id: 'material-extra', name: 'Test Material' })
     expect(deriveSettingsReadiness(data).categories.materials.status).toBe('ERROR')
+    expect(deriveSettingsReadiness(data).categories.materials.reason).toContain('Unexpected active material: Test Material')
+  })
+
+  it('ignores inactive test materials when the approved active catalog is correct', () => {
+    const data = fixture()
+    data.materials.push({ ...data.materials[0], id: 'material-inactive-test', name: 'Old Test Material', is_active: false })
+    expect(deriveSettingsReadiness(data).categories.materials.status).toBe('READY')
+  })
+
+  it('uses enabled tax and processing-fee settings without requiring a fixed zero rate', () => {
+    const data = fixture()
+    data.appSettings!.tax_enabled = true
+    data.appSettings!.tax_rate = 8.25
+    data.controlSettings!.custom_work_tax_rule = 'TAXED'
+    data.controlSettings!.processing_fee_enabled = true
+    data.controlSettings!.processing_fee_rate = 3
+    const readiness = deriveSettingsReadiness(data)
+    expect(readiness.categories.business.status).toBe('READY')
+    expect(readiness.categories.business.reason).toContain('Tax is 8.25%')
+    expect(readiness.categories.business.reason).toContain('processing fee is 3%')
   })
 
   it('removes completed blockers when verified configuration changes', () => {

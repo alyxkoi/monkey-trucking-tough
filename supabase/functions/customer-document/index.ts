@@ -66,7 +66,7 @@ async function invoiceBreakdown(service: any, invoice: any) {
       source: 'TICKET',
     }
   }
-  return { items: [{ id: invoice.id, kind: 'WORK', description: invoice.description, line_total: invoice.amount }], sourceTotals: null, source: 'JOB' }
+  return { items: [{ id: invoice.id, kind: 'WORK', description: invoice.description, line_total: invoice.subtotal_amount ?? invoice.amount }], sourceTotals: null, source: 'JOB' }
 }
 
 async function resolveInvoice(service: any, token: any) {
@@ -90,6 +90,9 @@ async function resolveInvoice(service: any, token: any) {
       customerName: customer?.name ?? 'Customer', description: invoice.description,
       job: job ?? null, ticketNumbers: (tickets ?? []).map((ticket: any) => ticket.ticket_number),
       items: breakdown.items, sourceTotals: breakdown.sourceTotals, amountSource: breakdown.source,
+      subtotalAmount: invoice.subtotal_amount ?? invoice.amount,
+      processingFeeRate: invoice.processing_fee_rate ?? 0,
+      processingFeeAmount: invoice.processing_fee_amount ?? 0,
       amount: invoice.amount, amountPaid: paid, amountDue: Math.max(0, Number(invoice.amount) - paid),
       payments: payments ?? [], disputed: invoice.disputed,
     },

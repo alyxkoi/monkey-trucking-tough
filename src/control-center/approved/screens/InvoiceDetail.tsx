@@ -125,12 +125,13 @@ export function InvoiceDetail() {
     : invoice.amountSource === 'TICKET' && tickets[0]
       ? ticketTotals(tickets[0])
       : null
-  const editAmount = draftEdit.invoiceId === invoice.id ? draftEdit.amount : String(invoice.amount)
+  const invoiceSubtotal = invoice.subtotalAmount ?? invoice.amount
+  const editAmount = draftEdit.invoiceId === invoice.id ? draftEdit.amount : String(invoiceSubtotal)
   const editDescription = draftEdit.invoiceId === invoice.id ? draftEdit.description : invoice.description
   const editReason = draftEdit.invoiceId === invoice.id ? draftEdit.reason : ''
   const setEdit = (values: Partial<typeof draftEdit>) => setDraftEdit((current) => ({
     invoiceId: invoice.id,
-    amount: current.invoiceId === invoice.id ? current.amount : String(invoice.amount),
+    amount: current.invoiceId === invoice.id ? current.amount : String(invoiceSubtotal),
     description: current.invoiceId === invoice.id ? current.description : invoice.description,
     reason: current.invoiceId === invoice.id ? current.reason : '',
     ...values,
@@ -217,6 +218,13 @@ export function InvoiceDetail() {
 
             <div className="space-y-4 border-t border-white/[0.08] px-5 py-5 lg:px-7">
               <Field label="Work" value={invoice.description} />
+              {Number(invoice.processingFeeAmount ?? 0) > 0 && (
+                <div className="grid gap-3 rounded-panel border border-white/[0.08] bg-canvas/25 p-4 sm:grid-cols-3">
+                  <Field label="Invoice subtotal" value={usdExact(invoiceSubtotal)} />
+                  <Field label={`Processing fee ${formatTaxRate(invoice.processingFeeRate ?? 0)}`} value={usdExact(invoice.processingFeeAmount ?? 0)} />
+                  <Field label="Invoice total" value={usdExact(invoice.amount)} />
+                </div>
+              )}
               {invoice.voidReason && <Field label="Voided because" value={invoice.voidReason} />}
               {invoice.disputeNote && <Field label="What they said" value={invoice.disputeNote} />}
 
@@ -306,7 +314,11 @@ export function InvoiceDetail() {
                 {sourceBreakdown.custom > 0 && <Field label="Custom work" value={usdExact(sourceBreakdown.custom)} />}
                 <Field label="Delivery" value={usdExact(sourceBreakdown.delivery)} />
                 <Field label={`Tax ${formatTaxRate(sourceBreakdown.taxRate)}`} value={usdExact(sourceBreakdown.tax)} />
-                <Field label="Source total" value={usdExact(sourceBreakdown.total)} />
+                <Field label="Source subtotal" value={usdExact(sourceBreakdown.total)} />
+                {Number(invoice.processingFeeAmount ?? 0) > 0 && (
+                  <Field label={`Processing fee ${formatTaxRate(invoice.processingFeeRate ?? 0)}`} value={usdExact(invoice.processingFeeAmount ?? 0)} />
+                )}
+                <Field label="Invoice total" value={usdExact(invoice.amount)} />
               </div>
               <p className="mt-4 text-[13px] leading-snug text-cc-muted">
                 {invoice.amountSource === 'QUOTE'
@@ -374,7 +386,13 @@ export function InvoiceDetail() {
           {status === 'DRAFT' && editingDraft && (
             <Panel title="Edit draft">
               <div className="space-y-4">
-                <TextField label="Invoice amount" inputMode="decimal" value={editAmount} onChange={(value) => setEdit({ amount: value })} />
+                <TextField
+                  label={Number(invoice.processingFeeRate ?? 0) > 0 ? 'Invoice subtotal' : 'Invoice amount'}
+                  inputMode="decimal"
+                  value={editAmount}
+                  onChange={(value) => setEdit({ amount: value })}
+                  hint={Number(invoice.processingFeeRate ?? 0) > 0 ? `The snapshotted ${formatTaxRate(invoice.processingFeeRate ?? 0)} processing fee is recalculated from this subtotal.` : undefined}
+                />
                 <TextArea label="Description" rows={3} value={editDescription} onChange={(value) => setEdit({ description: value })} />
                 <TextArea label="Reason for change" rows={2} value={editReason} onChange={(value) => setEdit({ reason: value })} placeholder="Confirmed agreed amount with customer" />
                 <PrimaryButton

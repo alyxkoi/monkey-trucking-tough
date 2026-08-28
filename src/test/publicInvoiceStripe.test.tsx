@@ -57,6 +57,26 @@ describe('secure public Invoice Stripe states', () => {
     expect(screen.getAllByText('$2,800.00')).toHaveLength(2)
   })
 
+  it('renders a snapshotted processing fee as its own Invoice line item', async () => {
+    invoke.mockResolvedValue({
+      data: {
+        available: true,
+        document: invoice({
+          subtotalAmount: 2800,
+          processingFeeRate: 3,
+          processingFeeAmount: 84,
+          amount: 2884,
+          amountDue: 2884,
+        }),
+      },
+      error: null,
+    })
+    renderInvoice()
+    expect(await screen.findByText('Processing fee 3%')).toBeVisible()
+    expect(screen.getByText('$84.00')).toBeVisible()
+    expect(screen.getAllByText('$2,884.00')).toHaveLength(2)
+  })
+
   it('sends only the secure token to Checkout and keeps provider failure isolated', async () => {
     invoke.mockImplementation(async (name: string) => name === 'customer-document'
       ? { data: { available: true, document: invoice() }, error: null }
