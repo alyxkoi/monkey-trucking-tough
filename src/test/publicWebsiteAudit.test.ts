@@ -61,6 +61,21 @@ describe("public website contracts", () => {
     expect(css).toMatch(/\.public-service-feature-section\s*{[^}]*#e9eaeb[^}]*#dcdee0[^}]*#bec1c5/s);
   });
 
+  it("keeps the Popular Materials animation bound to the full section", () => {
+    const materials = read("src/components/public/PopularMaterialsSection.tsx");
+    const animatedBackground = read("src/components/ui/vertical-bars.tsx");
+    const css = read("src/index.css");
+
+    expect(materials.match(/<VerticalBarsNoise/g)).toHaveLength(1);
+    expect(css).toMatch(/\.popular-materials\s*{[^}]*position:\s*relative[^}]*overflow:\s*hidden/s);
+    expect(css).toMatch(/\.popular-materials-ambient\s*{[^}]*position:\s*absolute[^}]*inset:\s*0/s);
+    expect(css).toMatch(/\.popular-materials-ambient-frame\s*{[^}]*position:\s*absolute[^}]*inset:\s*0[^}]*width:\s*100%[^}]*height:\s*100%/s);
+    expect(css).not.toMatch(/\.popular-materials-ambient-frame\s*{[^}]*(?:position:\s*sticky|100dvh)/s);
+    expect(animatedBackground).toContain("root.getBoundingClientRect()");
+    expect(animatedBackground).toContain("new ResizeObserver(resizeCanvas)");
+    expect(animatedBackground).not.toContain("window.innerHeight");
+  });
+
   it("keeps the public header centered and the Hero media contract exact", () => {
     const header = read("src/components/Header.tsx");
     const userMenu = read("src/components/auth/UserMenu.tsx");

@@ -25,6 +25,7 @@ const VerticalBarsNoise = ({
   animationSpeed = 0.0005,
   removeWaveLine = true,
 }: VerticalBarsNoiseProps) => {
+  const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timeRef = useRef(0);
   const animationFrameId = useRef<number | null>(null);
@@ -68,19 +69,21 @@ const VerticalBarsNoise = ({
   };
 
   const resizeCanvas = useCallback(() => {
+    const root = rootRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!root || !canvas) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const displayWidth = window.innerWidth;
-    const displayHeight = window.innerHeight;
-    canvas.width = displayWidth * dpr;
-    canvas.height = displayHeight * dpr;
+    const bounds = root.getBoundingClientRect();
+    const displayWidth = Math.max(1, Math.round(bounds.width));
+    const displayHeight = Math.max(1, Math.round(bounds.height));
+    canvas.width = Math.round(displayWidth * dpr);
+    canvas.height = Math.round(displayHeight * dpr);
     canvas.style.width = `${displayWidth}px`;
     canvas.style.height = `${displayHeight}px`;
 
     const ctx = canvas.getContext("2d");
-    if (ctx) ctx.scale(dpr, dpr);
+    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }, []);
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
@@ -187,11 +190,14 @@ const VerticalBarsNoise = ({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const root = rootRef.current;
+    if (!canvas || !root) return;
     resizeCanvas();
     const handleResize = () => resizeCanvas();
+    const resizeObserver = new ResizeObserver(resizeCanvas);
 
     window.addEventListener("resize", handleResize);
+    resizeObserver.observe(root);
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mousedown", handleMouseDown);
     canvas.addEventListener("mouseup", handleMouseUp);
@@ -199,6 +205,7 @@ const VerticalBarsNoise = ({
 
     return () => {
       window.removeEventListener("resize", handleResize);
+      resizeObserver.disconnect();
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mousedown", handleMouseDown);
       canvas.removeEventListener("mouseup", handleMouseUp);
@@ -210,7 +217,7 @@ const VerticalBarsNoise = ({
   }, [animate, handleMouseDown, handleMouseMove, handleMouseUp, resizeCanvas]);
 
   return (
-    <div className="absolute inset-0 h-full w-full overflow-hidden" style={{ backgroundColor }}>
+    <div ref={rootRef} className="absolute inset-0 h-full w-full overflow-hidden" style={{ backgroundColor }}>
       <canvas ref={canvasRef} className="block h-full w-full" />
     </div>
   );
