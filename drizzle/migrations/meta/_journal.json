@@ -22,6 +22,13 @@
       "when": 1787967000000,
       "tag": "0002_profile_avatar_storage",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788019767354,
+      "tag": "0003_restrict_email_queue_function_execute",
+      "breakpoints": true
     }
   ]
 }
