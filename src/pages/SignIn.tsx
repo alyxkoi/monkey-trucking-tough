@@ -41,7 +41,14 @@ const SignIn = () => {
 
   return (
     <div className="min-h-[100dvh] overflow-y-auto bg-[#0E0E10]">
+      <Seo
+        title="Team Sign In | Monkey Trucking LLC"
+        description="Secure sign in for Monkey Trucking staff to reach the Control Center for tickets, jobs and invoicing."
+        path="/signin"
+        noindex
+      />
       <button
+
         type="button"
         onClick={() => navigate("/")}
         aria-label="Back to homepage"
