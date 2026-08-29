@@ -4,7 +4,9 @@ import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
+import Seo from "@/components/Seo";
 import logo from "@/assets/monkey-trucking-logo.webp";
+
 
 const SignIn = () => {
   const { signIn, user } = useAuth();
