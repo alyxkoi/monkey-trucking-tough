@@ -45,6 +45,8 @@ const Projects = () => (
       title="Driveway, Pond & Dirt Work Projects | Kaufman TX"
       description="View recent driveway work, pond excavation, material deliveries, grading and light land clearing near Kaufman, Texas."
       path="/projects"
+      ogImage={projectsHeroImg}
+      ogImageAlt="Recent driveway, pond and dirt work projects by Monkey Trucking near Kaufman, TX"
     />
 
     <section className="public-page-hero">

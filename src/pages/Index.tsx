@@ -5,6 +5,7 @@ import PublicContactSection from "@/components/public/PublicContactSection";
 import RecentWorkSection from "@/components/public/RecentWorkSection";
 import ServiceFeatureGrid from "@/components/public/ServiceFeatureGrid";
 import TrustRail from "@/components/public/TrustRail";
+import homeOgImg from "@/assets/projects/gravel-driveway.webp";
 
 const areaServed = ["Kaufman", "Forney", "Terrell", "Crandall", "Kemp", "Mabank", "Kaufman County", "Dallas-Fort Worth"];
 
@@ -38,9 +39,11 @@ const Index = () => (
     <Seo
       title="Gravel Delivery, Driveways & Dirt Work | Kaufman TX"
       description="Materials, gravel delivery, driveway work, ponds and dirt work in Kaufman, Texas and surrounding DFW areas. Call Monkey Trucking or request a quote."
-      path="/"
-      jsonLd={homeJsonLd}
-    />
+        path="/"
+        ogImage={homeOgImg}
+        ogImageAlt="Freshly built gravel driveway by Monkey Trucking near Kaufman, Texas"
+        jsonLd={homeJsonLd}
+      />
 
     <HomeHero />
     <ServiceFeatureGrid />

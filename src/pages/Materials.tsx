@@ -47,6 +47,8 @@ const Materials = () => (
       title="Gravel, Crushed Concrete & Sand | Kaufman TX"
       description="View crushed concrete, flexbase, mason sand, asphalt millings, native gravel, decomposed granite, limestone and other materials available near Kaufman, TX."
       path="/materials"
+      ogImage={materialsHeroImg}
+      ogImageAlt="Aggregate materials including crushed concrete, flexbase and gravel delivered near Kaufman, TX"
     />
 
     <section className="public-page-hero">
