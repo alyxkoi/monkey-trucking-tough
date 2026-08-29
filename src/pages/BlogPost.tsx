@@ -37,6 +37,7 @@ const BlogPost = () => {
         title={post.seoTitle}
         description={post.description}
         path={`/blog/${post.slug}`}
+        ogType="article"
         jsonLd={jsonLd}
       />
 

@@ -4,7 +4,9 @@ import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
+import Seo from "@/components/Seo";
 import logo from "@/assets/monkey-trucking-logo.webp";
+
 
 const SignIn = () => {
   const { signIn, user } = useAuth();
@@ -39,7 +41,14 @@ const SignIn = () => {
 
   return (
     <div className="min-h-[100dvh] overflow-y-auto bg-[#0E0E10]">
+      <Seo
+        title="Team Sign In | Monkey Trucking LLC"
+        description="Secure sign in for Monkey Trucking staff to reach the Control Center for tickets, jobs and invoicing."
+        path="/signin"
+        noindex
+      />
       <button
+
         type="button"
         onClick={() => navigate("/")}
         aria-label="Back to homepage"
