@@ -3,6 +3,7 @@ import Seo from "@/components/Seo";
 import { POSTS } from "@/content/blog";
 import Reveal from "@/components/home/Reveal";
 import { ArrowRight } from "lucide-react";
+import blogOgImg from "@/assets/materials-hero.webp";
 
 const Blog = () => {
   const jsonLd = {
@@ -25,6 +26,8 @@ const Blog = () => {
         title="Materials and Property Work Guides | Monkey Trucking"
         description="Straightforward guides to materials, driveway work, grading and aggregate delivery near Kaufman, Texas."
         path="/blog"
+        ogImage={blogOgImg}
+        ogImageAlt="Guides to materials, driveway work and aggregate delivery near Kaufman, Texas"
         jsonLd={jsonLd}
       />
 

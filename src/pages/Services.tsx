@@ -10,6 +10,7 @@ import {
   Waves,
   type LucideIcon,
 } from "lucide-react";
+import servicesOgImg from "@/assets/services-hero.webp";
 import Seo from "@/components/Seo";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import ResponsiveImage from "@/components/public/ResponsiveImage";
@@ -108,6 +109,8 @@ const Services = () => {
         title="Driveways, Pond Work, Grading & Hauling | Kaufman TX"
         description="Driveway and private road work, pond excavation, grading, site prep, aggregate hauling, material delivery and light land clearing near Kaufman, TX."
         path="/services"
+        ogImage={servicesOgImg}
+        ogImageAlt="Driveway, pond, grading and hauling services by Monkey Trucking near Kaufman, TX"
         jsonLd={faqJsonLd}
       />
 

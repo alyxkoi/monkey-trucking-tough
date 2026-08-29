@@ -38,6 +38,8 @@ const BlogPost = () => {
         description={post.description}
         path={`/blog/${post.slug}`}
         ogType="article"
+        ogImage={post.cover}
+        ogImageAlt={post.coverAlt}
         jsonLd={jsonLd}
       />
 
