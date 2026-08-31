@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const MAX_RETRIES = 5
@@ -69,7 +70,7 @@ Deno.serve(async (req) => {
   const token = authHeader.slice('Bearer '.length).trim()
   const cronSecret = Deno.env.get('EMAIL_QUEUE_CRON_SECRET')
   const cronAuthorized = Boolean(cronSecret) && token.length === cronSecret!.length
-    && crypto.timingSafeEqual(
+    && timingSafeEqual(
       new TextEncoder().encode(token),
       new TextEncoder().encode(cronSecret!)
     )
