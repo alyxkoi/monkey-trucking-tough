@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { renderRequestReceivedEmail } from '../_shared/request-received-email.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +9,77 @@ const corsHeaders = {
 const SMS_CONSENT_SOURCE = 'website_contact_form'
 const SMS_CONSENT_VERSION = 'website-contact-v1-2026-08-27'
 const SMS_CONSENT_DISCLOSURE = 'I agree to receive customer care text messages from Monkey Trucking LLC regarding quotes, scheduling, deliveries, job updates, and service questions. Message frequency varies. Msg & data rates may apply. Reply HELP for help or STOP to opt out. Consent is not a condition of purchase. See our Privacy Policy and Terms & Conditions.'
+const SITE_ORIGIN = (Deno.env.get('PUBLIC_SITE_URL') ?? 'https://www.monkeytrucking.llc').replace(/\/$/, '')
+const FROM = 'Monkey Trucking <no-reply@notify.monkeytrucking.llc>'
+const REPLY_TO = 'contact@monkeytrucking.llc'
+
+type EmailPayload = {
+  to: string
+  from: string
+  replyTo: string
+  subject: string
+  html: string
+  text: string
+  label: string
+  idempotencyKey: string
+}
+
+async function queueEmailOnce(supabase: ReturnType<typeof createClient>, input: EmailPayload) {
+  const { data: existing } = await supabase.from('email_send_log')
+    .select('id,message_id,status')
+    .eq('idempotency_key', input.idempotencyKey)
+    .maybeSingle()
+
+  if (existing && existing.status !== 'failed' && existing.status !== 'dlq') {
+    return { queued: true, duplicate: true }
+  }
+
+  const messageId = existing?.message_id ?? crypto.randomUUID()
+  let logId = existing?.id as string | undefined
+  if (logId) {
+    await supabase.from('email_send_log').update({ status: 'pending', error_message: null, attempted_at: new Date().toISOString() }).eq('id', logId)
+  } else {
+    const { data: inserted, error: insertError } = await supabase.from('email_send_log').insert({
+      message_id: messageId,
+      template_name: input.label,
+      template_type: input.label.toUpperCase().replaceAll('-', '_'),
+      recipient_email: input.to,
+      status: 'pending',
+      idempotency_key: input.idempotencyKey,
+      sender_email: 'no-reply@notify.monkeytrucking.llc',
+      reply_to: input.replyTo,
+      attempted_at: new Date().toISOString(),
+    }).select('id').single()
+    if (insertError) {
+      if (insertError.code === '23505') return { queued: true, duplicate: true }
+      throw insertError
+    }
+    logId = inserted.id
+  }
+
+  const { error: queueError } = await supabase.rpc('enqueue_email', {
+    queue_name: 'transactional_emails',
+    payload: {
+      message_id: messageId,
+      to: input.to,
+      from: input.from,
+      reply_to: input.replyTo,
+      sender_domain: 'notify.monkeytrucking.llc',
+      subject: input.subject,
+      html: input.html,
+      text: input.text,
+      purpose: 'transactional',
+      label: input.label,
+      idempotency_key: input.idempotencyKey,
+      queued_at: new Date().toISOString(),
+    },
+  })
+  if (queueError) {
+    if (logId) await supabase.from('email_send_log').update({ status: 'failed', error_message: queueError.message }).eq('id', logId)
+    throw queueError
+  }
+  return { queued: true, duplicate: false }
+}
 
 const escapeHtml = (value: unknown): string => String(value ?? '')
   .replaceAll('&', '&amp;')
@@ -43,6 +115,7 @@ Deno.serve(async (req) => {
       smsConsent: requestedSmsConsent,
       smsDisclosureVersion,
       trackingAttribution,
+      clientRequestId,
     } = await req.json()
 
     if (!name || !phone || !email) {
@@ -118,7 +191,9 @@ Deno.serve(async (req) => {
 
     const textBody = `New Contact Form Submission\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nProject Type: ${projectTypeLabel}\nLocation: ${location || 'Not provided'}\nMessage: ${message || 'No message provided'}\nSMS consent: ${safeSmsConsent}\nConsent disclosure: ${SMS_CONSENT_VERSION}`
 
-    const messageId = crypto.randomUUID()
+    const messageId = typeof clientRequestId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)
+      ? clientRequestId
+      : crypto.randomUUID()
 
     const baseSubmission = {
       email_message_id: messageId,
@@ -147,14 +222,41 @@ Deno.serve(async (req) => {
         }
       : baseSubmission
 
-    let { error: submissionError } = await supabase.from('contact_submissions').insert(trackedSubmission)
+    let submissionId: string | null = null
+    let submissionCreated = true
+    let submissionError: { message: string; code?: string } | null = null
+    const stored = await supabase.rpc('create_website_contact_submission', { p_submission: trackedSubmission })
+    if (!stored.error) {
+      submissionId = stored.data?.id ?? null
+      submissionCreated = stored.data?.created !== false
+    } else if (['PGRST202', '42883'].includes(stored.error.code ?? '')) {
+      // Deployment-safe fallback while the forward migration is still pending.
+      const legacyInsert = await supabase.from('contact_submissions').insert(trackedSubmission).select('id').single()
+      submissionId = legacyInsert.data?.id ?? null
+      submissionError = legacyInsert.error
+      if (legacyInsert.error?.code === '23505') {
+        const existing = await supabase.from('contact_submissions').select('id').eq('email_message_id', messageId).maybeSingle()
+        submissionId = existing.data?.id ?? null
+        submissionCreated = false
+        submissionError = existing.error
+      }
+    } else {
+      submissionError = stored.error
+    }
 
     // Keep the public form available if source is deployed before the forward
     // attribution migration. The legacy insert still preserves consent/email;
     // Settings will continue to report Tracking as deployment-required.
     if (submissionError && trackedSubmission !== baseSubmission && ['PGRST204', '42703'].includes(submissionError.code ?? '')) {
-      const retry = await supabase.from('contact_submissions').insert(baseSubmission)
+      const retry = await supabase.from('contact_submissions').insert(baseSubmission).select('id').single()
+      submissionId = retry.data?.id ?? null
       submissionError = retry.error
+      if (retry.error?.code === '23505') {
+        const existing = await supabase.from('contact_submissions').select('id').eq('email_message_id', messageId).maybeSingle()
+        submissionId = existing.data?.id ?? null
+        submissionCreated = false
+        submissionError = existing.error
+      }
     }
 
     if (submissionError) {
@@ -165,42 +267,53 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Log pending before enqueue
-    await supabase.from('email_send_log').insert({
-      message_id: messageId,
-      template_name: 'contact-form',
-      recipient_email: 'contact@monkeytrucking.llc',
-      status: 'pending',
-    })
+    const emailWarnings: string[] = []
+    if (submissionId) {
+      try {
+        await queueEmailOnce(supabase, {
+          to: 'contact@monkeytrucking.llc',
+          from: FROM,
+          replyTo: email,
+          subject: `New Contact: ${name} / ${projectTypeLabel}`,
+          html: htmlBody,
+          text: textBody,
+          label: 'contact-form',
+          idempotencyKey: `contact-form:${submissionId}`,
+        })
+      } catch (error) {
+        console.error('Contact notification queue failed after the request was stored:', error)
+        emailWarnings.push('internal_notification_queue_failed')
+      }
 
-    const { error: queueError } = await supabase.rpc('enqueue_email', {
-      queue_name: 'transactional_emails',
-      payload: {
-        message_id: messageId,
-        run_id: 'c8457e53-2ec7-43b2-9924-50a2b4016be2',
-        to: 'contact@monkeytrucking.llc',
-        from: `${name} <no-reply@notify.monkeytrucking.llc>`,
-        reply_to: email,
-        sender_domain: 'notify.monkeytrucking.llc',
-        subject: `New Contact: ${name} — ${projectTypeLabel}`,
-        html: htmlBody,
-        text: textBody,
-        purpose: 'transactional',
-        label: 'contact-form',
-        queued_at: new Date().toISOString(),
-      },
-    })
-
-    if (queueError) {
-      console.error('Failed to queue email:', queueError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to send message' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      if (email.trim()) {
+        try {
+          const customerEmail = renderRequestReceivedEmail({
+            customerName: name.trim(),
+            requestType: projectTypeLabel,
+            serviceLocation: location?.trim() || 'Not provided',
+            submittedAt: new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' }),
+            privacyUrl: `${SITE_ORIGIN}/privacy-policy`,
+            termsUrl: `${SITE_ORIGIN}/terms`,
+          })
+          await queueEmailOnce(supabase, {
+            to: email.trim(),
+            from: FROM,
+            replyTo: REPLY_TO,
+            subject: customerEmail.subject,
+            html: customerEmail.html,
+            text: customerEmail.text,
+            label: 'request-received',
+            idempotencyKey: `request-received:${submissionId}`,
+          })
+        } catch (error) {
+          console.error('Request-received confirmation queue failed after the request was stored:', error)
+          emailWarnings.push('customer_confirmation_queue_failed')
+        }
+      }
     }
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, submissionId, idempotent: !submissionCreated, emailWarnings }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

@@ -50,7 +50,7 @@ export const POSTS: BlogPost[] = [
         <InlineFigure src={aggregateHaulingImg} alt="Dump truck delivering aggregate material" caption="Aggregate delivery for homes, ranches and job sites." />
         <H2>Property work</H2>
         <P>Services include driveways and private roads, pond work, grading, site preparation, aggregate hauling and light land clearing for brush, small trees, rocks and related site work.</P>
-        <P>Call 214-677-8466 or send a quote request with the location and work you have in mind.</P>
+        <P>Text 214-677-8466 or send a quote request with the location and work you have in mind.</P>
       </>
     ),
   },

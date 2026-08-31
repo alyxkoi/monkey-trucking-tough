@@ -34,7 +34,7 @@ export default function AuthenticatedUserMenu({ initials, onSignOut, className =
           className="cursor-pointer text-industrial-foreground focus:bg-white/5 focus:text-primary"
         >
           <LogOut className="mr-2 h-4 w-4" />
-          Sign out
+          Log Out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

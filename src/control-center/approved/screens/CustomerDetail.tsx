@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { MessageSquare, Phone, Plus } from 'lucide-react'
+import { MessageSquare, Pencil, Phone, Plus, Save } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ActionLink, SecondaryButton } from '@/control-center/approved/components/ui/Button'
+import { toast } from 'sonner'
+import { ActionLink, PrimaryButton, SecondaryButton } from '@/control-center/approved/components/ui/Button'
 import { RecordHeader } from '@/control-center/approved/components/ui/RecordHeader'
-import { TextArea } from '@/control-center/approved/components/ui/Field'
+import { TextArea, TextField } from '@/control-center/approved/components/ui/Field'
 import { NumberModule } from '@/control-center/approved/components/ui/NumberModule'
 import { Panel, PanelTitle } from '@/control-center/approved/components/ui/Panel'
 import { SolidInfoModule } from '@/control-center/approved/components/ui/SolidInfoModule'
@@ -17,6 +18,7 @@ import { useAppState } from '@/control-center/approved/state/AppState'
 import type { Activity, Message } from '@/control-center/approved/state/salesData'
 import { parseDateKey } from '@/control-center/approved/state/jobsData'
 import { ReactivationPanel } from '@/control-center/approved/components/automation/FollowUpState'
+import { Sheet } from '@/control-center/approved/components/shell/Sheet'
 
 type TimelineFilter = 'ALL' | 'CONVERSATIONS' | 'QUOTES' | 'JOBS' | 'TICKETS' | 'MONEY'
 
@@ -43,6 +45,10 @@ export function CustomerDetail() {
   const { customerId = '' } = useParams()
   const navigate = useNavigate()
   const [filter, setFilter] = useState<TimelineFilter>('ALL')
+  const [editingContact, setEditingContact] = useState(false)
+  const [contactDraft, setContactDraft] = useState({ phone: '', email: '' })
+  const [contactError, setContactError] = useState<string | null>(null)
+  const [savingContact, setSavingContact] = useState(false)
   const {
     customerById,
     leadsForCustomer,
@@ -53,6 +59,7 @@ export function CustomerDetail() {
     invoices,
     tickets,
     updateCustomerNotes,
+    updateCustomerContact,
     setNewLeadSheetOpen,
   } = useAppState()
 
@@ -80,6 +87,45 @@ export function CustomerDetail() {
   const activities = activitiesForCustomer(customer.id)
   const jobs = jobsForCustomer(customer.id)
   const photoJobs = photoJobsForCustomer(customer.id)
+
+  const openContactEditor = () => {
+    setContactDraft({ phone: customer.phone, email: customer.email ?? '' })
+    setContactError(null)
+    setEditingContact(true)
+  }
+
+  const saveContact = async () => {
+    const phone = contactDraft.phone.trim()
+    const email = contactDraft.email.trim()
+    const phoneDigits = phone.replace(/\D/g, '')
+    if (!phone && !email) {
+      setContactError('Keep at least a phone number or an email on the customer.')
+      return
+    }
+    if (phone && (phoneDigits.length < 10 || phoneDigits.length > 11)) {
+      setContactError('Enter a valid 10 digit phone number.')
+      return
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setContactError('Enter a valid email address.')
+      return
+    }
+    setSavingContact(true)
+    setContactError(null)
+    try {
+      const result = await updateCustomerContact(customer.id, { phone, email })
+      if (result.status === 'DUPLICATE') {
+        setContactError(`${result.field === 'PHONE' ? 'That phone number' : 'That email'} already belongs to ${result.customer_name}. No records were changed.`)
+        return
+      }
+      setEditingContact(false)
+      toast.success('Customer contact updated')
+    } catch (error) {
+      setContactError(error instanceof Error ? error.message : 'Customer contact could not be updated.')
+    } finally {
+      setSavingContact(false)
+    }
+  }
 
   // The timeline builds itself from what actually happened, it is not typed in.
   const items: TimelineItem[] = [
@@ -164,22 +210,36 @@ export function CustomerDetail() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <ActionLink
-                size="sm"
-                tone="onSolid"
-                href={telHref(customer.phone)}
-                icon={<Phone className="h-4 w-4" strokeWidth={2.2} />}
-              >
-                Call
-              </ActionLink>
-              <ActionLink
-                size="sm"
-                tone="onSolid"
-                href={smsHref(customer.phone)}
-                icon={<MessageSquare className="h-4 w-4" strokeWidth={2.2} />}
-              >
-                Text
-              </ActionLink>
+              {customer.phone && (
+                <>
+                  <ActionLink
+                    size="sm"
+                    tone="onSolid"
+                    href={telHref(customer.phone)}
+                    icon={<Phone className="h-4 w-4" strokeWidth={2.2} />}
+                  >
+                    Call
+                  </ActionLink>
+                  <ActionLink
+                    size="sm"
+                    tone="onSolid"
+                    href={smsHref(customer.phone)}
+                    icon={<MessageSquare className="h-4 w-4" strokeWidth={2.2} />}
+                  >
+                    Text
+                  </ActionLink>
+                </>
+              )}
+              {!customer.id.startsWith('legacy:') && (
+                <SecondaryButton
+                  size="sm"
+                  tone="onSolid"
+                  onClick={openContactEditor}
+                  icon={<Pencil className="h-4 w-4" strokeWidth={2.2} />}
+                >
+                  Edit Contact
+                </SecondaryButton>
+              )}
               <SecondaryButton
                 size="sm"
                 tone="onSolid"
@@ -386,6 +446,28 @@ export function CustomerDetail() {
           </Panel>
         </div>
       </div>
+
+      <Sheet
+        open={editingContact}
+        onClose={() => !savingContact && setEditingContact(false)}
+        eyebrow="Customer"
+        title="Edit contact"
+        footer={(
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <SecondaryButton disabled={savingContact} onClick={() => setEditingContact(false)}>Cancel</SecondaryButton>
+            <PrimaryButton disabled={savingContact} onClick={() => void saveContact()} icon={<Save className="h-4 w-4" />}>
+              {savingContact ? 'Saving' : 'Save Contact'}
+            </PrimaryButton>
+          </div>
+        )}
+      >
+        <div className="space-y-5 p-5">
+          <TextField label="Phone" value={contactDraft.phone} onChange={(phone) => setContactDraft((current) => ({ ...current, phone }))} inputMode="tel" placeholder="(214) 555 0123" />
+          <TextField label="Email" value={contactDraft.email} onChange={(email) => setContactDraft((current) => ({ ...current, email }))} type="email" inputMode="email" placeholder="customer@example.com" />
+          <p className="text-[13px] leading-relaxed text-cc-muted">A customer can have a phone number without an email. Matching phone numbers and emails stay on one customer record.</p>
+          {contactError && <p role="alert" className="rounded-xl border border-mt-red/35 bg-mt-red/10 px-4 py-3 text-[14px] text-mt-red">{contactError}</p>}
+        </div>
+      </Sheet>
     </div>
   )
 }

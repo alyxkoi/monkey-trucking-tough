@@ -683,6 +683,17 @@ export const findOrCreateCustomer = (input: { name: string; phone: string; email
     p_email: input.email ?? "",
   });
 
+export type CustomerContactUpdateResult =
+  | { status: "UPDATED"; customer: Customer }
+  | { status: "DUPLICATE"; field: "PHONE" | "EMAIL"; customer_id: string; customer_name: string };
+
+export const updateCustomerContact = (input: { customerId: string; phone: string; email?: string }) =>
+  runRpc<CustomerContactUpdateResult>("update_customer_contact", {
+    p_customer_id: input.customerId,
+    p_phone: input.phone,
+    p_email: input.email ?? "",
+  });
+
 export const createQuoteDraft = (leadId: string) =>
   runRpc<Array<{ id: string; quote_number: string }>>("create_quote_draft_from_lead", {
     p_lead_id: leadId,
@@ -852,10 +863,30 @@ export const updateQuote = async (id: string, values: Partial<Quote>) => {
 };
 
 export const updateJob = async (id: string, values: Partial<Job>) => {
+  const before = (await controlDb.from("jobs").select("customer_id,scheduled_date,scheduled_time,all_day,status").eq("id", id).single()).data;
   const { error } = await controlDb.from("jobs").update(values).eq("id", id);
   if (error) throw new Error(error.message);
-  const job = (await controlDb.from("jobs").select("customer_id").eq("id", id).single()).data;
-  if (job) await controlDb.from("activity_history").insert({ customer_id: job.customer_id, entity_type: "JOB", entity_id: id, event_type: "UPDATED", summary: values.status ? `Job moved to ${values.status}` : "Job updated" });
+  const job = (await controlDb.from("jobs").select("customer_id,scheduled_date,scheduled_time,all_day,status").eq("id", id).single()).data;
+  if (job) {
+    const rescheduled = Boolean(before && (
+      before.scheduled_date !== job.scheduled_date
+      || before.scheduled_time !== job.scheduled_time
+      || before.all_day !== job.all_day
+    ));
+    await controlDb.from("activity_history").insert({
+      customer_id: job.customer_id,
+      entity_type: "JOB",
+      entity_id: id,
+      event_type: rescheduled ? "RESCHEDULED" : values.status === "CANCELLED" ? "CANCELLED" : "UPDATED",
+      summary: rescheduled ? "Job rescheduled" : values.status ? `Job moved to ${values.status}` : "Job updated",
+      metadata: rescheduled ? {
+        previous_schedule: { date: before?.scheduled_date, time: before?.scheduled_time, all_day: before?.all_day },
+        scheduled_date: job.scheduled_date,
+        scheduled_time: job.scheduled_time,
+        all_day: job.all_day,
+      } : {},
+    });
+  }
 };
 
 export const updateInvoice = async (id: string, values: Partial<Invoice>) => {

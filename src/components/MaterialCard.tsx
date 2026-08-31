@@ -23,8 +23,8 @@ const MaterialCard = ({ name, use, image, mobileImage }: MaterialCardProps) => (
       <div className="public-material-catalog-accent" aria-hidden="true" />
       <h2>{name}</h2>
       <p>{use}</p>
-      <a href="tel:+12146778466">
-        <span>Call for current pricing</span>
+      <a href="sms:+12146778466">
+        <span>Text for current pricing</span>
         <ArrowRight aria-hidden="true" />
       </a>
     </div>

@@ -848,6 +848,7 @@ export function SettingsCommunication() {
   const [previewError, setPreviewError] = useState<Record<string, string>>({})
   const settings = sourceData?.controlSettings
   const automations = sourceData?.automations ?? []
+  const customerAutomations = automations.filter((rule) => rule.id !== 'human-takeover')
   const previews = useMemo(() => sourceData ? buildAutomationPreviews(sourceData) : [], [sourceData])
   const aiIntegration = sourceData?.aiIntegration
   const readiness = deriveSettingsReadiness(sourceData ?? null)
@@ -963,9 +964,9 @@ export function SettingsCommunication() {
         </div>
       </Panel>
 
-      <Panel padded={false} title={`${automations.length} automations`}>
+      <Panel padded={false} title={`${customerAutomations.length} automations`}>
         <div className="divide-y divide-line border-t border-line">
-          {automations.map((rule) => {
+          {customerAutomations.map((rule) => {
             const open = openRule === rule.id
             return (
               <div key={rule.id}>
@@ -993,7 +994,7 @@ export function SettingsCommunication() {
                     <DetailList label="Stops when" values={jsonTextList(rule.stop_conditions)} />
                     <Detail label="If it fails" value={rule.fallback_description} />
                     <Detail label="Logged" value={rule.log_description} />
-                    {rule.id !== 'human-takeover' && (() => {
+                    {(() => {
                       const preview = previews.find((item) => item.ruleId === rule.id)
                       if (!preview) return null
                       const draft = previewDrafts[rule.id] ?? preview.draft

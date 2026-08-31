@@ -32,7 +32,7 @@ describe("public Home interactions", () => {
     expect(video).toHaveAttribute("src", "https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job home hero.mp4");
     expect(container.querySelectorAll("video source")).toHaveLength(0);
     expect(container.querySelector(".public-home-hero-media img")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Call 214-677-8466/i })).toHaveAttribute("href", "tel:+12146778466");
+    expect(screen.getByRole("link", { name: /Text 214-677-8466/i })).toHaveAttribute("href", "sms:+12146778466");
     expect(screen.getByRole("link", { name: /Get a Quote/i })).toHaveAttribute("href", "/contact");
     expect(screen.getByRole("list", { name: "Monkey Trucking proof points" })).toBeInTheDocument();
     expect(screen.getByText("Kaufman")).toBeInTheDocument();

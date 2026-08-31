@@ -100,6 +100,54 @@ describe('Phase 06 OpenAI intelligence safety contracts', () => {
     expect(migration).not.toMatch(/update\s+public\.(tickets|ticket_items|app_settings)/i)
   })
 
+  it('skips short notice and cancelled job reminders, including short notice reschedules', () => {
+    const data = createQaFixtureData(reference)
+    const sourceJob = data.jobs[0]
+    const scheduled = {
+      ...sourceJob,
+      id: 'job-reminder-test',
+      customer_id: data.customers[0].id,
+      status: 'SCHEDULED' as const,
+      scheduled_date: '2026-08-27',
+      scheduled_time: '08:00:00',
+      created_at: '2026-08-20T12:00:00-05:00',
+    }
+    data.jobs = [scheduled]
+    data.activities = [{
+      id: 'reschedule-test', customer_id: scheduled.customer_id, entity_type: 'JOB', entity_id: scheduled.id,
+      event_type: 'RESCHEDULED', summary: 'Job rescheduled', metadata: {}, actor_id: null, actor_label: 'Salvador',
+      created_at: '2026-08-26T10:00:00-05:00',
+    }]
+    const rescheduled = buildAutomationPreviews(data, reference.getTime()).find((item) => item.ruleId === 'job-reminder')
+    expect(rescheduled).toMatchObject({ eligible: false, blockedReason: 'Short notice jobs skip the 24 hour reminder.' })
+
+    data.jobs = [{ ...scheduled, status: 'CANCELLED' }]
+    const cancelled = buildAutomationPreviews(data, reference.getTime()).find((item) => item.ruleId === 'job-reminder')
+    expect(cancelled).toMatchObject({ eligible: false, subjectId: null })
+  })
+
+  it('blocks duplicate job reminders for the same schedule and respects SMS opt out', () => {
+    const data = createQaFixtureData(reference)
+    const customerId = data.customers[0].id
+    const scheduledAt = new Date('2026-08-27T12:00:00').toISOString()
+    data.jobs = [{
+      ...data.jobs[0], id: 'job-reminder-dedupe', customer_id: customerId, status: 'SCHEDULED',
+      scheduled_date: '2026-08-27', scheduled_time: '12:00:00', created_at: '2026-08-20T12:00:00-05:00',
+    }]
+    data.activities = [{
+      id: 'reminder-sent', customer_id: customerId, entity_type: 'JOB', entity_id: 'job-reminder-dedupe',
+      event_type: 'JOB_REMINDER_SENT', summary: 'Job reminder sent', metadata: { scheduled_at: scheduledAt },
+      actor_id: null, actor_label: 'Automation', created_at: reference.toISOString(),
+    }]
+    const duplicate = buildAutomationPreviews(data, reference.getTime()).find((item) => item.ruleId === 'job-reminder')
+    expect(duplicate).toMatchObject({ eligible: false, blockedReason: 'Duplicate reminder blocked.' })
+
+    data.activities = []
+    data.customers = data.customers.map((customer) => customer.id === customerId ? { ...customer, sms_opted_out_at: reference.toISOString() } : customer)
+    const optedOut = buildAutomationPreviews(data, reference.getTime()).find((item) => item.ruleId === 'job-reminder')
+    expect(optedOut).toMatchObject({ eligible: false, blockedReason: 'Customer opted out of SMS.' })
+  })
+
   it('keeps server-side model precedence with the approved fallback', () => {
     const edge = read('supabase/functions/ai-draft/index.ts')
     expect(edge).toContain("Deno.env.get('OPENAI_MODEL') ?? Deno.env.get('LOVABLE_AI_MODEL') ?? 'gpt-5.6-terra'")

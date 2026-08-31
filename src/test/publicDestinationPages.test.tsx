@@ -32,7 +32,7 @@ describe("public destination pages", () => {
 
     expect(cards).toHaveLength(10);
     for (const card of cards) {
-      expect(card.querySelector('a[href="tel:+12146778466"]')).toHaveTextContent("Call for current pricing");
+      expect(card.querySelector('a[href="sms:+12146778466"]')).toHaveTextContent("Text for current pricing");
     }
     expect(container.textContent).not.toMatch(/\$\d/);
   });

@@ -111,18 +111,29 @@ export function buildAutomationPreviews(data: ControlData, now = Date.now()): Au
   const jobPreview = base('job-reminder', 'Job reminder')
   jobPreview.stopConditions = ['Cancelled', 'Completed', 'Rescheduled']
   if (scheduled) {
-    const createdAt = new Date(scheduled.job.created_at).getTime()
+    const scheduleActivity = data.activities
+      .filter((activity) => activity.entity_type === 'JOB' && activity.entity_id === scheduled.job.id && activity.event_type === 'RESCHEDULED')
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+    const scheduleSetAt = new Date(scheduleActivity?.created_at ?? scheduled.job.created_at).getTime()
     const dueAt = scheduled.scheduledAt - DAY
-    const shortNotice = scheduled.scheduledAt - createdAt < DAY
+    const shortNotice = scheduled.scheduledAt - scheduleSetAt < DAY
+    const scheduledAtIso = new Date(scheduled.scheduledAt).toISOString()
+    const alreadySent = data.activities.some((activity) => {
+      if (activity.entity_type !== 'JOB' || activity.entity_id !== scheduled.job.id || activity.event_type !== 'JOB_REMINDER_SENT') return false
+      const metadata = activity.metadata && typeof activity.metadata === 'object' && !Array.isArray(activity.metadata)
+        ? activity.metadata as Record<string, unknown>
+        : {}
+      return metadata.scheduled_at === scheduledAtIso
+    })
     Object.assign(jobPreview, {
-      eligible: !shortNotice && now >= dueAt,
+      eligible: !shortNotice && !alreadySent && now >= dueAt,
       customerId: scheduled.job.customer_id,
       customerName: customerName(data, scheduled.job.customer_id),
       subjectType: 'JOB',
       subjectId: scheduled.job.id,
       dueAt: new Date(dueAt).toISOString(),
-      reason: shortNotice ? 'Job was created less than 24 hours before work.' : now >= dueAt ? 'Scheduled work is within the reminder window.' : 'The reminder window has not opened.',
-      blockedReason: shortNotice ? 'Short notice jobs skip the 24 hour reminder.' : now < dueAt ? 'Not due yet.' : null,
+      reason: shortNotice ? 'The current schedule was set less than 24 hours before work.' : alreadySent ? 'The reminder for this exact scheduled time is already logged.' : now >= dueAt ? 'Scheduled work is within the reminder window.' : 'The reminder window has not opened.',
+      blockedReason: shortNotice ? 'Short notice jobs skip the 24 hour reminder.' : alreadySent ? 'Duplicate reminder blocked.' : now < dueAt ? 'Not due yet.' : null,
       language: languageFor(data, scheduled.job.customer_id),
       draft: `quick reminder, we are scheduled for ${new Date(scheduled.scheduledAt).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()} at ${new Date(scheduled.scheduledAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase()}.`,
     })

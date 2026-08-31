@@ -29,11 +29,11 @@ const publicSources = [
 ].map(read).join("\n");
 
 describe("public website contracts", () => {
-  it("uses only the approved direct-call URI and exposes no public SMS action", () => {
-    expect(publicSources).not.toMatch(/href=[{`"]*sms:/i);
-    expect(publicSources).not.toMatch(/call\s*(\/|or)\s*text|text us|text the crew/i);
+  it("uses the approved SMS number for conversion actions while retaining informational phone access", () => {
+    const smsLinks = [...publicSources.matchAll(/(?:href=|href\s*=\s*)["'](sms:[^"']+)["']/g)].map((match) => match[1]);
+    expect(smsLinks.length).toBeGreaterThan(0);
+    expect(new Set(smsLinks)).toEqual(new Set(["sms:+12146778466"]));
     const telephoneLinks = [...publicSources.matchAll(/(?:href=|href\s*=\s*)["'](tel:[^"']+)["']/g)].map((match) => match[1]);
-    expect(telephoneLinks.length).toBeGreaterThan(0);
     expect(new Set(telephoneLinks)).toEqual(new Set(["tel:+12146778466"]));
   });
 
@@ -89,7 +89,7 @@ describe("public website contracts", () => {
     expect(header).toContain("public-header-grid");
     expect(css).toContain("grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr)");
     expect(header).toContain('to="/contact"');
-    expect(header).toContain('const PHONE_HREF = "tel:+12146778466"');
+    expect(header).toContain('const SMS_HREF = "sms:+12146778466"');
     expect(authenticatedUserMenu).toContain("LayoutDashboard");
     expect(authenticatedUserMenu).toContain("Dashboard");
     expect(`${userMenu}\n${authenticatedUserMenu}`).not.toContain("Tickets");

@@ -95,12 +95,12 @@ const BlogPost = () => {
               Need gravel, hauling, or dirt work?
             </h2>
             <p className="text-white/70 mt-4 mb-8 text-lg leading-relaxed">
-              Call Monkey Trucking or send a quote request with what you need.
+              Text Monkey Trucking or send a quote request with what you need.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-              <a href="tel:+12146778466" className="inline-flex min-h-[52px] w-full items-center justify-center rounded-md bg-primary px-7 font-heading text-lg tracking-wider text-white transition-colors hover:bg-primary/90 sm:w-auto">
+              <a href="sms:+12146778466" className="inline-flex min-h-[52px] w-full items-center justify-center rounded-md bg-primary px-7 font-heading text-lg tracking-wider text-white transition-colors hover:bg-primary/90 sm:w-auto">
                 <Phone className="mr-2 h-5 w-5" />
-                CALL 214-677-8466
+                TEXT 214-677-8466
               </a>
               <Link to="/contact" className="inline-flex min-h-[52px] w-full items-center justify-center rounded-md border border-white/20 bg-white/5 px-7 font-heading text-lg tracking-wider text-white transition-colors hover:bg-white/10 sm:w-auto">
                 GET A QUOTE

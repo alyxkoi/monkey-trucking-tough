@@ -3,7 +3,7 @@ import {
   MapPin,
   Mountain,
   PackageCheck,
-  Phone,
+  MessageSquare,
   Route,
   Truck,
   Users,
@@ -14,6 +14,7 @@ import servicesOgImg from "@/assets/services-hero.webp";
 import Seo from "@/components/Seo";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import ResponsiveImage from "@/components/public/ResponsiveImage";
+import { Link } from "react-router-dom";
 
 import servicesHeroImg from "@/assets/services-hero.webp";
 import servicesHeroMobileImg from "@/assets/services-hero-768.webp";
@@ -26,7 +27,7 @@ import dirtWorkMobileImg from "@/assets/services/dirt-work-768.webp";
 import haulingImg from "@/assets/services/aggregate-hauling.webp";
 import haulingMobileImg from "@/assets/services/aggregate-hauling-768.webp";
 
-const PHONE_HREF = "tel:+12146778466";
+const SMS_HREF = "sms:+12146778466";
 
 const services: Array<{
   title: string;
@@ -88,7 +89,7 @@ const faqs = [
   },
   {
     q: "How do I get a quote?",
-    a: "Call 214-677-8466 or send a quote request with the work, material and location you have in mind.",
+    a: "Text 214-677-8466 or send a quote request with the work, material and location you have in mind.",
   },
 ];
 
@@ -121,7 +122,10 @@ const Services = () => {
           <div className="max-w-[760px]">
             <h1 className="public-page-title">Services</h1>
             <p className="public-page-intro">Driveways, ponds, dirt work, hauling and material delivery around Kaufman.</p>
-            <a href={PHONE_HREF} className="public-button public-button-primary mt-7"><Phone className="h-5 w-5" />Call 214-677-8466</a>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <Link to="/contact" className="public-button public-button-primary">Request a Quote</Link>
+              <a href={SMS_HREF} className="public-button public-button-dark-outline"><MessageSquare className="h-5 w-5" />Text 214-677-8466</a>
+            </div>
           </div>
         </div>
       </section>

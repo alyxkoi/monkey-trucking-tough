@@ -10,6 +10,10 @@ import { toast } from "@/components/ui/sonner";
 import { getTrackingAttribution } from "@/lib/trackingAttribution";
 
 const SMS_DISCLOSURE_VERSION = "website-contact-v1-2026-08-27";
+const newClientRequestId = () => globalThis.crypto?.randomUUID?.()
+  ?? "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (digit) => (
+    Number(digit) ^ (Math.random() * 16 >> Number(digit) / 4)
+  ).toString(16));
 
 const EMPTY_FORM = {
   name: "",
@@ -33,6 +37,7 @@ export default function QuoteRequestForm({ idPrefix = "contact", appearance = "d
   const [submitted, setSubmitted] = useState(false);
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
   const hasChangedStep = useRef(false);
+  const clientRequestId = useRef(newClientRequestId());
   const dark = appearance === "dark";
   const controlClass = dark ? "public-form-control public-form-control-dark" : "public-form-control";
   const labelClass = dark ? "public-form-label public-form-label-dark" : "public-form-label";
@@ -64,21 +69,29 @@ export default function QuoteRequestForm({ idPrefix = "contact", appearance = "d
     setIsSubmitting(true);
     try {
       const { supabase } = await import("@/integrations/supabase/client");
-      const { error } = await supabase.functions.invoke("send-contact-email", {
-        body: {
-          ...form,
-          smsDisclosureVersion: SMS_DISCLOSURE_VERSION,
-          trackingAttribution: getTrackingAttribution(),
-        },
-      });
+      const body = {
+        ...form,
+        smsDisclosureVersion: SMS_DISCLOSURE_VERSION,
+        trackingAttribution: getTrackingAttribution(),
+        clientRequestId: clientRequestId.current,
+      };
+      const { data, error } = await supabase.functions.invoke("send-contact-email", { body });
       if (error) throw error;
+      if (Array.isArray(data?.emailWarnings) && data.emailWarnings.length > 0) {
+        window.setTimeout(() => {
+          void supabase.functions.invoke("send-contact-email", { body }).then(({ error: retryError }) => {
+            if (retryError) console.error("Contact confirmation retry failed:", retryError);
+          });
+        }, 1500);
+      }
       toast("Quote request sent.", { description: "Monkey Trucking will follow up with you." });
       setForm(EMPTY_FORM);
+      clientRequestId.current = newClientRequestId();
       setStep(1);
       setSubmitted(true);
     } catch (error) {
       console.error("Contact form error:", error);
-      toast("Your request could not be sent.", { description: "Please call 214-677-8466." });
+      toast("Your request could not be sent.", { description: "Please text 214-677-8466." });
     } finally {
       setIsSubmitting(false);
     }
@@ -90,7 +103,7 @@ export default function QuoteRequestForm({ idPrefix = "contact", appearance = "d
         <span className="flex h-14 w-14 items-center justify-center bg-primary text-white"><Check className="h-7 w-7" /></span>
         <h2 className="mt-6 font-heading text-[clamp(42px,6vw,64px)] uppercase leading-none">Request received</h2>
         <p className={`mt-3 text-lg ${dark ? "text-white/70" : "text-[#55555c]"}`}>We will get back to you shortly.</p>
-        <button type="button" onClick={() => setSubmitted(false)} className={`public-text-link mt-6 ${dark ? "text-white hover:text-primary" : ""}`}>Send another request</button>
+        <button type="button" onClick={() => { clientRequestId.current = newClientRequestId(); setSubmitted(false); }} className={`public-text-link mt-6 ${dark ? "text-white hover:text-primary" : ""}`}>Send another request</button>
       </div>
     );
   }

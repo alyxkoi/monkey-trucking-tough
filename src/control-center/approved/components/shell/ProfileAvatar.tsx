@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Camera, Check, ImageUp } from 'lucide-react'
+import { Camera, Check, ImageUp, LogOut } from 'lucide-react'
 import { useAuth, initialsFor } from '@/hooks/useAuth'
 import { useDemoMode } from '@/control-center/demo/DemoMode'
 import {
@@ -9,7 +9,7 @@ import {
   uploadProfileAvatar,
   validateProfileAvatar,
 } from '@/control-center/profile/profileAvatar'
-import { PrimaryButton } from '@/control-center/approved/components/ui/Button'
+import { PrimaryButton, SecondaryButton } from '@/control-center/approved/components/ui/Button'
 import { cn } from '@/control-center/approved/lib/cn'
 import { Sheet } from './Sheet'
 
@@ -22,7 +22,7 @@ export function ProfileAvatarControl({
   className?: string
   compact?: boolean
 }) {
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const demo = useDemoMode()
   const inputRef = useRef<HTMLInputElement>(null)
   const [open, setOpen] = useState(false)
@@ -171,6 +171,19 @@ export function ProfileAvatarControl({
               {error}
             </p>
           )}
+
+          <div className="border-t border-white/[0.08] pt-5">
+            <SecondaryButton
+              fullWidth
+              disabled={loading}
+              onClick={() => void signOut().then(() => {
+                setOpen(false)
+              })}
+              icon={<LogOut className="h-5 w-5" strokeWidth={2.2} />}
+            >
+              Log Out
+            </SecondaryButton>
+          </div>
         </div>
       </Sheet>
     </>

@@ -1,4 +1,4 @@
-import { Phone } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import InteractiveWaves from "@/components/ui/interactive-waves";
 import PublicReveal from "./PublicReveal";
 import QuoteRequestForm from "./QuoteRequestForm";
@@ -27,9 +27,9 @@ export default function PublicContactSection({
         <PublicReveal className="public-contact-message">
           <Heading id={`${id}-heading`} className="public-contact-heading">{heading}</Heading>
           <p className="public-contact-intro">Send the material, work and location. We will follow up with the next step.</p>
-          <a href="tel:+12146778466" className="public-contact-phone">
-            <span className="public-contact-phone-icon"><Phone className="h-5 w-5" /></span>
-            214-677-8466
+          <a href="sms:+12146778466" className="public-contact-phone">
+            <span className="public-contact-phone-icon"><MessageSquare className="h-5 w-5" /></span>
+            Call or Text 214-677-8466
           </a>
         </PublicReveal>
 

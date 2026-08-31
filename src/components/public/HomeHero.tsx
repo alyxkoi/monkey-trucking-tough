@@ -1,4 +1,4 @@
-import { ArrowUpRight, ClipboardCheck, MapPin, Phone, Truck } from "lucide-react";
+import { ArrowUpRight, ClipboardCheck, MapPin, MessageSquare, Truck } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -94,7 +94,7 @@ export default function HomeHero() {
         </motion.h1>
         <motion.p variants={reduceMotion ? undefined : item} className="public-home-hero-location">Based in Kaufman, Texas. Serving properties across DFW.</motion.p>
         <motion.div variants={reduceMotion ? undefined : item} className="public-home-hero-actions mt-7 flex flex-col gap-3 sm:flex-row">
-          <a href="tel:+12146778466" className="public-button public-hero-cta public-hero-cta-primary"><Phone className="h-5 w-5" />Call 214-677-8466</a>
+          <a href="sms:+12146778466" className="public-button public-hero-cta public-hero-cta-primary"><MessageSquare className="h-5 w-5" />Text 214-677-8466</a>
           <Link to="/contact" className="public-button public-hero-cta public-hero-cta-secondary">Get a Quote<ArrowUpRight className="h-5 w-5" /></Link>
         </motion.div>
         <motion.ul

@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowUpRight, Menu, Phone, User as UserIcon, X } from "lucide-react";
+import { ArrowUpRight, Menu, MessageSquare, User as UserIcon, X } from "lucide-react";
 import UserMenu from "@/components/auth/UserMenu";
 import { initialsFor, useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/monkey-trucking-logo.webp";
 import { preloadPublicRoute, preloadPublicRoutes } from "@/publicRouteLoaders";
 
-const PHONE_HREF = "tel:+12146778466";
+const SMS_HREF = "sms:+12146778466";
 const navLinks = [
   { label: "Home", to: "/" },
   { label: "Services", to: "/services" },
@@ -19,7 +19,7 @@ const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   useEffect(() => setMobileOpen(false), [location.pathname]);
   useEffect(() => {
@@ -55,7 +55,7 @@ const Header = () => {
 
           <div className="hidden items-center gap-2.5 justify-self-end xl:flex">
             <Link to="/contact" className="public-header-action public-header-action-secondary">Get a Quote<ArrowUpRight className="h-4 w-4" /></Link>
-            <a href={PHONE_HREF} className="public-header-action public-header-action-primary"><Phone className="h-4 w-4" />Call Now</a>
+            <a href={SMS_HREF} className="public-header-action public-header-action-primary"><MessageSquare className="h-4 w-4" />Text Now</a>
             <UserMenu />
           </div>
 
@@ -83,10 +83,15 @@ const Header = () => {
         <div className="mt-auto px-5 pb-[max(24px,env(safe-area-inset-bottom))]">
           <div className="mb-5 border-t border-white/10 pt-4">
             {user ? (
-              <Link to="/admin" className="flex min-h-12 items-center gap-3 font-label text-base font-semibold text-white/70">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-sm text-white">{initialsFor(user)}</span>
-                Control Center
-              </Link>
+              <div className="space-y-1">
+                <Link to="/admin" className="flex min-h-12 items-center gap-3 font-label text-base font-semibold text-white/70">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-sm text-white">{initialsFor(user)}</span>
+                  Dashboard
+                </Link>
+                <button type="button" onClick={() => void signOut().then(() => setMobileOpen(false))} className="flex min-h-12 w-full items-center pl-12 font-label text-base font-semibold text-white/70">
+                  Log Out
+                </button>
+              </div>
             ) : (
               <button type="button" onClick={() => { setMobileOpen(false); window.setTimeout(() => navigate("/signin"), 200); }} className="flex min-h-12 w-full items-center gap-3 font-label text-base font-semibold text-white/70">
                 <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15"><UserIcon className="h-4 w-4" /></span>
@@ -95,7 +100,7 @@ const Header = () => {
             )}
           </div>
           <div className="grid gap-3">
-            <a href={PHONE_HREF} className="public-button public-button-primary w-full"><Phone className="h-5 w-5" />Call Now</a>
+            <a href={SMS_HREF} className="public-button public-button-primary w-full"><MessageSquare className="h-5 w-5" />Text Now</a>
             <Link to="/contact" className="public-button public-button-dark-outline w-full">Get a Quote</Link>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { ArrowRight, Phone } from "lucide-react";
+import { ArrowRight, MessageSquare } from "lucide-react";
 import { Link } from "react-router-dom";
 import Seo from "@/components/Seo";
 import ProjectCard from "@/components/ProjectCard";
@@ -25,7 +25,7 @@ import pondDrainageMobileImg from "@/assets/projects/pond-drainage-fix-768.webp"
 import gravelParkingImg from "@/assets/projects/gravel-parking-pad.webp";
 import gravelParkingMobileImg from "@/assets/projects/gravel-parking-pad-768.webp";
 
-const PHONE_HREF = "tel:+12146778466";
+const SMS_HREF = "sms:+12146778466";
 
 const projects = [
   { title: "New Gravel Driveway", category: "Driveways", image: gravelDrivewayImg, mobileImage: gravelDrivewayMobileImg },
@@ -56,7 +56,10 @@ const Projects = () => (
           <div className="max-w-[760px]">
             <h1 className="public-page-title">Our work</h1>
             <p className="public-page-intro">Driveways, ponds, deliveries and dirt work completed around North Texas.</p>
-            <a href={PHONE_HREF} className="public-button public-button-primary mt-7"><Phone className="h-5 w-5" />Call 214-677-8466</a>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <Link to="/contact" className="public-button public-button-primary">Request a Quote</Link>
+              <a href={SMS_HREF} className="public-button public-button-dark-outline"><MessageSquare className="h-5 w-5" />Text 214-677-8466</a>
+            </div>
           </div>
         </div>
     </section>

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ProfileAvatarControl } from '@/control-center/approved/components/shell/ProfileAvatar'
 
 const upload = vi.hoisted(() => vi.fn(async () => 'https://example.test/avatar?v=2'))
+const signOut = vi.hoisted(() => vi.fn(async () => undefined))
 
 vi.mock('@/hooks/useAuth', () => ({
   initialsFor: () => 'AL',
@@ -12,6 +13,7 @@ vi.mock('@/hooks/useAuth', () => ({
       email: 'alex@example.test',
       user_metadata: { full_name: 'Alex Lab' },
     },
+    signOut,
   }),
 }))
 
@@ -30,6 +32,7 @@ vi.mock('@/control-center/profile/profileAvatar', async (importOriginal) => {
 
 afterEach(() => {
   upload.mockClear()
+  signOut.mockClear()
   document.body.style.overflow = ''
 })
 
@@ -72,5 +75,12 @@ describe('ProfileAvatarControl', () => {
     fireEvent.change(input, { target: { files: [new File(['two'], 'two.webp', { type: 'image/webp' })] } })
     await waitFor(() => expect(screen.getByAltText('Current profile')).toHaveAttribute('src', 'https://example.test/avatar?v=second'))
     expect(upload).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps profile editing and exposes a clear log out action', async () => {
+    render(<ProfileAvatarControl />)
+    fireEvent.click(screen.getByRole('button', { name: 'Change profile image' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Log Out' }))
+    await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1))
   })
 })

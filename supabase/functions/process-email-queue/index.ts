@@ -180,6 +180,9 @@ Deno.serve(async (req) => {
             status: 'dlq',
             error_message: `TTL exceeded (${ttlMinutes[queue]} minutes)`,
           })
+          if (payload.idempotency_key) {
+            await supabase.from('email_send_log').update({ status: 'dlq', error_message: `TTL exceeded (${ttlMinutes[queue]} minutes)` }).eq('idempotency_key', payload.idempotency_key)
+          }
           const { error: ttlDlqError } = await supabase.rpc('move_to_dlq', {
             source_queue: queue,
             dlq_name: dlq,
@@ -202,6 +205,9 @@ Deno.serve(async (req) => {
           status: 'dlq',
           error_message: `Max retries (${MAX_RETRIES}) exceeded (attempted ${failedAttempts} times)`,
         })
+        if (payload.idempotency_key) {
+          await supabase.from('email_send_log').update({ status: 'dlq', error_message: `Max retries (${MAX_RETRIES}) exceeded (attempted ${failedAttempts} times)` }).eq('idempotency_key', payload.idempotency_key)
+        }
         const { error: retryDlqError } = await supabase.rpc('move_to_dlq', {
           source_queue: queue,
           dlq_name: dlq,
@@ -265,13 +271,22 @@ Deno.serve(async (req) => {
           throw new Error(`Resend API error [${resendResponse.status}]: ${errorBody}`)
         }
 
-        // Log success
-        await supabase.from('email_send_log').insert({
-          message_id: payload.message_id,
-          template_name: payload.label || queue,
-          recipient_email: payload.to,
-          status: 'sent',
-        })
+        // Finalize an idempotent reservation when present. Legacy queue payloads
+        // retain the existing append-only success log behavior.
+        if (payload.idempotency_key) {
+          await supabase.from('email_send_log').update({
+            status: 'sent',
+            error_message: null,
+            attempted_at: new Date().toISOString(),
+          }).eq('idempotency_key', payload.idempotency_key)
+        } else {
+          await supabase.from('email_send_log').insert({
+            message_id: payload.message_id,
+            template_name: payload.label || queue,
+            recipient_email: payload.to,
+            status: 'sent',
+          })
+        }
 
         // Delete from queue
         const { error: delError } = await supabase.rpc('delete_email', {
@@ -300,6 +315,9 @@ Deno.serve(async (req) => {
             status: 'rate_limited',
             error_message: errorMsg.slice(0, 1000),
           })
+          if (payload.idempotency_key) {
+            await supabase.from('email_send_log').update({ status: 'rate_limited', error_message: errorMsg.slice(0, 1000) }).eq('idempotency_key', payload.idempotency_key)
+          }
 
           const retryAfterSecs = getRetryAfterSeconds(error)
           await supabase
@@ -327,6 +345,9 @@ Deno.serve(async (req) => {
           status: 'failed',
           error_message: errorMsg.slice(0, 1000),
         })
+        if (payload.idempotency_key) {
+          await supabase.from('email_send_log').update({ status: 'failed', error_message: errorMsg.slice(0, 1000) }).eq('idempotency_key', payload.idempotency_key)
+        }
         if (payload?.message_id && typeof payload.message_id === 'string') {
           failedAttemptsByMessageId.set(payload.message_id, failedAttempts + 1)
         }

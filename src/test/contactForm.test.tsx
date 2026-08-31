@@ -50,6 +50,7 @@ describe("public quote form", () => {
         smsConsent: false,
         smsDisclosureVersion: "website-contact-v1-2026-08-27",
         trackingAttribution: null,
+        clientRequestId: expect.stringMatching(/^[0-9a-f-]{36}$/i),
       }),
     });
   });

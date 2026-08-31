@@ -1,4 +1,5 @@
-import { Phone } from "lucide-react";
+import { MessageSquare } from "lucide-react";
+import { Link } from "react-router-dom";
 import Seo from "@/components/Seo";
 import MaterialCard from "@/components/MaterialCard";
 import ResponsiveImage from "@/components/public/ResponsiveImage";
@@ -26,7 +27,7 @@ import decomposedGraniteMobileImg from "@/assets/materials/decomposed-granite-76
 import limestoneImg from "@/assets/materials/limestone.webp";
 import limestoneMobileImg from "@/assets/materials/limestone-768.webp";
 
-const PHONE_HREF = "tel:+12146778466";
+const SMS_HREF = "sms:+12146778466";
 
 const materials = [
   { name: "Commercial Crushed Concrete Clean", use: "Driveways and compactable base", image: crushedConcreteImg, mobileImage: crushedConcreteMobileImg },
@@ -58,7 +59,10 @@ const Materials = () => (
         <div className="max-w-[760px]">
           <h1 className="public-page-title">Materials</h1>
           <p className="public-page-intro">Sold by the yard. Full loads available.</p>
-          <a href={PHONE_HREF} className="public-button public-button-primary mt-7"><Phone className="h-5 w-5" />Call for current pricing</a>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <Link to="/contact" className="public-button public-button-primary">Request a Quote</Link>
+            <a href={SMS_HREF} className="public-button public-button-dark-outline"><MessageSquare className="h-5 w-5" />Text 214-677-8466</a>
+          </div>
         </div>
       </div>
     </section>
@@ -75,9 +79,9 @@ const Materials = () => (
               <h2>Not sure which material you need?</h2>
               <p>Tell us what you are working on and we can help you choose.</p>
             </div>
-            <a href={PHONE_HREF} className="public-destination-cta-link">
-              <Phone aria-hidden="true" />
-              <span>Call 214-677-8466</span>
+            <a href={SMS_HREF} className="public-destination-cta-link">
+              <MessageSquare aria-hidden="true" />
+              <span>Text 214-677-8466</span>
             </a>
           </div>
         </div>

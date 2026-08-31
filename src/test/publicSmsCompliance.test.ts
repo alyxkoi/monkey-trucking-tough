@@ -18,7 +18,9 @@ describe("public SMS consent and legal-page contracts", () => {
   it("records consent server-side and never interprets a missing value as opt-in", () => {
     const handler = read("supabase/functions/send-contact-email/index.ts");
     expect(handler).toContain("const smsConsent = requestedSmsConsent === true");
-    expect(handler).toContain(".from('contact_submissions').insert");
+    expect(handler).toContain(".rpc('create_website_contact_submission'");
+    expect(handler).toContain("idempotencyKey: `request-received:${submissionId}`");
+    expect(handler).toContain("emailWarnings");
     expect(handler).toContain("consent_source: SMS_CONSENT_SOURCE");
     expect(handler).toContain("consent_disclosure_version: SMS_CONSENT_VERSION");
     expect(handler).not.toMatch(/functions\.invoke\([^)]*sms/i);

@@ -31,10 +31,12 @@ import {
   sendCustomerEmail,
   snoozeAttention as persistSnooze,
   updateJob,
+  updateCustomerContact as updateCustomerContactRecord,
   updateLead,
   updateQuote,
   voidFinancialRecord,
   type ControlData,
+  type CustomerContactUpdateResult,
   type QuoteDraft,
 } from '@/control-center/data'
 import { useControlCenter } from '@/control-center/context'
@@ -222,6 +224,7 @@ export type AppStateValue = {
   replyToLead: (leadId: string, text: string) => void
   updateLeadNotes: (leadId: string, notes: string) => void
   updateCustomerNotes: (customerId: string, notes: string) => void
+  updateCustomerContact: (customerId: string, input: { phone: string; email?: string }) => Promise<CustomerContactUpdateResult>
   createQuoteFromLead: (leadId: string) => Promise<string>
   updateQuoteMeta: (quoteId: string, patch: { description?: string; address?: string }) => void
   addMaterialLine: (quoteId: string, materialId: string, options: { isFullLoad: boolean; loads?: number; yards?: number }) => void
@@ -573,6 +576,51 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const updateJobNotes = useCallback((id: string, notes: string) => debounce(`job:${id}`, async () => { if (demo.enabled) { demo.updateData((current) => ({ ...current, jobs: current.jobs.map((row) => row.id === id ? { ...row, notes, updated_at: new Date().toISOString() } : row) })); return } await updateJob(id, { notes }); await refresh() }), [debounce, demo, refresh])
   const updateLeadNotes = useCallback((id: string, notes: string) => debounce(`lead:${id}`, async () => { if (demo.enabled) { demo.updateData((current) => ({ ...current, leads: current.leads.map((row) => row.id === id ? { ...row, notes, updated_at: new Date().toISOString() } : row) })); return } await updateLead(id, { notes }); await refresh() }), [debounce, demo, refresh])
   const updateCustomerNotes = useCallback((id: string, notes: string) => debounce(`customer:${id}`, async () => { if (demo.enabled) { demo.updateData((current) => ({ ...current, customers: current.customers.map((row) => row.id === id ? { ...row, notes, updated_at: new Date().toISOString() } : row) })); return } const { error: saveError } = await controlDb.from('customers').update({ notes }).eq('id', id); if (saveError) throw new Error(saveError.message); await refresh() }), [debounce, demo, refresh])
+  const updateCustomerContact = useCallback(async (id: string, input: { phone: string; email?: string }): Promise<CustomerContactUpdateResult> => {
+    const normalizedPhone = input.phone.replace(/\D/g, '') || null
+    const normalizedEmail = input.email?.trim().toLowerCase() || null
+    if (demo.enabled) {
+      const duplicate = data?.customers.find((row) => row.id !== id && (
+        (normalizedPhone && row.normalized_phone === normalizedPhone)
+        || (normalizedEmail && row.normalized_email === normalizedEmail)
+      ))
+      if (duplicate) {
+        const field = normalizedPhone && duplicate.normalized_phone === normalizedPhone ? 'PHONE' : 'EMAIL'
+        return { status: 'DUPLICATE', field, customer_id: duplicate.id, customer_name: duplicate.name }
+      }
+      const now = new Date().toISOString()
+      demo.updateData((current) => ({
+        ...current,
+        customers: current.customers.map((row) => row.id === id ? {
+          ...row,
+          phone: input.phone.trim() || null,
+          normalized_phone: normalizedPhone,
+          email: input.email?.trim() || null,
+          normalized_email: normalizedEmail,
+          last_activity_at: now,
+          updated_at: now,
+        } : row),
+        activities: [{
+          id: `qa-runtime-activity-${current.activities.length + 1}`,
+          customer_id: id,
+          entity_type: 'CUSTOMER',
+          entity_id: id,
+          event_type: 'CONTACT_UPDATED',
+          summary: 'Customer contact details updated',
+          metadata: {},
+          actor_id: QA_FIXTURE_USER_ID,
+          actor_label: 'Demo user',
+          created_at: now,
+        }, ...current.activities],
+      }))
+      const row = data?.customers.find((customer) => customer.id === id)
+      if (!row) throw new Error('Customer not found')
+      return { status: 'UPDATED', customer: { ...row, phone: input.phone.trim() || null, normalized_phone: normalizedPhone, email: input.email?.trim() || null, normalized_email: normalizedEmail, updated_at: now, last_activity_at: now } }
+    }
+    const result = await updateCustomerContactRecord({ customerId: id, ...input })
+    if (result.status === 'UPDATED') await refresh()
+    return result
+  }, [data?.customers, demo, refresh])
   const replyToLead = useCallback((id: string, text: string) => {
     const lead = leadById(id)
     if (!lead) return
@@ -991,9 +1039,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, deleteTicket, printTicket,
     invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor,
     createInvoiceFromJob, createInvoiceFromTicket, reviseInvoice, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment,
-    findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote,
+    findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, updateCustomerContact, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote,
     communicationReady: data?.controlSettings?.sms_status === 'READY', emailSendingFor, sourceData: data,
-  }), [period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, showAllAttention, snoozeAttention, unsnoozeAttention, lastAction, undoLastAction, loading, moneyLoading, demo.enabled, online, syncing, pendingTickets, lastSyncAt, cycleSync, newSheetOpen, newLeadSheetOpen, newJobSheetOpen, pinnedBarActive, customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer, jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes, tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, deleteTicket, printTicket, invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor, createInvoiceFromJob, createInvoiceFromTicket, reviseInvoice, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment, findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote, emailSendingFor, data])
+  }), [period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, showAllAttention, snoozeAttention, unsnoozeAttention, lastAction, undoLastAction, loading, moneyLoading, demo.enabled, online, syncing, pendingTickets, lastSyncAt, cycleSync, newSheetOpen, newLeadSheetOpen, newJobSheetOpen, pinnedBarActive, customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer, jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes, tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, deleteTicket, printTicket, invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor, createInvoiceFromJob, createInvoiceFromTicket, reviseInvoice, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment, findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, updateCustomerContact, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote, emailSendingFor, data])
 
   if (loading && !data) {
     return <div className="min-h-screen" aria-label="Loading Control Center" />
