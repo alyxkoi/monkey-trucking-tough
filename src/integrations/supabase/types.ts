@@ -2380,6 +2380,10 @@ export type Database = {
           ticket_number: string
         }[]
       }
+      create_website_contact_submission: {
+        Args: { p_submission: Json }
+        Returns: Json
+      }
       create_worker_payment_pending: {
         Args: {
           p_amount: number
@@ -2560,6 +2564,10 @@ export type Database = {
       set_tracking_link_archived: {
         Args: { p_archived: boolean; p_tracking_link_id: string }
         Returns: undefined
+      }
+      update_customer_contact: {
+        Args: { p_customer_id: string; p_email: string; p_phone: string }
+        Returns: Json
       }
       void_financial_record: {
         Args: { p_reason: string; p_record_id: string; p_record_type: string }

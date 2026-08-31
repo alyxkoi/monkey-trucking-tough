@@ -29,6 +29,13 @@
       "when": 1788019767354,
       "tag": "0003_restrict_email_queue_function_execute",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788145207585,
+      "tag": "0004_public_request_confirmation_and_customer_contact",
+      "breakpoints": true
     }
   ]
 }
