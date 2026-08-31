@@ -6,6 +6,10 @@ verify_jwt = false
 [functions.customer-document-email]
 verify_jwt = false
 
+[functions.process-email-queue]
+verify_jwt = false
+
+
 [functions.stripe-checkout]
 verify_jwt = false
 
