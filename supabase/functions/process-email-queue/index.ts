@@ -63,17 +63,24 @@ Deno.serve(async (req) => {
     )
   }
 
-  // Defense in depth: verify_jwt=true already requires a valid JWT at the
-  // gateway layer. This adds an explicit role check so only service-role
-  // callers can trigger queue processing.
+  // Two accepted callers: a service-role JWT (manual/administrative runs) and
+  // the scheduled queue processor, which presents the shared cron credential
+  // stored in Vault. Anything else is rejected.
   const token = authHeader.slice('Bearer '.length).trim()
+  const cronSecret = Deno.env.get('EMAIL_QUEUE_CRON_SECRET')
+  const cronAuthorized = Boolean(cronSecret) && token.length === cronSecret!.length
+    && crypto.timingSafeEqual(
+      new TextEncoder().encode(token),
+      new TextEncoder().encode(cronSecret!)
+    )
   const claims = parseJwtClaims(token)
-  if (claims?.role !== 'service_role') {
+  if (!cronAuthorized && claims?.role !== 'service_role') {
     return new Response(
       JSON.stringify({ error: 'Forbidden' }),
       { status: 403, headers: { 'Content-Type': 'application/json' } }
     )
   }
+
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
