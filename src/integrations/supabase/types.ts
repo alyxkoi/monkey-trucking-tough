@@ -2237,7 +2237,15 @@ export type Database = {
           source?: string | null
           visits?: never
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tracking_links_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_link_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -2248,20 +2256,6 @@ export type Database = {
           quote_id: string
           status: string
         }[]
-      }
-      create_tracking_link: {
-        Args: {
-          p_campaign: string
-          p_destination: string
-          p_group_id?: string | null
-          p_slug: string
-          p_source: string
-        }
-        Returns: string
-      }
-      create_tracking_link_group: {
-        Args: { p_name: string }
-        Returns: string
       }
       activate_stripe_checkout_session: {
         Args: {
@@ -2444,6 +2438,17 @@ export type Database = {
           ticket_number: string
         }[]
       }
+      create_tracking_link: {
+        Args: {
+          p_campaign: string
+          p_destination: string
+          p_group_id?: string
+          p_slug: string
+          p_source: string
+        }
+        Returns: string
+      }
+      create_tracking_link_group: { Args: { p_name: string }; Returns: string }
       create_website_contact_submission: {
         Args: { p_submission: Json }
         Returns: Json
@@ -2473,12 +2478,12 @@ export type Database = {
         Args: { p_confirmation: string; p_reason: string; p_ticket_id: string }
         Returns: Json
       }
-      delete_tracking_link_if_unused: {
-        Args: { p_tracking_link_id: string }
-        Returns: Json
-      }
       delete_tracking_link_group: {
         Args: { p_group_id: string; p_move_links_to_ungrouped?: boolean }
+        Returns: Json
+      }
+      delete_tracking_link_if_unused: {
+        Args: { p_tracking_link_id: string }
         Returns: Json
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
@@ -2550,6 +2555,14 @@ export type Database = {
         }
         Returns: number
       }
+      move_tracking_link: {
+        Args: {
+          p_group_id: string
+          p_position: number
+          p_tracking_link_id: string
+        }
+        Returns: undefined
+      }
       next_invoice_number: { Args: never; Returns: string }
       next_quote_number: { Args: never; Returns: string }
       next_ticket_number: { Args: never; Returns: string }
@@ -2575,18 +2588,6 @@ export type Database = {
           read_ct: number
         }[]
       }
-      move_tracking_link: {
-        Args: { p_group_id: string | null; p_position: number; p_tracking_link_id: string }
-        Returns: undefined
-      }
-      rename_tracking_link_group: {
-        Args: { p_group_id: string; p_name: string }
-        Returns: undefined
-      }
-      reorder_tracking_link_groups: {
-        Args: { p_group_ids: string[] }
-        Returns: undefined
-      }
       record_invoice_payment_full: {
         Args: {
           p_invoice_id: string
@@ -2595,6 +2596,14 @@ export type Database = {
           p_received_at: string
         }
         Returns: string
+      }
+      rename_tracking_link_group: {
+        Args: { p_group_id: string; p_name: string }
+        Returns: undefined
+      }
+      reorder_tracking_link_groups: {
+        Args: { p_group_ids: string[] }
+        Returns: undefined
       }
       reserve_stripe_checkout_session: {
         Args: {
