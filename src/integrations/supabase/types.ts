@@ -1930,49 +1930,19 @@ export type Database = {
           },
         ]
       }
-      tracking_link_groups: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          name: string
-          position: number
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          name: string
-          position?: number
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          name?: string
-          position?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       tracking_link_visits: {
         Row: {
           id: string
-          session_id: string | null
           tracking_link_id: string
           visited_at: string
         }
         Insert: {
           id?: string
-          session_id?: string | null
           tracking_link_id: string
           visited_at?: string
         }
         Update: {
           id?: string
-          session_id?: string | null
           tracking_link_id?: string
           visited_at?: string
         }
@@ -2002,11 +1972,9 @@ export type Database = {
           created_by: string | null
           customers: number
           destination: string
-          group_id: string | null
           id: string
           is_active: boolean
           leads: number
-          position: number
           slug: string
           source: string
           visits: number
@@ -2019,11 +1987,9 @@ export type Database = {
           created_by?: string | null
           customers?: number
           destination: string
-          group_id?: string | null
           id?: string
           is_active?: boolean
           leads?: number
-          position?: number
           slug: string
           source: string
           visits?: number
@@ -2036,24 +2002,14 @@ export type Database = {
           created_by?: string | null
           customers?: number
           destination?: string
-          group_id?: string | null
           id?: string
           is_active?: boolean
           leads?: number
-          position?: number
           slug?: string
           source?: string
           visits?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "tracking_links_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "tracking_link_groups"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -2194,11 +2150,9 @@ export type Database = {
           created_by: string | null
           customers: number | null
           destination: string | null
-          group_id: string | null
           id: string | null
           is_active: boolean | null
           leads: number | null
-          position: number | null
           slug: string | null
           source: string | null
           visits: number | null
@@ -2211,11 +2165,9 @@ export type Database = {
           created_by?: string | null
           customers?: never
           destination?: string | null
-          group_id?: string | null
           id?: string | null
           is_active?: boolean | null
           leads?: never
-          position?: number | null
           slug?: string | null
           source?: string | null
           visits?: never
@@ -2228,11 +2180,9 @@ export type Database = {
           created_by?: string | null
           customers?: never
           destination?: string | null
-          group_id?: string | null
           id?: string | null
           is_active?: boolean | null
           leads?: never
-          position?: number | null
           slug?: string | null
           source?: string | null
           visits?: never
@@ -2248,20 +2198,6 @@ export type Database = {
           quote_id: string
           status: string
         }[]
-      }
-      create_tracking_link: {
-        Args: {
-          p_campaign: string
-          p_destination: string
-          p_group_id?: string | null
-          p_slug: string
-          p_source: string
-        }
-        Returns: string
-      }
-      create_tracking_link_group: {
-        Args: { p_name: string }
-        Returns: string
       }
       activate_stripe_checkout_session: {
         Args: {
@@ -2477,10 +2413,6 @@ export type Database = {
         Args: { p_tracking_link_id: string }
         Returns: Json
       }
-      delete_tracking_link_group: {
-        Args: { p_group_id: string; p_move_links_to_ungrouped?: boolean }
-        Returns: Json
-      }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
@@ -2574,18 +2506,6 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
-      }
-      move_tracking_link: {
-        Args: { p_group_id: string | null; p_position: number; p_tracking_link_id: string }
-        Returns: undefined
-      }
-      rename_tracking_link_group: {
-        Args: { p_group_id: string; p_name: string }
-        Returns: undefined
-      }
-      reorder_tracking_link_groups: {
-        Args: { p_group_ids: string[] }
-        Returns: undefined
       }
       record_invoice_payment_full: {
         Args: {
