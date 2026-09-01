@@ -285,6 +285,17 @@ export type TrackingLink = {
   archived_by: string | null;
   created_by: string | null;
   created_at: string;
+  group_id: string | null;
+  position: number;
+};
+
+export type TrackingLinkGroup = {
+  id: string;
+  name: string;
+  position: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type AttentionSnooze = {
@@ -373,6 +384,7 @@ type ControlDatabase = {
       financial_history: Table<FinancialHistory>;
       control_center_settings: Table<ControlSettings>;
       automation_rules: Table<AutomationRule>;
+      tracking_link_groups: Table<TrackingLinkGroup>;
       tracking_links: Table<TrackingLink>;
       attention_snoozes: Table<AttentionSnooze>;
       ai_conversation_state: Table<AiConversationState>;
@@ -424,6 +436,7 @@ export type ControlData = {
   userRoles: UserRole[];
   controlSettings: ControlSettings | null;
   automations: AutomationRule[];
+  trackingLinkGroups: TrackingLinkGroup[];
   trackingLinks: TrackingLink[];
   trackingIntegration: AiIntegrationState;
   snoozes: AttentionSnooze[];
@@ -532,32 +545,42 @@ async function loadOptionalStripeData(): Promise<{ issues: StripeWebhookIssue[];
   }
 }
 
-async function loadOptionalTrackingData(): Promise<{ links: TrackingLink[]; integration: AiIntegrationState }> {
+async function loadOptionalTrackingData(): Promise<{ groups: TrackingLinkGroup[]; links: TrackingLink[]; integration: AiIntegrationState }> {
   try {
-    const metrics = await controlDb.from("tracking_link_metrics").select("*").order("created_at", { ascending: false });
-    if (!metrics.error) return { links: metrics.data ?? [], integration: { status: "READY", message: null } };
+    const [metrics, groups] = await Promise.all([
+      controlDb.from("tracking_link_metrics").select("*").order("position").order("created_at", { ascending: false }),
+      controlDb.from("tracking_link_groups").select("*").order("position").order("created_at"),
+    ]);
+    if (!metrics.error && !groups.error) {
+      return { groups: groups.data ?? [], links: metrics.data ?? [], integration: { status: "READY", message: null } };
+    }
 
     const fallback = await controlDb.from("tracking_links").select("*").order("created_at", { ascending: false });
     if (fallback.error) {
-      return { links: [], integration: { status: "ERROR", message: `Tracking links could not be loaded: ${fallback.error.message}` } };
+      return { groups: [], links: [], integration: { status: "ERROR", message: `Tracking links could not be loaded: ${fallback.error.message}` } };
     }
-    const setupRequired = AI_SCHEMA_MISSING_CODES.has(metrics.error.code ?? "");
+    const trackingError = metrics.error ?? groups.error;
+    const setupRequired = AI_SCHEMA_MISSING_CODES.has(trackingError?.code ?? "");
     return {
+      groups: [],
       links: (fallback.data ?? []).map((link) => ({
         ...link,
         is_active: link.is_active ?? true,
         archived_at: link.archived_at ?? null,
         archived_by: link.archived_by ?? null,
+        group_id: link.group_id ?? null,
+        position: link.position ?? 0,
       })),
       integration: {
         status: setupRequired ? "SETUP_REQUIRED" : "ERROR",
         message: setupRequired
-          ? "Apply the Tracking Links migration and deploy tracking-redirect before using tracked URLs."
-          : `Tracking metrics could not be loaded: ${metrics.error.message}`,
+          ? "Apply the Tracking Link Groups migration and deploy tracking-redirect before using tracked URLs."
+          : `Tracking organization could not be loaded: ${trackingError?.message ?? "Unknown tracking error"}`,
       },
     };
   } catch (error) {
     return {
+      groups: [],
       links: [],
       integration: {
         status: "ERROR",
@@ -630,6 +653,7 @@ export async function loadControlData(): Promise<ControlData> {
     userRoles: unwrap(userRoles, "User roles") ?? [],
     controlSettings: unwrap(controlSettings, "Control Center settings"),
     automations: unwrap(automations, "Automation rules") ?? [],
+    trackingLinkGroups: optionalTracking.groups,
     trackingLinks: optionalTracking.links,
     trackingIntegration: optionalTracking.integration,
     snoozes: unwrap(snoozes, "Attention snoozes") ?? [],
@@ -983,18 +1007,39 @@ export const createWorker = async (input: { name: string; payType: Worker["pay_t
   return data.id;
 };
 
-export const createTrackingLink = async (input: { source: TrackingLink["source"]; campaign: string; destination: string }) => {
+export const createTrackingLink = async (input: { source: TrackingLink["source"]; campaign: string; destination: string; groupId: string | null }) => {
   const baseSlug = input.campaign.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "campaign";
   const slug = `${baseSlug}-${crypto.randomUUID().slice(0, 6)}`;
-  const { data, error } = await controlDb.from("tracking_links").insert({
-    source: input.source,
-    campaign: input.campaign.trim(),
-    destination: input.destination.trim(),
-    slug,
-  }).select("id").single();
-  if (error) throw new Error(error.message);
-  return data.id;
+  return runRpc<string>("create_tracking_link", {
+    p_source: input.source,
+    p_campaign: input.campaign.trim(),
+    p_destination: input.destination.trim(),
+    p_slug: slug,
+    p_group_id: input.groupId,
+  });
 };
+
+export const createTrackingLinkGroup = (name: string) =>
+  runRpc<string>("create_tracking_link_group", { p_name: name });
+
+export const renameTrackingLinkGroup = (id: string, name: string) =>
+  runRpc<void>("rename_tracking_link_group", { p_group_id: id, p_name: name });
+
+export const deleteTrackingLinkGroup = (id: string, moveLinksToUngrouped: boolean) =>
+  runRpc<{ status: "DELETED" | "PROTECTED" | "NOT_FOUND"; links?: number; moved_links?: number }>(
+    "delete_tracking_link_group",
+    { p_group_id: id, p_move_links_to_ungrouped: moveLinksToUngrouped },
+  );
+
+export const reorderTrackingLinkGroups = (groupIds: string[]) =>
+  runRpc<void>("reorder_tracking_link_groups", { p_group_ids: groupIds });
+
+export const moveTrackingLink = (id: string, groupId: string | null, position: number) =>
+  runRpc<void>("move_tracking_link", {
+    p_tracking_link_id: id,
+    p_group_id: groupId,
+    p_position: position,
+  });
 
 export const setTrackingLinkArchived = (id: string, archived: boolean) =>
   runRpc<void>("set_tracking_link_archived", { p_tracking_link_id: id, p_archived: archived });

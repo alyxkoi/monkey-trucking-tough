@@ -35,7 +35,8 @@ describe('guarded prelaunch operational reset', () => {
 
     for (const table of [
       'materials', 'drivers', 'workers', 'app_settings', 'control_center_settings',
-      'automation_rules', 'tracking_links', 'user_roles', 'email_send_state',
+      'automation_rules', 'tracking_link_groups', 'tracking_links',
+      'tracking_link_visits', 'user_roles', 'email_send_state',
       'suppressed_emails', 'ticket_deletion_audit',
     ]) {
       expect(reset).not.toContain(`delete from public.${table}`)

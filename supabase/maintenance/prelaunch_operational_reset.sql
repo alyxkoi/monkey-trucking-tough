@@ -40,7 +40,8 @@ begin
     'customer_document_tokens','email_send_log','email_unsubscribe_tokens',
     'ai_conversation_state','ai_audit_logs','ai_drafts','stripe_checkout_sessions',
     'stripe_webhook_events','materials','drivers','workers','app_settings',
-    'control_center_settings','automation_rules','tracking_links','user_roles',
+    'control_center_settings','automation_rules','tracking_link_groups',
+    'tracking_links','tracking_link_visits','user_roles',
     'email_send_state','suppressed_emails','ticket_deletion_audit'
   ] loop
     if to_regclass('public.' || v_name) is null then
@@ -104,6 +105,7 @@ union all select 'workers', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order b
 union all select 'app_settings', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order by id)::text, '[]')) from public.app_settings t
 union all select 'control_center_settings', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order by id)::text, '[]')) from public.control_center_settings t
 union all select 'automation_rules', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order by id)::text, '[]')) from public.automation_rules t
+union all select 'tracking_link_groups', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order by id)::text, '[]')) from public.tracking_link_groups t
 union all select 'tracking_links', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order by id)::text, '[]')) from public.tracking_links t
 union all select 'user_roles', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order by user_id)::text, '[]')) from public.user_roles t
 union all select 'email_send_state', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order by id)::text, '[]')) from public.email_send_state t
@@ -194,6 +196,7 @@ begin
       union all select 'app_settings', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order by id)::text, '[]')) from public.app_settings t
       union all select 'control_center_settings', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order by id)::text, '[]')) from public.control_center_settings t
       union all select 'automation_rules', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order by id)::text, '[]')) from public.automation_rules t
+      union all select 'tracking_link_groups', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order by id)::text, '[]')) from public.tracking_link_groups t
       union all select 'tracking_links', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order by id)::text, '[]')) from public.tracking_links t
       union all select 'user_roles', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order by user_id)::text, '[]')) from public.user_roles t
       union all select 'email_send_state', count(*), md5(coalesce(jsonb_agg(to_jsonb(t) order by id)::text, '[]')) from public.email_send_state t
@@ -240,4 +243,3 @@ select
   (select count(*) from public.workers) as workers;
 
 commit;
-

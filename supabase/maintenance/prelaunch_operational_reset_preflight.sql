@@ -14,7 +14,8 @@ begin
     'customer_document_tokens','email_send_log','email_unsubscribe_tokens',
     'ai_conversation_state','ai_audit_logs','ai_drafts','stripe_checkout_sessions',
     'stripe_webhook_events','materials','drivers','workers','app_settings',
-    'control_center_settings','automation_rules','tracking_links','user_roles',
+    'control_center_settings','automation_rules','tracking_link_groups',
+    'tracking_links','tracking_link_visits','user_roles',
     'email_send_state','suppressed_emails','ticket_deletion_audit'
   ] loop
     if to_regclass('public.' || v_name) is null then
@@ -137,7 +138,9 @@ select
   (select count(*) from public.workers) as workers,
   (select count(*) from public.user_roles where role in ('admin','staff')) as authorized_users,
   (select count(*) from public.automation_rules) as automation_rules,
-  (select count(*) from public.tracking_links) as tracking_links;
+  (select count(*) from public.tracking_link_groups) as tracking_link_groups,
+  (select count(*) from public.tracking_links) as tracking_links,
+  (select count(*) from public.tracking_link_visits) as tracking_link_visits;
 
 select * from public.control_center_settings order by id;
 select id, name, is_active from public.drivers order by name;
@@ -176,4 +179,3 @@ select upper(md5(jsonb_build_object(
 )::text)) as preflight_token;
 
 rollback;
-

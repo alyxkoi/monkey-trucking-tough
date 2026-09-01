@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { trackingSession } from '../_shared/tracking-session.ts'
 
 const json = (status: number, error: string) => new Response(JSON.stringify({ error }), {
   status,
@@ -31,6 +32,7 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   if (!supabaseUrl || !serviceKey) return json(503, 'Tracking is not configured')
+  const sessionSecret = Deno.env.get('TRACKING_SESSION_SECRET') ?? serviceKey
 
   const slug = requestedSlug(req)
   if (!slug) return json(400, 'Tracking link is required')
@@ -51,13 +53,19 @@ Deno.serve(async (req) => {
   if (!link) return json(404, 'Tracking link not found')
   if (!link.is_active) return json(410, 'This tracking link is archived')
 
+  let sessionCookie: string | null = null
   if (req.method === 'GET') {
-    const { error: visitError } = await service.from('tracking_link_visits').insert({
+    const session = await trackingSession(req.headers.get('cookie'), sessionSecret)
+    sessionCookie = session.cookie
+    const { error: visitError } = await service.from('tracking_link_visits').upsert({
       tracking_link_id: link.id,
+      session_id: session.id,
+    }, {
+      onConflict: 'tracking_link_id,session_id',
+      ignoreDuplicates: true,
     })
     if (visitError) {
       console.error('Tracking visit insert failed', visitError)
-      return json(503, 'Tracking is temporarily unavailable')
     }
   }
 
@@ -73,12 +81,15 @@ Deno.serve(async (req) => {
   destination.searchParams.set('mt_campaign', link.campaign)
   destination.searchParams.set('mt_tracking', link.id)
 
+  const headers = new Headers({
+    Location: destination.toString(),
+    'Cache-Control': 'no-store, max-age=0',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+  })
+  if (sessionCookie) headers.set('Set-Cookie', sessionCookie)
+
   return new Response(null, {
     status: 302,
-    headers: {
-      Location: destination.toString(),
-      'Cache-Control': 'no-store, max-age=0',
-      'Referrer-Policy': 'strict-origin-when-cross-origin',
-    },
+    headers,
   })
 })

@@ -38,7 +38,9 @@ select
   (select count(*) from public.app_settings) as app_settings_rows,
   (select count(*) from public.control_center_settings) as control_center_settings_rows,
   (select count(*) from public.automation_rules) as automation_rules,
+  (select count(*) from public.tracking_link_groups) as tracking_link_groups,
   (select count(*) from public.tracking_links) as tracking_links,
+  (select count(*) from public.tracking_link_visits) as tracking_link_visits,
   (select count(*) from public.user_roles where role in ('admin','staff')) as authorized_users,
   (select count(*) from public.email_send_state) as email_send_state_rows,
   (select count(*) from public.ticket_deletion_audit) as retained_ticket_deletion_audits;
@@ -55,4 +57,3 @@ from public.materials
 order by sort_order, name;
 
 rollback;
-

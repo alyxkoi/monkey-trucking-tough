@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Archive, Check, Copy, Link2, Pencil, Plus, Printer, RotateCcw, Sparkles, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Printer, Sparkles, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
@@ -18,10 +18,9 @@ import { DELIVERY_OPTIONS } from '@/control-center/approved/state/pricing'
 import { effectiveTaxRate } from '@/control-center/billing'
 import {
   BUSINESS,
-  LINK_SOURCES,
   PRINTING,
 } from '@/control-center/approved/state/settingsData'
-import { controlDb, createTrackingLink, deleteTrackingLinkIfUnused, setTrackingLinkArchived, type TrackingLink } from '@/control-center/data'
+import { controlDb } from '@/control-center/data'
 import { useControlCenter } from '@/control-center/context'
 import { useDemoMode } from '@/control-center/demo/DemoMode'
 import { QA_FIXTURE_USER_ID } from '@/control-center/demo/constants'
@@ -31,7 +30,6 @@ import { BUILD_INFO } from '@/lib/buildInfo'
 import { buildAutomationPreviews } from '@/control-center/ai/automationDryRun'
 import { generateAutomationDraft } from '@/control-center/ai/service'
 import { deriveSettingsReadiness, readinessTone, type ReadinessItem } from '@/control-center/readiness'
-import { trackingRedirectUrl } from '@/lib/trackingAttribution'
 
 /* ------------------------------------------------------------------ shared */
 
@@ -1067,231 +1065,7 @@ export function SettingsCommunication() {
 
 /* ---------------------------------------------------------- tracking links */
 
-export function SettingsTracking() {
-  const { sourceData } = useAppState()
-  const { refresh } = useControlCenter()
-  const demo = useDemoMode()
-  const [source, setSource] = useState(LINK_SOURCES[0])
-  const [campaign, setCampaign] = useState('')
-  const [destination, setDestination] = useState('https://monkeytrucking.llc/contact')
-  const [view, setView] = useState<'ACTIVE' | 'ARCHIVED'>('ACTIVE')
-  const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [workingId, setWorkingId] = useState<string | null>(null)
-  const links = sourceData?.trackingLinks ?? []
-  const readiness = deriveSettingsReadiness(sourceData ?? null)
-  const integrationReady = demo.enabled || sourceData?.trackingIntegration.status === 'READY'
-
-  const slug = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-  const preview = trackingRedirectUrl(`${slug(campaign || 'campaign')}-xxxxxx`)
-  const visibleLinks = links.filter((link) => view === 'ACTIVE' ? link.is_active !== false : link.is_active === false)
-
-  const generate = async () => {
-    if (!campaign.trim()) {
-      toast.error('Campaign is required.')
-      return
-    }
-    if (!integrationReady) {
-      toast.error('Tracking deployment is required before creating tracked links.')
-      return
-    }
-    let safeDestination: string
-    try {
-      const value = /^https?:\/\//i.test(destination.trim()) ? destination.trim() : `https://${destination.trim()}`
-      const parsed = new URL(value)
-      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error()
-      safeDestination = parsed.toString()
-    } catch {
-      toast.error('Enter a valid public destination URL.')
-      return
-    }
-    setSaving(true)
-    try {
-      const uniqueSlug = `${slug(campaign)}-${crypto.randomUUID().slice(0, 6)}`
-      if (demo.enabled) {
-        const now = new Date().toISOString()
-        demo.updateData((current) => ({ ...current, trackingLinks: [{ id: `qa-runtime-link-${current.trackingLinks.length + 1}`, source, campaign: campaign.trim(), destination: safeDestination, slug: uniqueSlug, visits: 0, leads: 0, customers: 0, is_active: true, archived_at: null, archived_by: null, created_by: QA_FIXTURE_USER_ID, created_at: now }, ...current.trackingLinks] }))
-        setCampaign('')
-        toast.success('Tracking link created in demo memory.')
-        return
-      }
-      await createTrackingLink({ source, campaign, destination: safeDestination })
-      await refresh()
-      setCampaign('')
-      toast.success('Tracking link created.')
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Tracking link could not be created.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const linkUrl = (link: TrackingLink) => trackingRedirectUrl(link.slug)
-
-  const copy = async (link: TrackingLink) => {
-    if (!integrationReady) {
-      toast.error('Tracking deployment is required before this URL can be used.')
-      return
-    }
-    try {
-      await navigator.clipboard.writeText(linkUrl(link))
-      setCopiedId(link.id)
-      window.setTimeout(() => setCopiedId((current) => (current === link.id ? null : current)), 2000)
-    } catch {
-      toast.error('Copy failed. Select the tracked URL and copy it manually.')
-    }
-  }
-
-  const setArchived = async (link: TrackingLink, archived: boolean) => {
-    setWorkingId(link.id)
-    try {
-      if (demo.enabled) {
-        const now = new Date().toISOString()
-        demo.updateData((current) => ({
-          ...current,
-          trackingLinks: current.trackingLinks.map((item) => item.id === link.id ? {
-            ...item,
-            is_active: !archived,
-            archived_at: archived ? now : null,
-            archived_by: archived ? QA_FIXTURE_USER_ID : null,
-          } : item),
-        }))
-      } else {
-        await setTrackingLinkArchived(link.id, archived)
-        await refresh()
-      }
-      toast.success(archived ? 'Tracking link archived.' : 'Tracking link reactivated.')
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Tracking link could not be updated.')
-    } finally {
-      setWorkingId(null)
-    }
-  }
-
-  const remove = async (link: TrackingLink) => {
-    if (!window.confirm(`Delete this unused tracking link?\n\n${link.campaign}`)) return
-    setWorkingId(link.id)
-    try {
-      const result = demo.enabled
-        ? link.visits + link.leads + link.customers === 0
-          ? { status: 'DELETED' as const }
-          : { status: 'PROTECTED' as const }
-        : await deleteTrackingLinkIfUnused(link.id)
-
-      if (result.status === 'PROTECTED') {
-        toast.error('This link has attributed activity. Archive it instead.')
-        return
-      }
-      if (result.status !== 'DELETED') throw new Error('Tracking link no longer exists.')
-      if (demo.enabled) {
-        demo.updateData((current) => ({ ...current, trackingLinks: current.trackingLinks.filter((item) => item.id !== link.id) }))
-      } else {
-        await refresh()
-      }
-      toast.success('Unused tracking link deleted.')
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Tracking link could not be deleted.')
-    } finally {
-      setWorkingId(null)
-    }
-  }
-
-  return (
-    <SettingsScreen title="Tracking Links">
-      <ReadinessNotice state={readiness.categories.tracking} />
-      <Panel title="New link">
-        <div className="grid gap-4 lg:grid-cols-[180px_minmax(220px,0.8fr)_minmax(280px,1.2fr)]">
-          <SelectField label="Source" value={source} onChange={setSource} options={LINK_SOURCES} />
-          <TextField
-            label="Campaign"
-            value={campaign}
-            onChange={setCampaign}
-            placeholder="August driveway campaign"
-          />
-          <TextField label="Destination" value={destination} onChange={setDestination} />
-        </div>
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="min-w-0 flex-1 rounded-xl border border-line bg-raised px-4 py-3">
-            <div className="font-label text-[12px] font-semibold uppercase tracking-[0.14em] text-cc-muted">
-              Tracked URL preview
-            </div>
-            <div className="mt-1 truncate text-[14px] text-ice" title={preview}>{preview}</div>
-          </div>
-          <PrimaryButton
-            onClick={() => void generate()}
-            disabled={saving || !integrationReady}
-            icon={<Link2 className="h-4 w-4" strokeWidth={2.2} />}
-          >
-            {saving ? 'Generating' : 'Generate Link'}
-          </PrimaryButton>
-        </div>
-      </Panel>
-
-      <div className="flex justify-end">
-        <SegmentControl
-          options={[
-            { value: 'ACTIVE' as const, label: `Active ${links.filter((link) => link.is_active !== false).length}` },
-            { value: 'ARCHIVED' as const, label: `Archived ${links.filter((link) => link.is_active === false).length}` },
-          ]}
-          value={view}
-          onChange={setView}
-          size="sm"
-        />
-      </div>
-
-      <Panel padded={false} title={`${visibleLinks.length} ${view === 'ACTIVE' ? 'active' : 'archived'}`}>
-        <div className="divide-y divide-line border-t border-line">
-          {visibleLinks.map((link) => {
-            const protectedHistory = link.visits > 0 || link.leads > 0 || link.customers > 0
-            return <div key={link.id} className={cn('px-4 py-4 sm:px-5', !link.is_active && 'opacity-70')}>
-              <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(280px,1fr)_auto_auto] lg:items-center">
-                <div className="flex min-w-0 items-center gap-3.5">
-                  <span className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]', trackingSourceStyle(link.source))}>
-                    <Link2 className="h-5 w-5" strokeWidth={2.5} />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="font-label text-[12px] font-semibold uppercase tracking-[0.12em] text-cc-muted">{link.source}</span>
-                      {!link.is_active && <StatusPill tone="idle" size="sm">Archived</StatusPill>}
-                    </div>
-                    <div className="truncate text-[16px] font-semibold text-ink" title={link.campaign}>{link.campaign}</div>
-                    <div className="mt-0.5 truncate text-[12px] text-cc-muted" title={linkUrl(link)}>{linkUrl(link)}</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-5 sm:gap-7">
-                  <Metric label="Visits" value={link.visits} />
-                  <Metric label="Leads" value={link.leads} />
-                  <Metric label="Customers" value={link.customers} />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                  <SecondaryButton
-                    size="sm"
-                    disabled={!integrationReady}
-                    onClick={() => void copy(link)}
-                    icon={copiedId === link.id ? <Check className="h-4 w-4" strokeWidth={2.6} /> : <Copy className="h-4 w-4" strokeWidth={2.2} />}
-                  >
-                    {copiedId === link.id ? 'Copied' : 'Copy Link'}
-                  </SecondaryButton>
-                  {link.is_active ? (
-                    <SecondaryButton size="sm" disabled={!integrationReady || workingId === link.id} onClick={() => void setArchived(link, true)} icon={<Archive className="h-4 w-4" />}>Archive</SecondaryButton>
-                  ) : (
-                    <SecondaryButton size="sm" disabled={!integrationReady || workingId === link.id} onClick={() => void setArchived(link, false)} icon={<RotateCcw className="h-4 w-4" />}>Reactivate</SecondaryButton>
-                  )}
-                  {!protectedHistory && (
-                    <SecondaryButton size="sm" disabled={!integrationReady || workingId === link.id} onClick={() => void remove(link)} icon={<Trash2 className="h-4 w-4" />}>Delete</SecondaryButton>
-                  )}
-                </div>
-              </div>
-            </div>
-          })}
-          {visibleLinks.length === 0 && <div className="px-5 py-8 text-[15px] text-cc-muted">No {view.toLowerCase()} tracking links.</div>}
-        </div>
-      </Panel>
-    </SettingsScreen>
-  )
-}
+export { SettingsTracking } from './TrackingLinksSettings'
 
 /* ----------------------------------------------------------- users and access */
 
@@ -1586,23 +1360,5 @@ function DetailList({ label, values }: { label: string; values: string[] }) {
         ))}
       </ul>
     </div>
-  )
-}
-
-function trackingSourceStyle(source: string) {
-  if (source === 'Facebook') return 'bg-[#1877F2]'
-  if (source === 'Website') return 'bg-mt-red text-white'
-  if (source === 'QR code') return 'bg-[#6D28D9]'
-  return 'bg-[#B7791F] text-canvas'
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <span>
-      <span className="block font-display display-tight tnum text-[22px]">{value}</span>
-      <span className="block font-label text-[11px] uppercase tracking-[0.1em] text-idle">
-        {label}
-      </span>
-    </span>
   )
 }

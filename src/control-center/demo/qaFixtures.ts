@@ -15,6 +15,7 @@ import type {
   Quote,
   QuoteItem,
   TrackingLink,
+  TrackingLinkGroup,
   Worker,
   WorkerPayment,
 } from '@/control-center/data'
@@ -499,10 +500,15 @@ export function createQaFixtureData(reference = new Date()): ControlData {
     { id: 'reactivation', name: '60 day reactivation', trigger_description: 'Completed and paid work reaches 60 days', conditions: ['No active work or money issue'], delay_description: 'Once around 60 days', action_description: 'Warm no pressure check in', stop_conditions: ['Customer returned', 'Already sent'], fallback_description: 'Reply opens a conversation', log_description: 'Customer history', status: 'SETUP_REQUIRED', updated_at: at(-1) },
   ]
 
+  const trackingLinkGroups: TrackingLinkGroup[] = [
+    { id: 'qa-group-seasonal', name: 'Seasonal campaigns', position: 1000, created_by: QA_FIXTURE_USER_ID, created_at: at(-100), updated_at: at(-2) },
+    { id: 'qa-group-web', name: 'Website', position: 2000, created_by: QA_FIXTURE_USER_ID, created_at: at(-90), updated_at: at(-2) },
+  ]
+
   const trackingLinks: TrackingLink[] = [
-    { id: 'qa-link-august', source: 'Facebook', campaign: 'August Driveway Campaign', destination: 'https://monkeytrucking.llc', slug: 'facebook-august-driveway', visits: 42, leads: 8, customers: 3, is_active: true, archived_at: null, archived_by: null, created_by: QA_FIXTURE_USER_ID, created_at: at(-20) },
-    { id: 'qa-link-unused', source: 'Website', campaign: 'North Texas landing page', destination: 'https://monkeytrucking.llc/contact', slug: 'north-texas-landing-page', visits: 0, leads: 0, customers: 0, is_active: true, archived_at: null, archived_by: null, created_by: QA_FIXTURE_USER_ID, created_at: at(-8) },
-    { id: 'qa-link-archived', source: 'QR code', campaign: 'Spring yard sign', destination: 'https://monkeytrucking.llc/contact', slug: 'spring-yard-sign', visits: 18, leads: 2, customers: 1, is_active: false, archived_at: at(-2), archived_by: QA_FIXTURE_USER_ID, created_by: QA_FIXTURE_USER_ID, created_at: at(-90) },
+    { id: 'qa-link-august', source: 'Facebook', campaign: 'August Driveway Campaign', destination: 'https://monkeytrucking.llc', slug: 'facebook-august-driveway', visits: 42, leads: 8, customers: 3, is_active: true, archived_at: null, archived_by: null, created_by: QA_FIXTURE_USER_ID, created_at: at(-20), group_id: 'qa-group-seasonal', position: 1000 },
+    { id: 'qa-link-unused', source: 'Website', campaign: 'North Texas landing page', destination: 'https://monkeytrucking.llc/contact', slug: 'north-texas-landing-page', visits: 0, leads: 0, customers: 0, is_active: true, archived_at: null, archived_by: null, created_by: QA_FIXTURE_USER_ID, created_at: at(-8), group_id: 'qa-group-web', position: 1000 },
+    { id: 'qa-link-archived', source: 'QR code', campaign: 'Spring yard sign', destination: 'https://monkeytrucking.llc/contact', slug: 'spring-yard-sign', visits: 18, leads: 2, customers: 1, is_active: false, archived_at: at(-2), archived_by: QA_FIXTURE_USER_ID, created_by: QA_FIXTURE_USER_ID, created_at: at(-90), group_id: 'qa-group-seasonal', position: 2000 },
   ]
 
   return {
@@ -578,6 +584,7 @@ export function createQaFixtureData(reference = new Date()): ControlData {
       updated_at: at(-1),
     },
     automations,
+    trackingLinkGroups,
     trackingLinks,
     trackingIntegration: { status: 'READY', message: null },
     snoozes: [],
