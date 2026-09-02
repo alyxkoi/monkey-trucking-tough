@@ -79,12 +79,12 @@ const App = () => (
                 <Route path="/materials" element={<Materials />} />
                 <Route path="/projects" element={<Projects />} />
                 <Route path="/contact" element={<Contact />} />
+                <Route path="/driveways" element={<Driveways />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/blog" element={<Blog />} />
                 <Route path="/blog/:slug" element={<BlogPost />} />
               </Route>
-              <Route path="/driveways" element={<Driveways />} />
               <Route path="/signin" element={<SignIn />} />
               <Route path="/quote/:token" element={<PublicQuote />} />
               <Route path="/invoice/:token" element={<PublicInvoice />} />

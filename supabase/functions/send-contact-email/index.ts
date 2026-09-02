@@ -115,6 +115,7 @@ Deno.serve(async (req) => {
       smsConsent: requestedSmsConsent,
       smsDisclosureVersion,
       trackingAttribution,
+      submissionContext,
       clientRequestId,
     } = await req.json()
 
@@ -142,6 +143,30 @@ Deno.serve(async (req) => {
       ? projectType.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
       : 'Not specified'
 
+    const contextValue = (value: unknown) => typeof value === 'string' ? value.trim().slice(0, 120) : ''
+    const submissionOrigin = submissionContext && typeof submissionContext === 'object'
+      ? contextValue(submissionContext.origin)
+      : ''
+    const submissionPath = submissionContext && typeof submissionContext === 'object'
+      ? contextValue(submissionContext.path)
+      : ''
+    const utmSource = submissionContext && typeof submissionContext === 'object'
+      ? contextValue(submissionContext.utmSource)
+      : ''
+    const utmMedium = submissionContext && typeof submissionContext === 'object'
+      ? contextValue(submissionContext.utmMedium)
+      : ''
+    const utmCampaign = submissionContext && typeof submissionContext === 'object'
+      ? contextValue(submissionContext.utmCampaign)
+      : ''
+    const submissionMetadata = [
+      submissionOrigin ? `Origin: ${submissionOrigin}` : '',
+      submissionPath ? `Page: ${submissionPath}` : '',
+      utmSource ? `UTM source: ${utmSource}` : '',
+      utmMedium ? `UTM medium: ${utmMedium}` : '',
+      utmCampaign ? `UTM campaign: ${utmCampaign}` : '',
+    ].filter(Boolean).join('\n')
+
     // All values interpolated into HTML are attacker-controlled contact-form data.
     const safeName = escapeHtml(name)
     const safeEmail = escapeHtml(email?.trim() || 'Not provided')
@@ -149,6 +174,7 @@ Deno.serve(async (req) => {
     const safeProjectTypeLabel = escapeHtml(projectTypeLabel)
     const safeLocation = escapeHtml(location || 'Not provided')
     const safeMessage = escapeHtml(message || 'No message provided')
+    const safeSubmissionMetadata = escapeHtml(submissionMetadata || 'Website contact form')
 
     const safeSmsConsent = smsConsent ? 'Yes' : 'No'
 
@@ -184,12 +210,16 @@ Deno.serve(async (req) => {
             <td style="padding: 8px 12px; font-weight: bold; color: #555; vertical-align: top;">SMS consent:</td>
             <td style="padding: 8px 12px; color: #333;">${safeSmsConsent}<br><span style="font-size: 12px; color: #777;">${SMS_CONSENT_VERSION}</span></td>
           </tr>
+          <tr style="background-color: #f9f9f9;">
+            <td style="padding: 8px 12px; font-weight: bold; color: #555; vertical-align: top;">Source:</td>
+            <td style="padding: 8px 12px; color: #333; white-space: pre-wrap;">${safeSubmissionMetadata}</td>
+          </tr>
         </table>
         <p style="margin-top: 20px; font-size: 12px; color: #999;">This email was sent from the Monkey Trucking website contact form.</p>
       </div>
     `
 
-    const textBody = `New Contact Form Submission\n\nName: ${name}\nEmail: ${email?.trim() || 'Not provided'}\nPhone: ${phone}\nProject Type: ${projectTypeLabel}\nLocation: ${location || 'Not provided'}\nMessage: ${message || 'No message provided'}\nSMS consent: ${safeSmsConsent}\nConsent disclosure: ${SMS_CONSENT_VERSION}`
+    const textBody = `New Contact Form Submission\n\nName: ${name}\nEmail: ${email?.trim() || 'Not provided'}\nPhone: ${phone}\nProject Type: ${projectTypeLabel}\nLocation: ${location || 'Not provided'}\nMessage: ${message || 'No message provided'}\nSMS consent: ${safeSmsConsent}\nConsent disclosure: ${SMS_CONSENT_VERSION}\nSource: ${submissionMetadata || 'Website contact form'}`
 
     const messageId = typeof clientRequestId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)
       ? clientRequestId
@@ -201,7 +231,7 @@ Deno.serve(async (req) => {
       email: email?.trim() || '',
       phone,
       project_type: projectType || null,
-      message: [location ? `Location: ${location}` : '', message || ''].filter(Boolean).join('\n\n') || null,
+      message: [location ? `Location: ${location}` : '', message || '', submissionMetadata ? `Website source:\n${submissionMetadata}` : ''].filter(Boolean).join('\n\n') || null,
       sms_consent: smsConsent,
       sms_consent_at: smsConsent ? new Date().toISOString() : null,
       consent_source: SMS_CONSENT_SOURCE,
@@ -213,12 +243,16 @@ Deno.serve(async (req) => {
       && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trackingAttribution.trackingLinkId)
       ? trackingAttribution.trackingLinkId
       : null
-    const trackedSubmission = trackingAttribution && typeof trackingAttribution === 'object'
+    const trackedSubmission = (trackingAttribution && typeof trackingAttribution === 'object') || submissionOrigin || utmCampaign
       ? {
           ...baseSubmission,
           tracking_link_id: trackingLinkId,
-          source: typeof trackingAttribution.source === 'string' ? trackingAttribution.source : null,
-          campaign: typeof trackingAttribution.campaign === 'string' ? trackingAttribution.campaign : null,
+          source: trackingAttribution && typeof trackingAttribution === 'object' && typeof trackingAttribution.source === 'string'
+            ? trackingAttribution.source
+            : submissionOrigin || utmSource || null,
+          campaign: trackingAttribution && typeof trackingAttribution === 'object' && typeof trackingAttribution.campaign === 'string'
+            ? trackingAttribution.campaign
+            : utmCampaign || null,
         }
       : baseSubmission
 

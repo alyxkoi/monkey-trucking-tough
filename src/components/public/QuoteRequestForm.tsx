@@ -28,10 +28,13 @@ const EMPTY_FORM = {
 type QuoteRequestFormProps = {
   idPrefix?: string;
   appearance?: "dark" | "light";
+  defaultProjectType?: string;
+  submissionOrigin?: string;
 };
 
-export default function QuoteRequestForm({ idPrefix = "contact", appearance = "dark" }: QuoteRequestFormProps) {
-  const [form, setForm] = useState(EMPTY_FORM);
+export default function QuoteRequestForm({ idPrefix = "contact", appearance = "dark", defaultProjectType = "", submissionOrigin }: QuoteRequestFormProps) {
+  const initialForm = () => ({ ...EMPTY_FORM, projectType: defaultProjectType });
+  const [form, setForm] = useState(initialForm);
   const [step, setStep] = useState<1 | 2>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -69,11 +72,19 @@ export default function QuoteRequestForm({ idPrefix = "contact", appearance = "d
     setIsSubmitting(true);
     try {
       const { supabase } = await import("@/integrations/supabase/client");
+      const searchParams = new URLSearchParams(window.location.search);
       const body = {
         ...form,
         smsDisclosureVersion: SMS_DISCLOSURE_VERSION,
         trackingAttribution: getTrackingAttribution(),
         clientRequestId: clientRequestId.current,
+        submissionContext: submissionOrigin ? {
+          origin: submissionOrigin,
+          path: window.location.pathname,
+          utmSource: searchParams.get("utm_source"),
+          utmMedium: searchParams.get("utm_medium"),
+          utmCampaign: searchParams.get("utm_campaign"),
+        } : undefined,
       };
       const { data, error } = await supabase.functions.invoke("send-contact-email", { body });
       if (error) throw error;
@@ -85,7 +96,7 @@ export default function QuoteRequestForm({ idPrefix = "contact", appearance = "d
         }, 1500);
       }
       toast("Quote request sent.", { description: "Monkey Trucking will follow up with you." });
-      setForm(EMPTY_FORM);
+      setForm(initialForm());
       clientRequestId.current = newClientRequestId();
       setStep(1);
       setSubmitted(true);

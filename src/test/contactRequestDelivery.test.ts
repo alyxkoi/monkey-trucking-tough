@@ -44,6 +44,16 @@ describe('website request confirmation safety', () => {
     expect(edge).toContain("if (email?.trim())")
   })
 
+  it('stores driveway page and UTM context with the normal lead record', () => {
+    const edge = read('supabase/functions/send-contact-email/index.ts')
+    expect(edge).toContain('submissionContext')
+    expect(edge).toContain('Website source:\\n${submissionMetadata}')
+    expect(edge).toContain('UTM source: ${utmSource}')
+    expect(edge).toContain('UTM medium: ${utmMedium}')
+    expect(edge).toContain('UTM campaign: ${utmCampaign}')
+    expect(edge).toContain('submissionOrigin || utmSource || null')
+  })
+
   it('locks request identity before the lead-producing insert and never rewrites existing contacts', () => {
     const migration = read('supabase/migrations/20260830130000_public_request_confirmation_and_customer_contact.sql')
     const lock = migration.indexOf("pg_advisory_xact_lock(hashtextextended('website-contact:'")

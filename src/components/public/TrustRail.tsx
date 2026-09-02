@@ -1,4 +1,4 @@
-import { ClipboardCheck, MapPin, Truck } from "lucide-react";
+import { ClipboardCheck, MapPin, Truck, type LucideIcon } from "lucide-react";
 import PublicReveal from "./PublicReveal";
 
 const proof = [
@@ -7,12 +7,14 @@ const proof = [
   { title: "Upfront Quotes", line: "Send the work and location, then confirm the scope before scheduling.", icon: ClipboardCheck },
 ];
 
-export default function TrustRail() {
+type TrustRailItem = { title: string; line: string; icon: LucideIcon };
+
+export default function TrustRail({ items = proof }: { items?: TrustRailItem[] }) {
   return (
     <section className="public-proof-section" aria-label="Monkey Trucking service facts">
       <PublicReveal className="public-proof-container">
         <div className="public-proof-grid">
-          {proof.map((item) => {
+          {items.map((item) => {
             const Icon = item.icon;
             return (
               <article key={item.title} className="public-proof-card">
