@@ -37,12 +37,16 @@ describe("driveway motion presentation", () => {
     expect(screen.getByLabelText("5 stars").querySelectorAll("svg")).toHaveLength(5);
   });
 
-  it("uses only approved aggregate rating content in the review marquee", () => {
+  it("renders six clearly labeled sample review drafts in the accessible marquee set", () => {
     const { container } = render(<DrivewayReviewMarquee />);
 
     expect(screen.getByRole("heading", { name: "Trusted by our customers." })).toBeInTheDocument();
-    expect(container.querySelectorAll(".driveway-review-card")).toHaveLength(6);
-    expect(screen.queryByText(/Sarah Johnson|Mike Chen|Emily Davis|Alex Rodriguez/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".driveway-review-card")).toHaveLength(12);
+    const accessibleSet = container.querySelector('.driveway-review-marquee-set:not([aria-hidden="true"])')!;
+    expect(accessibleSet.querySelectorAll(".driveway-review-card")).toHaveLength(6);
+    expect(accessibleSet).toHaveTextContent("Maria G.");
+    expect(accessibleSet).toHaveTextContent("Thomas B.");
+    expect(accessibleSet.querySelectorAll(".driveway-review-person span")).toHaveLength(6);
     expect(container.querySelector("img")).not.toBeInTheDocument();
   });
 });

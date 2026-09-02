@@ -308,55 +308,87 @@
 
 .driveway-review-marquee {
   --driveway-review-gap: clamp(0.85rem, 1.4vw, 1.25rem);
+  position: relative;
   width: 100%;
   margin-top: clamp(2rem, 4vw, 3.25rem);
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+}
+
+.driveway-review-marquee::before,
+.driveway-review-marquee::after {
+  position: absolute;
+  inset-block: 0;
+  z-index: 2;
+  width: clamp(42px, 8vw, 132px);
+  content: "";
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(9px);
+  backdrop-filter: blur(9px);
+}
+
+.driveway-review-marquee::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(11, 11, 13, 0.96), rgba(11, 11, 13, 0));
+}
+
+.driveway-review-marquee::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(11, 11, 13, 0.96), rgba(11, 11, 13, 0));
 }
 
 .driveway-review-marquee-track {
   display: flex;
   width: max-content;
   gap: var(--driveway-review-gap);
-  padding-block: 0.35rem;
-  animation: driveway-review-marquee 46s linear infinite;
+  padding-block: 0.7rem;
+  animation: driveway-review-marquee 92s linear infinite;
   will-change: transform;
-}
-
-.driveway-review-marquee:hover .driveway-review-marquee-track {
-  animation-play-state: paused;
 }
 
 .driveway-review-marquee-set {
   display: flex;
+  flex: none;
   gap: var(--driveway-review-gap);
 }
 
 .driveway-review-card {
+  position: relative;
   display: flex;
   width: clamp(278px, 28vw, 370px);
-  min-height: 230px;
+  min-height: 244px;
   flex-direction: column;
-  justify-content: center;
-  border: 1px solid rgba(245, 245, 243, 0.12);
+  justify-content: flex-start;
+  overflow: hidden;
+  border: 1px solid rgba(245, 245, 243, 0.17);
   border-radius: var(--driveway-radius-lg);
-  background: rgba(24, 24, 27, 0.74);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.018) 42%, rgba(13, 13, 16, 0.62)),
+    rgba(24, 24, 27, 0.62);
   padding: clamp(1.4rem, 2.5vw, 2rem);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 22px 54px rgba(0, 0, 0, 0.2);
-  -webkit-backdrop-filter: blur(12px) saturate(108%);
-  backdrop-filter: blur(12px) saturate(108%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.025),
+    0 28px 64px rgba(0, 0, 0, 0.28),
+    0 0 42px hsl(var(--primary) / 0.035);
+  -webkit-backdrop-filter: blur(20px) saturate(126%);
+  backdrop-filter: blur(20px) saturate(126%);
+}
+
+.driveway-review-card::before {
+  position: absolute;
+  inset: 0 12% auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  content: "";
+  opacity: 0.62;
 }
 
 .driveway-review-card-topline {
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  color: rgba(245, 245, 243, 0.62);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
 }
 
 .driveway-review-brand {
@@ -373,29 +405,44 @@
   letter-spacing: 0.04em;
 }
 
-.driveway-review-card > strong {
-  margin-top: 1.25rem;
+.driveway-review-person {
+  display: grid;
+  min-width: 0;
+  gap: 0.18rem;
+}
+
+.driveway-review-person strong {
   color: #f5f5f3;
-  font-size: clamp(2.15rem, 3.5vw, 3rem);
-  font-weight: 400;
-  line-height: 1;
+  font-family: "Barlow Semi Condensed", Barlow, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.driveway-review-person span {
+  color: rgba(245, 245, 243, 0.52);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  line-height: 1.1;
   text-transform: uppercase;
 }
 
 .driveway-review-stars {
   display: flex;
+  flex: none;
   gap: 0.22rem;
-  margin-top: 1rem;
+  margin-left: auto;
   color: var(--driveway-accent);
 }
 
-.driveway-review-stars svg { width: 17px; height: 17px; }
+.driveway-review-stars svg { width: 14px; height: 14px; }
 
 .driveway-review-card > p {
-  margin-top: 0.85rem;
-  color: rgba(245, 245, 243, 0.66);
-  font-size: 0.95rem;
-  line-height: 1.5;
+  margin-top: 1.45rem;
+  color: rgba(245, 245, 243, 0.82);
+  font-size: clamp(0.96rem, 1.2vw, 1.04rem);
+  line-height: 1.58;
 }
 
 @keyframes driveway-review-marquee {
@@ -608,9 +655,12 @@
   .driveway-form-trust-item > span:last-child { max-width: 104px; font-size: 0.58rem; letter-spacing: 0.06em; }
   .driveway-reviews { padding-block: 4.25rem; }
   .driveway-review-marquee {
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
-    mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
   }
+  .driveway-review-marquee::before,
+  .driveway-review-marquee::after { width: 46px; }
+  .driveway-review-card { width: clamp(292px, calc(100vw - 3rem), 342px); }
   .driveway-final-cta { width: calc(100% - 1.25rem); margin-block: 0.625rem; }
 }
 
@@ -624,6 +674,8 @@
     mask-image: none;
     scrollbar-width: thin;
   }
+  .driveway-review-marquee::before,
+  .driveway-review-marquee::after { display: none; }
   .driveway-review-marquee-track { animation: none; padding-inline: 1rem; will-change: auto; }
   .driveway-review-marquee-set[aria-hidden="true"] { display: none; }
 }

@@ -1,26 +1,55 @@
 import { Star } from "lucide-react";
 import PublicReveal from "@/components/public/PublicReveal";
 
-const reviewSignals = [
-  { eyebrow: "Google rating", value: "5 stars", detail: "Public customer rating" },
-  { eyebrow: "Customer feedback", value: "Five stars", detail: "Rated five stars on Google" },
-  { eyebrow: "Local reputation", value: "5.0 / 5", detail: "Google customer rating" },
+const reviewDrafts = [
+  {
+    name: "Maria G.",
+    initials: "MG",
+    detail: "They fixed the washout at the bottom of our driveway and got the grade right. The next hard rain came through with no standing water.",
+  },
+  {
+    name: "James R.",
+    initials: "JR",
+    detail: "They showed up when they said they would and explained what the driveway needed before starting. It looks clean and drives smooth now.",
+  },
+  {
+    name: "Denise M.",
+    initials: "DM",
+    detail: "Our driveway had deep ruts and held water every time it rained. They reshaped it and the difference was immediate.",
+  },
+  {
+    name: "Carlos T.",
+    initials: "CT",
+    detail: "The crew was easy to work with and left everything neat when they finished. We are very happy with how the gravel turned out.",
+  },
+  {
+    name: "Rachel P.",
+    initials: "RP",
+    detail: "I appreciated the clear communication from the estimate through the finished job. The price matched what we discussed.",
+  },
+  {
+    name: "Thomas B.",
+    initials: "TB",
+    detail: "They added gravel and corrected a low spot near the road. It has handled several storms without washing out again.",
+  },
 ] as const;
 
 function ReviewCards({ duplicate = false }: { duplicate?: boolean }) {
   return (
     <div className="driveway-review-marquee-set" aria-hidden={duplicate || undefined}>
-      {reviewSignals.map((signal) => (
-        <article className="driveway-review-card" key={signal.eyebrow}>
+      {reviewDrafts.map((review) => (
+        <article className="driveway-review-card" key={review.name}>
           <div className="driveway-review-card-topline">
-            <span className="driveway-review-brand" aria-hidden="true">MT</span>
-            <span>{signal.eyebrow}</span>
+            <span className="driveway-review-brand" aria-hidden="true">{review.initials}</span>
+            <div className="driveway-review-person">
+              <strong>{review.name}</strong>
+              <span>Sample customer review</span>
+            </div>
+            <div className="driveway-review-stars" aria-label="5 out of 5 stars">
+              {Array.from({ length: 5 }, (_, index) => <Star key={index} fill="currentColor" aria-hidden="true" />)}
+            </div>
           </div>
-          <strong className="font-heading">{signal.value}</strong>
-          <div className="driveway-review-stars" aria-label="5 stars">
-            {Array.from({ length: 5 }, (_, index) => <Star key={index} fill="currentColor" aria-hidden="true" />)}
-          </div>
-          <p>{signal.detail}</p>
+          <p>“{review.detail}”</p>
         </article>
       ))}
     </div>

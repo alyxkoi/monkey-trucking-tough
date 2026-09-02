@@ -68,7 +68,7 @@ describe("driveway campaign presentation", () => {
     expect(page).toContain('duration={1.25} scale={1.012}');
   });
 
-  it("places the production-safe rating marquee between project results and the larger trust cards", () => {
+  it("places the seamless sample review marquee between project results and the larger trust cards", () => {
     const page = read("pages/Driveways.tsx");
     const reviews = read("components/driveways/DrivewayReviewMarquee.tsx");
     const css = read("styles/driveways.css");
@@ -78,11 +78,14 @@ describe("driveway campaign presentation", () => {
 
     expect(reviewsPosition).toBeGreaterThan(resultsEnd);
     expect(reviewsPosition).toBeLessThan(trustPosition);
-    expect(reviews).toContain('value: "5 stars"');
-    expect(reviews).not.toMatch(/Sarah Johnson|Mike Chen|Emily Davis|Alex Rodriguez|unsplash/i);
+    expect(reviews).toContain('name: "Maria G."');
+    expect(reviews).toContain('name: "Thomas B."');
+    expect(reviews.match(/name: "/g)).toHaveLength(6);
+    expect(reviews).not.toMatch(/detail: ".*[—-].*"/);
     expect(reviews).not.toContain("avatar");
-    expect(css).toContain("animation: driveway-review-marquee 46s linear infinite");
-    expect(css).toContain("animation-play-state: paused");
+    expect(css).toContain("animation: driveway-review-marquee 92s linear infinite");
+    expect(css).not.toContain("animation-play-state: paused");
+    expect(css).toContain("backdrop-filter: blur(20px) saturate(126%)");
     expect(css).toContain('.driveway-review-marquee-set[aria-hidden="true"] { display: none; }');
   });
 });
