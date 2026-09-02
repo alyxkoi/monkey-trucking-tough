@@ -15,6 +15,7 @@ const Services = lazy(publicRouteLoaders.services);
 const Materials = lazy(publicRouteLoaders.materials);
 const Projects = lazy(publicRouteLoaders.projects);
 const Contact = lazy(publicRouteLoaders.contact);
+const Driveways = lazy(() => import("./pages/Driveways"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const Blog = lazy(() => import("./pages/Blog"));
@@ -83,6 +84,7 @@ const App = () => (
                 <Route path="/blog" element={<Blog />} />
                 <Route path="/blog/:slug" element={<BlogPost />} />
               </Route>
+              <Route path="/driveways" element={<Driveways />} />
               <Route path="/signin" element={<SignIn />} />
               <Route path="/quote/:token" element={<PublicQuote />} />
               <Route path="/invoice/:token" element={<PublicInvoice />} />

@@ -35,6 +35,15 @@ describe('website request confirmation safety', () => {
     expect(worker).toContain("status: 'sent'")
   })
 
+  it('accepts phone-first campaign leads without requiring an email address', () => {
+    const edge = read('supabase/functions/send-contact-email/index.ts')
+    expect(edge).toContain('if (!name || !phone)')
+    expect(edge).not.toContain('if (!name || !phone || !email)')
+    expect(edge).toContain("email: email?.trim() || ''")
+    expect(edge).toContain('replyTo: email?.trim() || REPLY_TO')
+    expect(edge).toContain("if (email?.trim())")
+  })
+
   it('locks request identity before the lead-producing insert and never rewrites existing contacts', () => {
     const migration = read('supabase/migrations/20260830130000_public_request_confirmation_and_customer_contact.sql')
     const lock = migration.indexOf("pg_advisory_xact_lock(hashtextextended('website-contact:'")

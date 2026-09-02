@@ -118,9 +118,9 @@ Deno.serve(async (req) => {
       clientRequestId,
     } = await req.json()
 
-    if (!name || !phone || !email) {
+    if (!name || !phone) {
       return new Response(
-        JSON.stringify({ error: 'Name, email, and phone are required' }),
+        JSON.stringify({ error: 'Name and phone are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
 
     // All values interpolated into HTML are attacker-controlled contact-form data.
     const safeName = escapeHtml(name)
-    const safeEmail = escapeHtml(email)
+    const safeEmail = escapeHtml(email?.trim() || 'Not provided')
     const safePhone = escapeHtml(phone)
     const safeProjectTypeLabel = escapeHtml(projectTypeLabel)
     const safeLocation = escapeHtml(location || 'Not provided')
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
           </tr>
           <tr style="background-color: #f9f9f9;">
             <td style="padding: 8px 12px; font-weight: bold; color: #555;">Email:</td>
-             <td style="padding: 8px 12px; color: #333;"><a href="mailto:${safeEmail}" style="color: #F97316;">${safeEmail}</a></td>
+            <td style="padding: 8px 12px; color: #333;">${email?.trim() ? `<a href="mailto:${safeEmail}" style="color: #F97316;">${safeEmail}</a>` : safeEmail}</td>
           </tr>
           <tr>
             <td style="padding: 8px 12px; font-weight: bold; color: #555;">Phone:</td>
@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
       </div>
     `
 
-    const textBody = `New Contact Form Submission\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nProject Type: ${projectTypeLabel}\nLocation: ${location || 'Not provided'}\nMessage: ${message || 'No message provided'}\nSMS consent: ${safeSmsConsent}\nConsent disclosure: ${SMS_CONSENT_VERSION}`
+    const textBody = `New Contact Form Submission\n\nName: ${name}\nEmail: ${email?.trim() || 'Not provided'}\nPhone: ${phone}\nProject Type: ${projectTypeLabel}\nLocation: ${location || 'Not provided'}\nMessage: ${message || 'No message provided'}\nSMS consent: ${safeSmsConsent}\nConsent disclosure: ${SMS_CONSENT_VERSION}`
 
     const messageId = typeof clientRequestId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)
       ? clientRequestId
@@ -198,7 +198,7 @@ Deno.serve(async (req) => {
     const baseSubmission = {
       email_message_id: messageId,
       name,
-      email,
+      email: email?.trim() || '',
       phone,
       project_type: projectType || null,
       message: [location ? `Location: ${location}` : '', message || ''].filter(Boolean).join('\n\n') || null,
@@ -273,7 +273,7 @@ Deno.serve(async (req) => {
         await queueEmailOnce(supabase, {
           to: 'contact@monkeytrucking.llc',
           from: FROM,
-          replyTo: email,
+          replyTo: email?.trim() || REPLY_TO,
           subject: `New Contact: ${name} / ${projectTypeLabel}`,
           html: htmlBody,
           text: textBody,
@@ -285,7 +285,7 @@ Deno.serve(async (req) => {
         emailWarnings.push('internal_notification_queue_failed')
       }
 
-      if (email.trim()) {
+      if (email?.trim()) {
         try {
           const customerEmail = renderRequestReceivedEmail({
             customerName: name.trim(),
