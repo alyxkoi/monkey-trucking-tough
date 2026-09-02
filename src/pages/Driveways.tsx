@@ -1,8 +1,10 @@
-import { BadgeCheck, CalendarDays, MapPin, ShieldCheck, Star } from "lucide-react";
+import { BadgeCheck, CalendarDays, MapPin } from "lucide-react";
 import CTASection from "@/components/CTASection";
 import Footer from "@/components/Footer";
 import Seo from "@/components/Seo";
 import BeforeAfterSlider from "@/components/driveways/BeforeAfterSlider";
+import { DrivewayHeroHeadline, DrivewayResultsHeadline, DrivewayTrustStats } from "@/components/driveways/DrivewayMotion";
+import DrivewayReviewMarquee from "@/components/driveways/DrivewayReviewMarquee";
 import PublicReveal from "@/components/public/PublicReveal";
 import QuoteRequestForm from "@/components/public/QuoteRequestForm";
 import ResponsiveImage from "@/components/public/ResponsiveImage";
@@ -49,12 +51,6 @@ const trustItems = [
   { title: "Kaufman, Texas", line: "Local service across Kaufman County and surrounding DFW areas.", icon: MapPin },
 ];
 
-const formTrustItems = [
-  { value: "150+", label: "Jobs completed", icon: ShieldCheck },
-  { value: "12+", label: "Years in business", icon: CalendarDays },
-  { value: "stars", label: "5-star Google rating", icon: Star },
-];
-
 const structuredData = {
   "@context": "https://schema.org",
   "@type": "Service",
@@ -92,25 +88,20 @@ export default function Driveways() {
         <section className="driveway-native-hero" aria-labelledby="driveway-hero-title">
           <div className="driveway-native-hero-layout">
             <div className="driveway-native-story">
-              <PublicReveal blur>
-                <h1 id="driveway-hero-title" className="font-display">
-                  <span>Fix it before</span>
-                  <span className="driveway-native-headline-accent">the next storm.</span>
-                </h1>
-              </PublicReveal>
+              <DrivewayHeroHeadline />
               <PublicReveal delay={0.04} blur>
                 <p className="driveway-native-intro">Potholes, standing water or washout? Get it handled before the next storm.</p>
               </PublicReveal>
             </div>
 
-            <PublicReveal className="driveway-native-hero-comparison" delay={0.08} blur>
+            <PublicReveal className="driveway-native-hero-comparison" delay={0.06} blur blurAmount={16} distance={10} duration={1.5} scale={1.015}>
               <BeforeAfterSlider
                 before={{ src: drivewayBefore, mobileSrc: drivewayBeforeMobile, alt: "Washed-out driveway with potholes and standing water before repair" }}
                 after={{ src: drivewayAfter, mobileSrc: drivewayAfterMobile, alt: "Rebuilt gravel driveway after Monkey Trucking completed the work" }}
               />
             </PublicReveal>
 
-            <PublicReveal className="driveway-native-form" delay={0.12}>
+            <PublicReveal className="driveway-native-form" delay={0.16} blur blurAmount={14} distance={14} duration={1.5}>
               <div id="driveway-quote" className="public-contact-glass">
                 <h2 className="public-contact-form-heading">Get a driveway quote</h2>
                 <QuoteRequestForm
@@ -120,37 +111,20 @@ export default function Driveways() {
                   submissionOrigin="driveway_landing"
                 />
               </div>
-              <aside className="driveway-form-trust" aria-label="Driveway quote trust signals">
-                {formTrustItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div className="driveway-form-trust-item" key={item.label}>
-                      <Icon className="driveway-form-trust-icon" strokeWidth={2} aria-hidden="true" />
-                      {item.value === "stars" ? (
-                        <span className="driveway-form-trust-stars" aria-label="5 stars">
-                          {Array.from({ length: 5 }, (_, index) => <Star key={index} fill="currentColor" aria-hidden="true" />)}
-                        </span>
-                      ) : (
-                        <strong className="font-heading">{item.value}</strong>
-                      )}
-                      <span>{item.label}</span>
-                    </div>
-                  );
-                })}
-              </aside>
+              <DrivewayTrustStats />
             </PublicReveal>
           </div>
         </section>
 
         <section className="driveway-native-results" aria-labelledby="driveway-results-title">
           <div className="driveway-native-shell">
-            <PublicReveal className="driveway-native-results-heading">
-              <h2 id="driveway-results-title" className="font-display">Real driveway work</h2>
+            <div className="driveway-native-results-heading">
+              <DrivewayResultsHeadline />
               <p>Recent Monkey Trucking grading and finished-surface projects.</p>
-            </PublicReveal>
+            </div>
             <div className="driveway-native-results-grid">
               {results.map((result, index) => (
-                <PublicReveal key={result.title} className="driveway-native-result" delay={index * 0.04}>
+                <PublicReveal key={result.title} className="driveway-native-result" delay={index * 0.1} blur blurAmount={12} distance={18} duration={1.25} scale={1.012}>
                   <ResponsiveImage src={result.image} mobileSrc={result.mobileImage} alt={result.alt} loading="lazy" decoding="async" />
                   <div className="driveway-native-result-copy">
                     <p>{result.detail}</p>
@@ -161,6 +135,8 @@ export default function Driveways() {
             </div>
           </div>
         </section>
+
+        <DrivewayReviewMarquee />
 
         <TrustRail items={trustItems} />
 

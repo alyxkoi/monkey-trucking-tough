@@ -1,4 +1,4 @@
-import { ArrowUpRight, ClipboardCheck, MapPin, MessageSquare, Truck } from "lucide-react";
+import { ArrowUpRight, BadgeDollarSign, MapPinned, MessageSquare, PackageCheck } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -7,43 +7,43 @@ export const HERO_VIDEO_URL = "https://dugmcjpistrxxryaubkd.supabase.co/storage/
 export const DESKTOP_HERO_VIDEO_URL = "https://dugmcjpistrxxryaubkd.supabase.co/storage/v1/object/public/videos//job1 cropped 3x2.mp4";
 
 const sequence = {
-  hidden: { opacity: 0, x: -24 },
+  hidden: { opacity: 0, x: -18 },
   visible: {
     opacity: 1,
     x: 0,
     transition: {
-      duration: 0.46,
+      duration: 0.42,
       ease: [0.16, 1, 0.3, 1] as const,
-      staggerChildren: 0.065,
-      delayChildren: 0.1,
+      staggerChildren: 0.05,
+      delayChildren: 0.06,
     },
   },
 };
 
 const item = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.44, ease: [0.16, 1, 0.3, 1] as const } },
+  hidden: { opacity: 0, y: 14, filter: "blur(9px)" },
+  visible: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
 const statsSequence = {
   hidden: {},
-  visible: { transition: { delayChildren: 0.12, staggerChildren: 0.1 } },
+  visible: { transition: { delayChildren: 0.06, staggerChildren: 0.06 } },
 };
 
 const statItem = {
-  hidden: { opacity: 0, y: 10, filter: "blur(12px)" },
+  hidden: { opacity: 0, y: 8, filter: "blur(8px)" },
   visible: {
     opacity: 1,
     y: 0,
     filter: "blur(0px)",
-    transition: { duration: 0.52, ease: [0.16, 1, 0.3, 1] as const },
+    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const },
   },
 };
 
 const HERO_STATS = [
-  { value: "Kaufman", label: "Local Service", Icon: MapPin },
-  { value: "Materials", label: "+ Delivery", Icon: Truck },
-  { value: "Upfront", label: "Quotes", Icon: ClipboardCheck },
+  { value: "Kaufman", label: "Local Service", Icon: MapPinned },
+  { value: "Materials", label: "+ Delivery", Icon: PackageCheck },
+  { value: "Upfront", label: "Quotes", Icon: BadgeDollarSign },
 ] as const;
 
 const DESKTOP_QUERY = "(min-width: 1200px)";

@@ -41,6 +41,9 @@ describe("public Home interactions", () => {
     expect(screen.getByText("+ Delivery")).toBeInTheDocument();
     expect(screen.getByText("Upfront")).toBeInTheDocument();
     expect(screen.getByText("Quotes")).toBeInTheDocument();
+    expect(container.querySelector(".lucide-map-pinned")).toBeInTheDocument();
+    expect(container.querySelector(".lucide-package-check")).toBeInTheDocument();
+    expect(container.querySelector(".lucide-badge-dollar-sign")).toBeInTheDocument();
     expect(screen.queryByText(/Years in Service|Jobs Done|5 Stars/i)).not.toBeInTheDocument();
   });
 

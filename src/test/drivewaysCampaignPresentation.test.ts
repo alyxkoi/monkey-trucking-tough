@@ -38,16 +38,51 @@ describe("driveway campaign presentation", () => {
 
   it("keeps the form source context and adds the compact trust rail", () => {
     const page = read("pages/Driveways.tsx");
+    const motion = read("components/driveways/DrivewayMotion.tsx");
     const reveal = read("components/public/PublicReveal.tsx");
+    const css = read("styles/driveways.css");
 
     expect(page).toContain('submissionOrigin="driveway_landing"');
-    expect(page).toContain("150+");
-    expect(page).toContain("Years in business");
-    expect(page).toContain("5-star Google rating");
-    expect(page).toContain("ShieldCheck");
-    expect(page).toContain("CalendarDays");
-    expect(page).toContain("Star");
-    expect(page).toContain("<PublicReveal blur>");
-    expect(reveal).toContain('filter: "blur(8px)"');
+    expect(page).toContain("<DrivewayTrustStats />");
+    expect(motion).toContain("useCountUp(150, 0, 1500");
+    expect(motion).toContain("useCountUp(12, 1, 1200");
+    expect(motion).toContain("staggerChildren: 0.11");
+    expect(motion.match(/driveway-form-trust-separator/g)).toHaveLength(2);
+    expect(css).not.toContain(".driveway-form-trust-item + .driveway-form-trust-item");
+    expect(css).toContain("rgba(232, 235, 238, 0.7)");
+    expect(reveal).toContain('filter: `blur(${blurAmount}px)`');
+  });
+
+  it("uses one-shot typing, restrained storm timing and cinematic reveal durations", () => {
+    const page = read("pages/Driveways.tsx");
+    const motion = read("components/driveways/DrivewayMotion.tsx");
+
+    expect(page).toContain("<DrivewayHeroHeadline />");
+    expect(page).toContain("<DrivewayResultsHeadline />");
+    expect(motion).toContain("useTypedCharacters(combined, true, 1300");
+    expect(motion).toContain("useTypedCharacters(heading, inView, 950");
+    expect(motion).toContain("10_000");
+    expect(motion).toContain('document.addEventListener("visibilitychange"');
+    expect(page).toContain('duration={1.5} scale={1.015}');
+    expect(page).toContain('className="driveway-native-form" delay={0.16} blur');
+    expect(page).toContain('duration={1.25} scale={1.012}');
+  });
+
+  it("places the production-safe rating marquee between project results and the larger trust cards", () => {
+    const page = read("pages/Driveways.tsx");
+    const reviews = read("components/driveways/DrivewayReviewMarquee.tsx");
+    const css = read("styles/driveways.css");
+    const resultsEnd = page.indexOf("</section>", page.indexOf('className="driveway-native-results"'));
+    const reviewsPosition = page.indexOf("<DrivewayReviewMarquee />");
+    const trustPosition = page.indexOf("<TrustRail items={trustItems} />");
+
+    expect(reviewsPosition).toBeGreaterThan(resultsEnd);
+    expect(reviewsPosition).toBeLessThan(trustPosition);
+    expect(reviews).toContain('value: "5 stars"');
+    expect(reviews).not.toMatch(/Sarah Johnson|Mike Chen|Emily Davis|Alex Rodriguez|unsplash/i);
+    expect(reviews).not.toContain("avatar");
+    expect(css).toContain("animation: driveway-review-marquee 46s linear infinite");
+    expect(css).toContain("animation-play-state: paused");
+    expect(css).toContain('.driveway-review-marquee-set[aria-hidden="true"] { display: none; }');
   });
 });

@@ -110,7 +110,11 @@ describe("public website contracts", () => {
     expect(hero).toContain('value: "Upfront"');
     expect(hero).toContain('label: "Quotes"');
     expect(hero).not.toMatch(/10\+|200\+|5 Stars|Years in Service|Jobs Done/);
-    expect(hero).toContain('filter: "blur(12px)"');
+    expect(hero).toContain("MapPinned");
+    expect(hero).toContain("PackageCheck");
+    expect(hero).toContain("BadgeDollarSign");
+    expect(hero).toContain('filter: "blur(9px)"');
+    expect(hero).toContain('filter: "blur(8px)"');
     expect(hero).toContain('to="/contact"');
     expect(hero).toContain("public-home-hero-actions");
     const mobileHeroStart = css.indexOf("@media (max-width: 767px)");
