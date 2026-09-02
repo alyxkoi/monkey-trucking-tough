@@ -7,8 +7,7 @@ import MobileCallBar from "./home/MobileCallBar";
 const Layout = ({ children }: { children?: ReactNode }) => {
   const { pathname } = useLocation();
   const onHome = pathname === "/";
-  const showMobileActions = ["/", "/services", "/materials", "/projects", "/contact", "/driveways"].includes(pathname);
-  const quoteTo = pathname === "/driveways" ? "/driveways#driveway-quote" : "/contact";
+  const showMobileActions = ["/", "/services", "/materials", "/projects", "/contact"].includes(pathname);
   return (
     <div className="flex min-h-screen flex-col overflow-x-clip">
       <Header />
@@ -19,7 +18,7 @@ const Layout = ({ children }: { children?: ReactNode }) => {
         {children ?? <Outlet />}
       </main>
       <Footer clearMobileActions={showMobileActions} />
-      {showMobileActions && <MobileCallBar quoteTo={quoteTo} />}
+      {showMobileActions && <MobileCallBar />}
     </div>
   );
 };

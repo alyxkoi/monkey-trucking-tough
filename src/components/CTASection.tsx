@@ -8,10 +8,11 @@ interface CTASectionProps {
   quoteTo?: string;
   showServices?: boolean;
   quoteFirst?: boolean;
+  className?: string;
 }
 
-const CTASection = ({ headline, subtext, showContact = true, quoteTo = "/contact", showServices = false, quoteFirst = false }: CTASectionProps) => (
-  <section className="bg-primary py-14 sm:py-16 lg:py-20">
+const CTASection = ({ headline, subtext, showContact = true, quoteTo = "/contact", showServices = false, quoteFirst = false, className = "" }: CTASectionProps) => (
+  <section className={`bg-primary py-14 sm:py-16 lg:py-20 ${className}`}>
     <div className="mx-auto max-w-[980px] px-5 text-center sm:px-8">
       <h2 className="font-heading text-[clamp(42px,6vw,72px)] uppercase leading-[0.94] text-white">{headline}</h2>
       <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-white/90">{subtext}</p>

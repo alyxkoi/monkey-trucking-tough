@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import BeforeAfterSlider from "@/components/driveways/BeforeAfterSlider";
 import QuoteRequestForm from "@/components/public/QuoteRequestForm";
 
 const invoke = vi.fn();
@@ -66,5 +67,26 @@ describe("driveway campaign quote form", () => {
       }),
     });
     expect(await screen.findByRole("status")).toHaveTextContent("Request received");
+  });
+
+  it("keeps the comparison honest until a matched photo pair is supplied", () => {
+    render(<BeforeAfterSlider />);
+    expect(screen.getByRole("status")).toHaveTextContent("Matched project photos needed");
+    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+  });
+
+  it("supports keyboard and touch-native range input when a matched pair is supplied", () => {
+    const { container } = render(
+      <BeforeAfterSlider
+        before={{ src: "/before.webp", alt: "Driveway before repair" }}
+        after={{ src: "/after.webp", alt: "Driveway after repair" }}
+      />,
+    );
+    const slider = screen.getByRole("slider", { name: /compare before and after/i });
+    fireEvent.change(slider, { target: { value: "68" } });
+    expect(slider).toHaveValue("68");
+    expect(slider).toHaveAttribute("aria-valuetext", "68% of the before photo visible");
+    expect(container.querySelector(".driveway-comparison-before")).toHaveStyle({ clipPath: "inset(0 32% 0 0)" });
+    expect(container.querySelector(".driveway-comparison-divider")).toHaveStyle({ left: "68%" });
   });
 });
