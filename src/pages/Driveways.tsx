@@ -1,4 +1,4 @@
-import { BadgeCheck, CalendarDays, MapPin } from "lucide-react";
+import { BadgeCheck, CalendarDays, MapPin, ShieldCheck, Star } from "lucide-react";
 import CTASection from "@/components/CTASection";
 import Footer from "@/components/Footer";
 import Seo from "@/components/Seo";
@@ -7,8 +7,10 @@ import PublicReveal from "@/components/public/PublicReveal";
 import QuoteRequestForm from "@/components/public/QuoteRequestForm";
 import ResponsiveImage from "@/components/public/ResponsiveImage";
 import TrustRail from "@/components/public/TrustRail";
-import drivewayFinished from "@/assets/services/gravel-driveway-installation.webp";
-import drivewayFinishedMobile from "@/assets/services/gravel-driveway-installation-768.webp";
+import drivewayBefore from "@/assets/driveways/driveway-before.webp";
+import drivewayBeforeMobile from "@/assets/driveways/driveway-before-768.webp";
+import drivewayAfter from "@/assets/driveways/driveway-after.webp";
+import drivewayAfterMobile from "@/assets/driveways/driveway-after-768.webp";
 import drivewayRegrading from "@/assets/projects/driveway-regrading.webp";
 import drivewayRegradingMobile from "@/assets/projects/driveway-regrading-768.webp";
 import gravelDriveway from "@/assets/projects/gravel-driveway.webp";
@@ -47,6 +49,12 @@ const trustItems = [
   { title: "Kaufman, Texas", line: "Local service across Kaufman County and surrounding DFW areas.", icon: MapPin },
 ];
 
+const formTrustItems = [
+  { value: "150+", label: "Jobs completed", icon: ShieldCheck },
+  { value: "12+", label: "Years in business", icon: CalendarDays },
+  { value: "stars", label: "5-star Google rating", icon: Star },
+];
+
 const structuredData = {
   "@context": "https://schema.org",
   "@type": "Service",
@@ -76,33 +84,31 @@ export default function Driveways() {
           title="Driveway Repair in Kaufman TX | Monkey Trucking"
           description="Washed-out driveway, potholes or standing water? Monkey Trucking rebuilds and repairs driveways throughout Kaufman County. Request a free quote."
           path="/driveways"
-          ogImage={drivewayFinished}
-          ogImageAlt="Finished gravel driveway by Monkey Trucking near Kaufman, Texas"
+          ogImage={drivewayAfter}
+          ogImageAlt="Rebuilt gravel driveway by Monkey Trucking near Kaufman, Texas"
           jsonLd={structuredData}
         />
 
         <section className="driveway-native-hero" aria-labelledby="driveway-hero-title">
           <div className="driveway-native-hero-layout">
             <div className="driveway-native-story">
-              <PublicReveal>
+              <PublicReveal blur>
                 <h1 id="driveway-hero-title" className="font-display">
-                  <span>A driveway</span>
-                  <span>that works.</span>
-                  <span className="driveway-native-headline-accent">And keeps working.</span>
+                  <span>Fix it before</span>
+                  <span className="driveway-native-headline-accent">the next storm.</span>
                 </h1>
               </PublicReveal>
-              <PublicReveal delay={0.04}>
-                <p className="driveway-native-intro">Repair, regrading and new gravel driveways for homes and rural properties across Kaufman County.</p>
-              </PublicReveal>
-              <PublicReveal className="driveway-native-featured" delay={0.08}>
-                <ResponsiveImage
-                  src={drivewayFinished}
-                  mobileSrc={drivewayFinishedMobile}
-                  alt="Finished gravel driveway installed by Monkey Trucking"
-                  decoding="async"
-                />
+              <PublicReveal delay={0.04} blur>
+                <p className="driveway-native-intro">Potholes, standing water or washout? Get it handled before the next storm.</p>
               </PublicReveal>
             </div>
+
+            <PublicReveal className="driveway-native-hero-comparison" delay={0.08} blur>
+              <BeforeAfterSlider
+                before={{ src: drivewayBefore, mobileSrc: drivewayBeforeMobile, alt: "Washed-out driveway with potholes and standing water before repair" }}
+                after={{ src: drivewayAfter, mobileSrc: drivewayAfterMobile, alt: "Rebuilt gravel driveway after Monkey Trucking completed the work" }}
+              />
+            </PublicReveal>
 
             <PublicReveal className="driveway-native-form" delay={0.12}>
               <div id="driveway-quote" className="public-contact-glass">
@@ -114,6 +120,24 @@ export default function Driveways() {
                   submissionOrigin="driveway_landing"
                 />
               </div>
+              <aside className="driveway-form-trust" aria-label="Driveway quote trust signals">
+                {formTrustItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div className="driveway-form-trust-item" key={item.label}>
+                      <Icon className="driveway-form-trust-icon" strokeWidth={2} aria-hidden="true" />
+                      {item.value === "stars" ? (
+                        <span className="driveway-form-trust-stars" aria-label="5 stars">
+                          {Array.from({ length: 5 }, (_, index) => <Star key={index} fill="currentColor" aria-hidden="true" />)}
+                        </span>
+                      ) : (
+                        <strong className="font-heading">{item.value}</strong>
+                      )}
+                      <span>{item.label}</span>
+                    </div>
+                  );
+                })}
+              </aside>
             </PublicReveal>
           </div>
         </section>
@@ -135,9 +159,6 @@ export default function Driveways() {
                 </PublicReveal>
               ))}
             </div>
-            <PublicReveal delay={0.06}>
-              <BeforeAfterSlider />
-            </PublicReveal>
           </div>
         </section>
 

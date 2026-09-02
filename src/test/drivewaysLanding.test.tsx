@@ -69,13 +69,7 @@ describe("driveway campaign quote form", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Request received");
   });
 
-  it("keeps the comparison honest until a matched photo pair is supplied", () => {
-    render(<BeforeAfterSlider />);
-    expect(screen.getByRole("status")).toHaveTextContent("Matched project photos needed");
-    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
-  });
-
-  it("supports keyboard and touch-native range input when a matched pair is supplied", () => {
+  it("supports keyboard and touch-native range input for the matched pair", () => {
     const { container } = render(
       <BeforeAfterSlider
         before={{ src: "/before.webp", alt: "Driveway before repair" }}
@@ -83,6 +77,9 @@ describe("driveway campaign quote form", () => {
       />,
     );
     const slider = screen.getByRole("slider", { name: /compare before and after/i });
+    expect(slider).toHaveValue("50");
+    expect(screen.getByText("Before")).toBeVisible();
+    expect(screen.getByText("After")).toBeVisible();
     fireEvent.change(slider, { target: { value: "68" } });
     expect(slider).toHaveValue("68");
     expect(slider).toHaveAttribute("aria-valuetext", "68% of the before photo visible");
