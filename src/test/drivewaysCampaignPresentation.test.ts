@@ -82,10 +82,16 @@ describe("driveway campaign presentation", () => {
     expect(reviews).toContain('name: "Thomas B."');
     expect(reviews.match(/name: "/g)).toHaveLength(6);
     expect(reviews).not.toMatch(/detail: ".*[—-].*"/);
+    expect(reviews).not.toContain("Sample customer review");
+    expect(reviews).toContain("Illustrative reviews");
     expect(reviews).not.toContain("avatar");
+    expect(css).toContain("font-family: Anton, Impact, sans-serif");
     expect(css).toContain("animation: driveway-review-marquee 92s linear infinite");
     expect(css).not.toContain("animation-play-state: paused");
     expect(css).toContain("backdrop-filter: blur(20px) saturate(126%)");
+    expect(css).not.toContain("backdrop-filter: blur(9px)");
+    expect(css).toContain("linear-gradient(90deg, rgba(11, 11, 13, 0.96), rgba(11, 11, 13, 0))");
+    expect(css).toContain(".driveway-page .public-proof-section {\n  background: #000;\n}");
     expect(css).toContain('.driveway-review-marquee-set[aria-hidden="true"] { display: none; }');
   });
 });

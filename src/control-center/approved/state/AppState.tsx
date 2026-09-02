@@ -247,12 +247,12 @@ const fail = (error: unknown) => toast.error(error instanceof Error ? error.mess
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const demo = useDemoMode()
-  const { data, loading, error, refresh, pendingTickets, syncing } = useControlCenter()
+  const { data, loading, error, refresh, lastSyncAt: successfulSyncAt, pendingTickets, syncing } = useControlCenter()
   const [period, setPeriodState] = useState<Period>('MTD')
   const [moneyLoading, setMoneyLoading] = useState(false)
   const [emailSendingFor, setEmailSendingFor] = useState<string | null>(null)
   const [online, setOnline] = useState(() => navigator.onLine)
-  const [lastSyncAt, setLastSyncAt] = useState(Date.now())
+  const [demoLastSyncAt, setDemoLastSyncAt] = useState(Date.now())
   const [newSheetOpen, setNewSheetOpen] = useState(false)
   const [newLeadSheetOpen, setNewLeadSheetOpen] = useState(false)
   const [newJobSheetOpen, setNewJobSheetOpen] = useState(false)
@@ -297,8 +297,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  useEffect(() => { if (data) setLastSyncAt(Date.now()) }, [data])
   useEffect(() => { if (error) fail(error) }, [error])
+  const lastSyncAt = demo.enabled ? demoLastSyncAt : successfulSyncAt
   const baseCustomers = useMemo(() => data ? mapCustomers(data) : [], [data])
   const customers = useMemo(() => {
     if (!data) return baseCustomers
@@ -1005,7 +1005,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const undoLastAction = useCallback(() => { if (lastAction) unsnoozeAttention(lastAction.item.id); setLastAction(null) }, [lastAction, unsnoozeAttention])
 
   const cycleSync = useCallback(() => {
-    if (!demo.enabled) { window.dispatchEvent(new Event('online')); return }
+    if (!demo.enabled) { void refresh().catch(fail); return }
     const now = new Date().toISOString()
     demo.updateData((current) => {
       let next = Number(current.appSettings?.next_ticket_number ?? 1)
@@ -1025,8 +1025,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       })
       return { ...current, tickets, appSettings: current.appSettings ? { ...current.appSettings, next_ticket_number: next, updated_at: now } : null }
     })
-    setLastSyncAt(Date.now())
-  }, [demo])
+    setDemoLastSyncAt(Date.now())
+  }, [demo, refresh])
 
   const value = useMemo<AppStateValue>(() => ({
     period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, openCount: attention.length,

@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { flushQueue, getPendingCount } from "@/lib/admin/tickets";
 import { invoiceStatus, loadControlData, type ControlData } from "./data";
@@ -23,6 +23,7 @@ type ControlContextValue = {
   loading: boolean;
   error: Error | null;
   refresh: () => Promise<void>;
+  lastSyncAt: number;
   attention: AttentionItem[];
   action: NewAction;
   setAction: (value: NewAction) => void;
@@ -31,6 +32,11 @@ type ControlContextValue = {
 };
 
 const ControlContext = createContext<ControlContextValue | null>(null);
+export const CONTROL_CENTER_SYNC_INTERVAL_MS = 3 * 60 * 1000;
+
+export function isControlCenterSyncStale(lastSyncAt: number, now = Date.now()) {
+  return lastSyncAt === 0 || now - lastSyncAt >= CONTROL_CENTER_SYNC_INTERVAL_MS;
+}
 
 function deriveAttention(data: ControlData): AttentionItem[] {
   const now = Date.now();
@@ -156,42 +162,76 @@ function deriveAttention(data: ControlData): AttentionItem[] {
 export function ControlCenterProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const demo = useDemoMode();
-  const queryClient = useQueryClient();
+  const [action, setAction] = useState<NewAction>(null);
+  const [pendingTickets, setPendingTickets] = useState(0);
+  const loadDashboardData = useCallback(async () => {
+    if (user?.id) {
+      await flushQueue(user.id);
+      setPendingTickets(getPendingCount(user.id));
+    }
+    return loadControlData();
+  }, [user?.id]);
   const query = useQuery({
     queryKey: ["admin", "control-center"],
-    queryFn: loadControlData,
+    queryFn: loadDashboardData,
     enabled: !demo.enabled,
     retry: false,
   });
-  const [action, setAction] = useState<NewAction>(null);
-  const [pendingTickets, setPendingTickets] = useState(0);
-  const [syncing, setSyncing] = useState(false);
+  const { refetch } = query;
+  const syncInFlight = useRef<Promise<void> | null>(null);
+  const lastSuccessfulSyncAt = useRef(query.dataUpdatedAt);
+
+  useEffect(() => {
+    lastSuccessfulSyncAt.current = query.dataUpdatedAt;
+  }, [query.dataUpdatedAt]);
+
+  const refresh = useCallback(() => {
+    if (demo.enabled || !user?.id || !navigator.onLine) return Promise.resolve();
+    if (syncInFlight.current) return syncInFlight.current;
+
+    const request = refetch({ cancelRefetch: false }).then((result) => {
+      if (result.error) throw result.error;
+    });
+    syncInFlight.current = request;
+    void request.finally(() => {
+      if (syncInFlight.current === request) syncInFlight.current = null;
+    }).catch(() => undefined);
+    return request;
+  }, [demo.enabled, refetch, user?.id]);
 
   useEffect(() => {
     if (demo.enabled) return;
     if (!user?.id) return;
-    const sync = async () => {
-      setSyncing(true);
-      try {
-        const count = await flushQueue(user.id);
-        if (count > 0) await queryClient.invalidateQueries({ queryKey: ["admin"] });
-      } finally {
-        setPendingTickets(getPendingCount(user.id));
-        setSyncing(false);
+    const update = () => {
+      const count = getPendingCount(user.id);
+      setPendingTickets(count);
+      return count;
+    };
+    const refreshIfStale = () => {
+      const pending = update();
+      if (navigator.onLine && (pending > 0 || isControlCenterSyncStale(lastSuccessfulSyncAt.current))) {
+        void refresh().catch(() => undefined);
       }
     };
-    const update = () => setPendingTickets(getPendingCount(user.id));
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refreshIfStale();
+    };
     update();
-    void sync();
-    window.addEventListener("online", sync);
+    window.addEventListener("online", refreshIfStale);
     window.addEventListener("mt-queue-change", update);
-    const interval = window.setInterval(sync, 30000);
+    document.addEventListener("visibilitychange", handleVisibility);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible" && navigator.onLine) {
+        void refresh().catch(() => undefined);
+      }
+    }, CONTROL_CENTER_SYNC_INTERVAL_MS);
     return () => {
-      window.removeEventListener("online", sync);
+      window.removeEventListener("online", refreshIfStale);
       window.removeEventListener("mt-queue-change", update);
+      document.removeEventListener("visibilitychange", handleVisibility);
       window.clearInterval(interval);
     };
-  }, [demo.enabled, queryClient, user?.id]);
+  }, [demo.enabled, refresh, user?.id]);
 
   const activeData = demo.enabled ? demo.data : query.data ?? null;
   const fixturePending = demo.enabled
@@ -202,16 +242,14 @@ export function ControlCenterProvider({ children }: { children: ReactNode }) {
     data: activeData,
     loading: demo.enabled ? demo.data === null : query.isLoading,
     error: demo.enabled ? null : query.error instanceof Error ? query.error : null,
-    refresh: async () => {
-      if (demo.enabled) return;
-      await queryClient.invalidateQueries({ queryKey: ["admin"] });
-    },
+    refresh,
+    lastSyncAt: demo.enabled ? 0 : query.dataUpdatedAt,
     attention: activeData ? deriveAttention(activeData) : [],
     action,
     setAction,
     pendingTickets: fixturePending,
-    syncing: demo.enabled ? false : syncing,
-  }), [action, activeData, demo.data, demo.enabled, fixturePending, query.error, query.isLoading, queryClient, syncing]);
+    syncing: demo.enabled ? false : query.isFetching,
+  }), [action, activeData, demo.data, demo.enabled, fixturePending, query.dataUpdatedAt, query.error, query.isFetching, query.isLoading, refresh]);
 
   return <ControlContext.Provider value={value}>{children}</ControlContext.Provider>;
 }

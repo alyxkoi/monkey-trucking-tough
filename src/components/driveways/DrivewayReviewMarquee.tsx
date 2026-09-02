@@ -10,12 +10,12 @@ const reviewDrafts = [
   {
     name: "James R.",
     initials: "JR",
-    detail: "They showed up when they said they would and explained what the driveway needed before starting. It looks clean and drives smooth now.",
+    detail: "They showed up when promised, explained the work clearly and left us with a smooth driveway.",
   },
   {
     name: "Denise M.",
     initials: "DM",
-    detail: "Our driveway had deep ruts and held water every time it rained. They reshaped it and the difference was immediate.",
+    detail: "The ruts are gone and water finally drains where it should.",
   },
   {
     name: "Carlos T.",
@@ -25,12 +25,12 @@ const reviewDrafts = [
   {
     name: "Rachel P.",
     initials: "RP",
-    detail: "I appreciated the clear communication from the estimate through the finished job. The price matched what we discussed.",
+    detail: "Clear communication, fair price and a driveway that looks great.",
   },
   {
     name: "Thomas B.",
     initials: "TB",
-    detail: "They added gravel and corrected a low spot near the road. It has handled several storms without washing out again.",
+    detail: "They corrected the low spot near the road, and it has handled every storm since.",
   },
 ] as const;
 
@@ -43,7 +43,6 @@ function ReviewCards({ duplicate = false }: { duplicate?: boolean }) {
             <span className="driveway-review-brand" aria-hidden="true">{review.initials}</span>
             <div className="driveway-review-person">
               <strong>{review.name}</strong>
-              <span>Sample customer review</span>
             </div>
             <div className="driveway-review-stars" aria-label="5 out of 5 stars">
               {Array.from({ length: 5 }, (_, index) => <Star key={index} fill="currentColor" aria-hidden="true" />)}
@@ -61,7 +60,7 @@ export default function DrivewayReviewMarquee() {
     <section className="driveway-reviews" aria-labelledby="driveway-reviews-title">
       <div className="driveway-native-shell">
         <PublicReveal className="driveway-reviews-heading" blur>
-          <p>Customer rating</p>
+          <p>Illustrative reviews</p>
           <h2 id="driveway-reviews-title" className="font-display">Trusted by our customers.</h2>
         </PublicReveal>
       </div>

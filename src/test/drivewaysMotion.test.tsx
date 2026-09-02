@@ -37,16 +37,20 @@ describe("driveway motion presentation", () => {
     expect(screen.getByLabelText("5 stars").querySelectorAll("svg")).toHaveLength(5);
   });
 
-  it("renders six clearly labeled sample review drafts in the accessible marquee set", () => {
+  it("renders six varied review drafts with one section level disclosure", () => {
     const { container } = render(<DrivewayReviewMarquee />);
 
     expect(screen.getByRole("heading", { name: "Trusted by our customers." })).toBeInTheDocument();
+    expect(screen.getByText("Illustrative reviews")).toBeInTheDocument();
     expect(container.querySelectorAll(".driveway-review-card")).toHaveLength(12);
     const accessibleSet = container.querySelector('.driveway-review-marquee-set:not([aria-hidden="true"])')!;
     expect(accessibleSet.querySelectorAll(".driveway-review-card")).toHaveLength(6);
     expect(accessibleSet).toHaveTextContent("Maria G.");
     expect(accessibleSet).toHaveTextContent("Thomas B.");
-    expect(accessibleSet.querySelectorAll(".driveway-review-person span")).toHaveLength(6);
+    expect(accessibleSet.querySelectorAll(".driveway-review-person span")).toHaveLength(0);
+    const reviewLengths = [...accessibleSet.querySelectorAll(".driveway-review-card > p")]
+      .map((review) => review.textContent?.length ?? 0);
+    expect(Math.max(...reviewLengths) - Math.min(...reviewLengths)).toBeGreaterThan(50);
     expect(container.querySelector("img")).not.toBeInTheDocument();
   });
 });

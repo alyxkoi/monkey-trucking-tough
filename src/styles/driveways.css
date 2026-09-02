@@ -324,8 +324,6 @@
   width: clamp(42px, 8vw, 132px);
   content: "";
   pointer-events: none;
-  -webkit-backdrop-filter: blur(9px);
-  backdrop-filter: blur(9px);
 }
 
 .driveway-review-marquee::before {
@@ -406,24 +404,15 @@
 }
 
 .driveway-review-person {
-  display: grid;
   min-width: 0;
-  gap: 0.18rem;
 }
 
 .driveway-review-person strong {
   color: #f5f5f3;
-  font-family: "Barlow Semi Condensed", Barlow, sans-serif;
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.driveway-review-person span {
-  color: rgba(245, 245, 243, 0.52);
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
+  font-family: Anton, Impact, sans-serif;
+  font-size: 1.08rem;
+  font-weight: 400;
+  letter-spacing: 0.025em;
   line-height: 1.1;
   text-transform: uppercase;
 }
@@ -571,6 +560,10 @@
 .driveway-comparison-range:focus-visible + .driveway-comparison-divider .driveway-comparison-handle {
   outline: 3px solid #fff;
   outline-offset: 4px;
+}
+
+.driveway-page .public-proof-section {
+  background: #000;
 }
 
 .driveway-page .public-proof-grid {
