@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
+import { ArrowLeft, CircleAlert, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import Seo from "@/components/Seo";
 import logo from "@/assets/monkey-trucking-logo.webp";
-
+import "@/styles/signin.css";
 
 const SignIn = () => {
   const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -40,76 +41,102 @@ const SignIn = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] overflow-y-auto bg-[#0E0E10]">
+    <div className="signin-page">
       <Seo
         title="Team Sign In | Monkey Trucking LLC"
         description="Secure sign in for Monkey Trucking staff to reach the Control Center for tickets, jobs and invoicing."
         path="/signin"
         noindex
       />
-      <button
 
+      <div className="signin-page__grid" aria-hidden="true" />
+
+      <button
         type="button"
         onClick={() => navigate("/")}
         aria-label="Back to homepage"
-        className="fixed left-2 top-[max(8px,env(safe-area-inset-top))] z-10 flex h-12 w-12 items-center justify-center text-industrial-foreground/80 transition-colors hover:text-industrial-foreground"
+        className="signin-back"
       >
-        <ChevronLeft size={28} />
+        <ArrowLeft aria-hidden="true" />
       </button>
 
-      <div className="mx-auto flex min-h-[100dvh] w-full max-w-sm flex-col px-6 pb-[max(48px,env(safe-area-inset-bottom))] pt-24">
-        <img
-          src={logo}
-          alt="Monkey Trucking LLC"
-          className="mx-auto h-20 w-auto object-contain"
-        />
-        <h1 className="mt-12 text-center font-heading text-h2 tracking-wider text-industrial-foreground">
-          SIGN IN
-        </h1>
+      <main className="signin-shell">
+        <section className="signin-card" aria-labelledby="signin-title">
+          <div className="signin-card__edge" aria-hidden="true" />
 
-        <form onSubmit={handleSubmit} className="mt-10 flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <label htmlFor="signin-email" className="text-xs uppercase tracking-widest text-gravel">
-              Email
-            </label>
-            <Input
-              id="signin-email"
-              type="email"
-              autoComplete="username"
-              required
-              value={email}
-              onFocus={keepVisible}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-14 rounded-none border-white/15 bg-black/40 text-base text-industrial-foreground"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="signin-password" className="text-xs uppercase tracking-widest text-gravel">
-              Password
-            </label>
-            <Input
-              id="signin-password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onFocus={keepVisible}
-              onChange={(e) => setPassword(e.target.value)}
-              className="h-14 rounded-none border-white/15 bg-black/40 text-base text-industrial-foreground"
-            />
-          </div>
-          {error && <p className="text-sm text-primary">{error}</p>}
-          <Button
-            type="submit"
-            disabled={busy}
-            className="mt-2 h-14 min-h-[48px] rounded-none bg-primary font-heading text-h4 tracking-wider text-primary-foreground hover:bg-primary/85"
+          <header className="signin-heading signin-reveal signin-reveal--first">
+            <img src={logo} alt="Monkey Trucking LLC" className="signin-logo" />
+            <p className="signin-eyebrow">Control Center Access</p>
+            <h1 id="signin-title" className="signin-title">WELCOME BACK.</h1>
+            <p className="signin-subtitle">Sign in to Monkey Trucking.</p>
+          </header>
+
+          <form
+            onSubmit={handleSubmit}
+            className="signin-form signin-reveal signin-reveal--second"
+            aria-busy={busy}
           >
-            {busy ? "SIGNING IN…" : "SIGN IN"}
-          </Button>
-        </form>
+            <div className="signin-field">
+              <label htmlFor="signin-email" className="signin-label">Email</label>
+              <Input
+                id="signin-email"
+                type="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoComplete="username"
+                spellCheck={false}
+                required
+                value={email}
+                onFocus={keepVisible}
+                onChange={(e) => setEmail(e.target.value)}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? "signin-error" : undefined}
+                className="signin-input"
+              />
+            </div>
 
-        <div className="h-24 shrink-0" aria-hidden="true" />
-      </div>
+            <div className="signin-field">
+              <label htmlFor="signin-password" className="signin-label">Password</label>
+              <div className="signin-password">
+                <Input
+                  id="signin-password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onFocus={keepVisible}
+                  onChange={(e) => setPassword(e.target.value)}
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? "signin-error" : undefined}
+                  className="signin-input signin-input--password"
+                />
+                <button
+                  type="button"
+                  className="signin-password__toggle"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                >
+                  {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <p id="signin-error" role="alert" className="signin-error">
+                <CircleAlert aria-hidden="true" />
+                <span>{error}</span>
+              </p>
+            )}
+
+            <Button type="submit" disabled={busy} className="signin-submit">
+              {busy && <LoaderCircle aria-hidden="true" className="signin-spinner" />}
+              <span>{busy ? "SIGNING IN…" : "SIGN IN"}</span>
+            </Button>
+          </form>
+        </section>
+      </main>
     </div>
   );
 };
