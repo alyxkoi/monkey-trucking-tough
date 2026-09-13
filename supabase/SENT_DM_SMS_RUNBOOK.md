@@ -11,22 +11,35 @@ Provider configuration created on 2026-09-13:
 - Webhook subscribed to all ten `message.*` event types
 - Protected STOP, START, and HELP auto-replies were already `APPROVED`
 
+Production deployment completed on 2026-09-13:
+
+- `SENT_DM_API_KEY`, `SENT_DM_WEBHOOK_SECRET`, and
+  `SENT_DM_FIRST_CONTACT_TEMPLATE_ID` stored as Supabase secrets
+- Migration `20260913090000_sent_dm_sms_transport.sql` applied once
+- `send-sms`, `sent-dm-webhook`, and `ai-draft` deployed
+- Unsigned webhook request rejected without a database write
+- sent.DM signed `message.queued` test reached the production webhook successfully
+- Existing counts preserved at deployment: 3 customers, 2 leads, 0 lead messages
+- SMS and Calling remain `SETUP_REQUIRED`
+
 The migration intentionally leaves SMS and Calling in `SETUP_REQUIRED`.
 Neither status is changed automatically by a deploy or an API response.
 
-## 1. Confirm the sent.DM profile
+## 1. Confirm the sent.DM sender
 
-In the sent.DM dashboard confirm:
+The current account exposes the approved number under Channels and does not
+have a separate Sender Profile enabled. `SENT_DM_PROFILE_ID` is intentionally
+unset. In the sent.DM dashboard confirm:
 
-- The Monkey Trucking Sender Profile owns `+19453750877`.
+- The Monkey Trucking channel owns `+19453750877`.
 - The SMS channel is Active and the number is capable of receiving inbound SMS.
 - US messaging and billing are active.
 - STOP, START, and HELP auto-replies are configured.
 - The approved first-contact template contains a `message` parameter for the
   dashboard staff message.
 
-Use a profile-scoped API key when possible. If using an organization key, copy
-the Monkey Trucking Profile ID too. Never commit either value.
+Use the existing active organization API key unless sent.DM later enables a
+separate Monkey Trucking Sender Profile. Never commit either value.
 
 ## 2. Configure Supabase secrets
 
