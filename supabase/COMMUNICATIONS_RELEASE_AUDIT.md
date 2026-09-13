@@ -75,12 +75,15 @@ annotations, a SupabaseClient type annotation, and the exact already-imported
 Stripe 20.4.0 development dependency. The connected build tool reports build OK;
 historical GitHub cards still display old failed-preview labels.
 
-**Frontend publication remains pending.** The permission reviewer rejected the
-final Publish changes action because it interpreted the prior backend-only
-deployment scope as requiring separate frontend authorization. No alternate
-publication path was attempted. The live admin page also requires sign-in;
-no admin session was minted or authentication bypassed. Backend testing below
-is not a claim that the live dashboard composer has been tested.
+**Frontend published after separate owner confirmation.** Lovable displayed
+"Your website was updated." Independent public HTTP checks returned 200 and
+verified build ID `df63a47a512b` in `/assets/index-ClIGfU0g.js`, loaded from the
+published entry `/assets/index-BnHsrNYZ.js`. The live LeadDetail bundle contains
+request-opt-in and resume-ai actions; AppState invokes the real send-sms function.
+This supersedes the earlier permission-review publication block. The live admin
+page still requires sign-in; no admin session was minted or authentication
+bypassed. Backend tests and bundle inspection are not a claim that the live
+authenticated dashboard composer has been exercised.
 
 ## Controlled real provider test
 
@@ -111,13 +114,17 @@ No historical message or webhook evidence was deleted and no message was resent.
 Final independent SQL check: customers 3, leads 2, messages 2, outbox 1,
 pending/retry/leased outbox 0, jobs 0, consent events 0, webhook events 8.
 The historical correction has exactly one reconciliation audit entry.
-`SENT_DM_DELIVERY_SUPPORT_DRAFT.md` is an unsent provider investigation report.
+The report retained in `SENT_DM_DELIVERY_SUPPORT_DRAFT.md` was sent to
+support@sent.dm from contact@kyokaforge.com after explicit owner confirmation.
+Gmail confirmed SENT, message/thread ID `1a09cd368ff4a681`. No delivery cause
+or resolution has yet been established. Sending the report does not prove that
+support received or acted on it.
 
 ## Further audit items and live evidence still required
 
 - Actual first-contact delivery and inbound/compliance replies from the handset.
 - Diagnose the provider-side FAILED result before any further paid resend.
-- Complete frontend publication and authenticated dashboard composer verification.
+- Complete authenticated dashboard composer verification; frontend is published.
 - Real signed event replay and unknown-number routing; no forged customer
   inbound traffic should be represented as a real provider test.
 - AI English/Spanish, escalation, latest context, takeover race and resume.

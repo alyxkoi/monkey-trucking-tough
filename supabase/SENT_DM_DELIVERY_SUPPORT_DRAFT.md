@@ -1,4 +1,8 @@
-# sent.DM delivery investigation — unsent support draft
+# sent.DM delivery investigation — sent support report
+
+Sent after explicit owner confirmation on September 13, 2026, from
+`contact@kyokaforge.com`. Gmail confirmed the SENT label.
+Message/thread ID: `1a09cd368ff4a681`.
 
 To: support@sent.dm
 
@@ -41,5 +45,5 @@ Thank you.
 
 ---
 
-Prepared locally only. This report has not been emailed or submitted.
+The report above was emailed as plain text to support@sent.dm.
 No API key, webhook signing secret, tax ID or unrelated customer data is included.
