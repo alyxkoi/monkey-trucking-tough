@@ -125,6 +125,7 @@ Deno.serve(async (req) => {
     const messageId = typeof payload?.message_id === 'string' ? payload.message_id : ''
     const suffix = eventType.startsWith('message.') ? eventType.slice('message.'.length) : ''
     const status = normalizeSentDmStatus(payload?.message_status ?? suffix)
+    const isInbound = status === 'RECEIVED' || eventType === 'message.received'
     if (envelope?.field !== 'message' || !messageId || !status) return json({ received: true, ignored: true })
     if (String(payload?.channel ?? '').toLowerCase() !== 'sms') {
       return json({ received: true, ignored: true })
@@ -140,13 +141,21 @@ Deno.serve(async (req) => {
       .select('business_number').eq('id', 1).single()
     if (settingsError) throw new ResponseError(503, 'SMS settings could not be loaded')
     const configuredNumber = normalizeUsE164(settings?.business_number)
-    const eventNumber = normalizeUsE164(payload?.outbound_number)
-    if (configuredNumber !== '+19453750877' || eventNumber !== configuredNumber) {
+    if (configuredNumber !== '+19453750877') {
       await finishEvent(service, eventKey, 'IGNORED')
       return json({ received: true, ignored: true })
     }
 
-    if (status === 'RECEIVED' || eventType === 'message.received') {
+    // For inbound events sent.DM calls the provisioned business number
+    // `outbound_number`. For outbound status events that field is the customer
+    // recipient, so the local provider message ID is the correct ownership gate.
+    const eventNumber = normalizeUsE164(payload?.outbound_number)
+    if (isInbound && eventNumber !== configuredNumber) {
+      await finishEvent(service, eventKey, 'IGNORED')
+      return json({ received: true, ignored: true })
+    }
+
+    if (isInbound) {
       const inboundNumber = normalizeUsE164(payload?.inbound_number)
       if (!inboundNumber) throw new ResponseError(422, 'Inbound sender number is invalid')
       const text = typeof payload?.text === 'string' && payload.text.trim()
