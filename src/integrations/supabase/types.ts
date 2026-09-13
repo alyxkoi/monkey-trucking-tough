@@ -2363,7 +2363,15 @@ export type Database = {
           source?: string | null
           visits?: never
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tracking_links_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_link_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -2568,7 +2576,7 @@ export type Database = {
         Args: {
           p_campaign: string
           p_destination: string
-          p_group_id?: string | null
+          p_group_id?: string
           p_slug: string
           p_source: string
         }
@@ -2685,7 +2693,7 @@ export type Database = {
       }
       move_tracking_link: {
         Args: {
-          p_group_id: string | null
+          p_group_id: string
           p_position: number
           p_tracking_link_id: string
         }
