@@ -1,10 +1,11 @@
 -- Run once AFTER migrations and the process-communications deployment.
--- Store the same random credential as Edge secret COMMUNICATIONS_WORKER_SECRET
--- and Vault secret communications_worker_secret first. Never print the value.
+-- The updated worker verifies through verify_communications_worker. Its random
+-- credential is generated and retained in Vault only, never copied into logs.
 begin;
 do $$ begin
   if not exists(select 1 from vault.secrets where name='communications_worker_secret') then
-    raise exception 'Dedicated communication worker credential is not configured';
+    perform vault.create_secret(encode(extensions.gen_random_bytes(32),'hex'),
+      'communications_worker_secret','Private communications cron credential');
   end if;
 end $$;
 create or replace function public.wake_communication_worker() returns bigint

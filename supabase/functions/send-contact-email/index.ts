@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { renderRequestReceivedEmail } from '../_shared/request-received-email.ts'
 
 const corsHeaders = {
@@ -24,7 +24,7 @@ type EmailPayload = {
   idempotencyKey: string
 }
 
-async function queueEmailOnce(supabase: ReturnType<typeof createClient>, input: EmailPayload) {
+async function queueEmailOnce(supabase: SupabaseClient, input: EmailPayload) {
   const { data: existing } = await supabase.from('email_send_log')
     .select('id,message_id,status')
     .eq('idempotency_key', input.idempotencyKey)

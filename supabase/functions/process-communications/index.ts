@@ -1,13 +1,9 @@
-import { timingSafeEqual } from 'node:crypto'
 import { createClient } from 'npm:@supabase/supabase-js@2.116.0'
 import { aiConfig } from '../_shared/ai-config.ts'
 import { runCommunicationJob } from '../_shared/communication-worker.ts'
 import { dispatchSms } from '../_shared/sms-dispatch.ts'
+import { workerAuthorized } from '../_shared/worker-auth.ts'
 
-const same = (a:string,b:string) => {
-  const left=new TextEncoder().encode(a), right=new TextEncoder().encode(b)
-  return left.length===right.length && timingSafeEqual(left,right)
-}
 const json = (body:unknown,status=200) => new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}})
 
 Deno.serve(async(req) => {
@@ -18,8 +14,9 @@ Deno.serve(async(req) => {
   const authorization=req.headers.get('Authorization')??''
   const token=authorization.startsWith('Bearer ')?authorization.slice(7):''
   // Verify the actual credential, not a decoded, unsigned JWT role claim.
-  if (!key || !url || !token || !(same(token,key)||(secret && same(token,secret)))) return json({error:'Unauthorized'},401)
+  if (!key || !url || !token) return json({error:'Unauthorized'},401)
   const service=createClient(url,key)
+  if (!await workerAuthorized(service,token,key,secret)) return json({error:'Unauthorized'},401)
   try {
     const planned=await service.rpc('plan_communication_jobs')
     if (planned.error) throw new Error('Communication scheduling failed')

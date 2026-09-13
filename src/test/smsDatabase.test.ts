@@ -23,6 +23,7 @@ beforeAll(async () => {
   db = new PGlite()
   await db.exec(`create role anon; create role authenticated; create role service_role;
     create schema auth; create function auth.uid() returns uuid language sql as 'select null::uuid';
+    create schema vault; create table vault.decrypted_secrets(name text,decrypted_secret text);
     create table tickets(id uuid primary key);
     create table user_roles(user_id uuid,role text);
     create function is_admin_or_staff() returns boolean language sql as 'select true';`)
@@ -36,12 +37,20 @@ beforeAll(async () => {
     insert into control_center_settings(id) values(1);
     insert into user_roles values('${actor}','admin');`)
   await db.exec(base.match(/insert into public\.automation_rules[\s\S]*?on conflict \(id\) do nothing;/)![0])
-  for (const file of ['20260913090000_sent_dm_sms_transport', '20260913170000_durable_sms_pipeline', '20260913171000_sms_consent_and_inbox', '20260913172000_communication_worker']) await db.exec(read(file))
+  for (const file of ['20260913090000_sent_dm_sms_transport', '20260913170000_durable_sms_pipeline', '20260913171000_sms_consent_and_inbox', '20260913172000_communication_worker', '20260913180000_worker_vault_auth']) await db.exec(read(file))
   await db.exec("update control_center_settings set sms_status='TESTING'")
 }, 30_000)
 afterAll(async () => { await db?.close() })
 
 describe.sequential('executed PostgreSQL SMS transactions', () => {
+  it('verifies a private Vault credential by digest without exposing it to callers', async () => {
+    expect(await rpc('verify_communications_worker', ['0'.repeat(64)])).toBe(false)
+    await db.exec("insert into vault.decrypted_secrets values('communications_worker_secret','fixture-only-token')")
+    expect((await query("select verify_communications_worker(encode(sha256(convert_to('fixture-only-token','UTF8')),'hex')) as valid"))[0].valid).toBe(true)
+    expect(await rpc('verify_communications_worker', ['0'.repeat(64)])).toBe(false)
+    expect(await rpc('verify_communications_worker', [null])).toBe(false)
+    expect((await query("select has_function_privilege('authenticated','public.verify_communications_worker(text)','EXECUTE') as allowed"))[0].allowed).toBe(false)
+  })
   it('adds settings with all live automation gates closed', async () => {
     const [r] = await query('select * from communication_runtime')
     expect(r.ai_sending_enabled).toBe(false)

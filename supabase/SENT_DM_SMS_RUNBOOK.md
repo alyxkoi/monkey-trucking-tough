@@ -27,17 +27,21 @@ Apply these incremental migrations in order, exactly once:
 1. `20260913170000_durable_sms_pipeline.sql`
 2. `20260913171000_sms_consent_and_inbox.sql`
 3. `20260913172000_communication_worker.sql`
+4. `20260913180000_worker_vault_auth.sql`
 
 Then deploy the checked source for `send-sms`, `sent-dm-webhook`, `ai-draft`
 and `process-communications`, including their shared modules. Each implements
 its own authentication; preserve the settings in `config.toml`.
 
-Provision one dedicated random internal credential as Edge secret
-`COMMUNICATIONS_WORKER_SECRET` and Vault secret `communications_worker_secret`.
-Never commit or print the value. Run `install_communications_cron.sql` only
-after that credential and the worker are deployed. This installs one minute
-worker wakeup, independent of the existing email cron. It does not enable AI
-or scheduled customer sending.
+The worker credential lives only in Vault as `communications_worker_secret`.
+After deploying the worker and the service-only `verify_communications_worker`
+procedure, run `install_communications_cron.sql`. It generates a 256-bit random
+credential inside the database if absent and installs one minute worker wakeup.
+The Edge Function passes only a SHA-256 digest to the private verifier; it never
+retrieves the Vault value. No secret needs copying into chat or a second store.
+An existing `COMMUNICATIONS_WORKER_SECRET` Edge secret is optional, not required.
+Do not print secrets or rotate an existing credential. The installer preserves
+the email cron and does not enable AI or scheduled customer sending.
 
 Deploy the frontend AFTER the schema and functions. The new runtime settings
 are required data. Verify the actual hosted build, not just GitHub sync.
@@ -131,7 +135,7 @@ checking the new database contracts. Existing email scheduling stays untouched.
 
 ## Local verification before deployment
 
-- 253 tests across 39 files passed, including 15 executed PostgreSQL behavior
+- 264 tests across 41 files passed, including 16 executed PostgreSQL behavior
   cases and transport, AI, composer and realtime tests.
 - Production Vite build and application TypeScript check passed.
 - Deno native checks passed for all four Edge Function entrypoints.
