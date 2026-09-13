@@ -26,6 +26,9 @@ export type Message = {
   actor: Actor
   at: number
   text: string
+  deliveryStatus?: string
+  providerStatus?: string | null
+  sendError?: string | null
   /** Marks the moment the AI handed the conversation to a human. */
   escalation?: boolean
 }

@@ -68,6 +68,7 @@ export function JobDetail() {
   const {
     jobById,
     customerById,
+    leadsForCustomer,
     quoteById,
     completeJob,
     cancelJob,
@@ -190,7 +191,7 @@ export function JobDetail() {
                   >
                     <ActionLink
                       size="sm"
-                      href={smsHref(customer.phone)}
+                      href={quote?.leadId ? `/admin/leads/${quote.leadId}?attention=reply` : leadsForCustomer(customer.id)[0] ? `/admin/leads/${leadsForCustomer(customer.id)[0].id}?attention=reply` : `/admin/customers/${customer.id}`}
                       icon={<MessageSquare className="h-4 w-4" strokeWidth={2.2} />}
                     >
                       Text

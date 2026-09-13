@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { toast } from 'sonner'
+import { clearSmsRequestIdentity, smsRequestIdentity } from '@/control-center/smsRequestIdentity'
 import type { Json } from '@/integrations/supabase/types'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
@@ -221,7 +222,7 @@ export type AppStateValue = {
   findDuplicate: (phone: string, email?: string) => Customer | undefined
   createLead: (input: NewLeadInput) => Promise<NewLeadResult>
   createCustomer: (input: { name: string; phone: string; email?: string }) => Promise<Customer>
-  replyToLead: (leadId: string, text: string) => void
+  replyToLead: (leadId: string, text: string) => Promise<void>
   updateLeadNotes: (leadId: string, notes: string) => void
   updateCustomerNotes: (customerId: string, notes: string) => void
   updateCustomerContact: (customerId: string, input: { phone: string; email?: string }) => Promise<CustomerContactUpdateResult>
@@ -622,9 +623,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (result.status === 'UPDATED') await refresh()
     return result
   }, [data?.customers, demo, refresh])
-  const replyToLead = useCallback((id: string, text: string) => {
+  const replyToLead = useCallback(async (id: string, text: string) => {
     const lead = leadById(id)
-    if (!lead) return
+    if (!lead) throw new Error('Lead not found')
     if (demo.enabled) {
       const now = new Date().toISOString()
       demo.updateData((current) => ({
@@ -634,17 +635,20 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }))
       return
     }
-    if (data?.controlSettings?.sms_status !== 'READY') { toast.error('SMS setup is required before a reply can be sent.'); return }
-    const requestKey = `${id}:${text}`
-    const requestId = smsRequestIds.current.get(requestKey) ?? crypto.randomUUID()
-    smsRequestIds.current.set(requestKey, requestId)
-    launch(async () => {
-      await sendLeadSms({ leadId: id, body: text, requestId })
-      smsRequestIds.current.delete(requestKey)
-      toast.success('SMS queued with sent.DM.')
-      await refresh()
-    })
-  }, [data?.controlSettings?.sms_status, demo, launch, leadById, refresh])
+    if (!['READY', 'TESTING'].includes(data?.controlSettings?.sms_status ?? '')) throw new Error('SMS setup is required before a reply can be sent.')
+    const { id: requestId, key: requestKey } = await smsRequestIdentity(id, text, smsRequestIds.current)
+    try {
+      const result = await sendLeadSms({ leadId: id, body: text, requestId })
+      if (result.error || ['FAILED', 'FILTERED', 'BLOCKED'].includes(result.status) || ['RETRY', 'REVIEW', 'CANCELLED', 'FAILED'].includes(result.queueState ?? '')) {
+        throw new Error(result.error || 'SMS is saved but not delivered. Check the conversation status before retrying.')
+      }
+      clearSmsRequestIdentity(requestKey, smsRequestIds.current)
+      toast.success(result.providerMessageId ? 'SMS accepted by sent.DM. Delivery status will update here.' : 'SMS saved in the sending queue.')
+    } finally {
+      // A provider error must still appear on the reserved conversation record.
+      await refresh().catch(() => undefined)
+    }
+  }, [data?.controlSettings?.sms_status, demo, leadById, refresh])
 
   const quoteDraft = useCallback((quote: Quote): QuoteDraft => {
     const totals = computeTotals({ materialLines: quote.materialLines, customLines: quote.customLines, delivery: quote.delivery, deliveryLoads: quote.deliveryLoads, taxRate: quote.taxRate, taxOnDelivery: quote.taxOnDelivery, customWorkTax: quote.customWorkTax })
@@ -1049,7 +1053,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor,
     createInvoiceFromJob, createInvoiceFromTicket, reviseInvoice, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment,
     findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, updateCustomerContact, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote,
-    communicationReady: data?.controlSettings?.sms_status === 'READY', emailSendingFor, sourceData: data,
+    communicationReady: ['READY', 'TESTING'].includes(data?.controlSettings?.sms_status ?? ''), emailSendingFor, sourceData: data,
   }), [period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, showAllAttention, snoozeAttention, unsnoozeAttention, lastAction, undoLastAction, loading, moneyLoading, demo.enabled, online, syncing, pendingTickets, lastSyncAt, cycleSync, newSheetOpen, newLeadSheetOpen, newJobSheetOpen, pinnedBarActive, customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer, jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes, tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, deleteTicket, printTicket, invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor, createInvoiceFromJob, createInvoiceFromTicket, reviseInvoice, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment, findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, updateCustomerContact, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote, emailSendingFor, data])
 
   if (loading && !data) {

@@ -1,0 +1,91 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { generateAiDraft, validateDecision, type AiConfig } from './ai-engine.ts'
+
+export function autonomousReply(decision: any, pricing: any): string {
+  const invalid = validateDecision(decision)
+  if (invalid) throw new Error(invalid)
+  if (decision.requires_human || !decision.ai_may_continue || decision.payment_claim_detected || decision.confidence !== 'HIGH'
+    || decision.uncertain_facts.length) throw new Error(decision.escalation_reason || 'AI decision needs human review')
+  if (decision.recommended_action === 'PROVIDE_STANDARD_PRICE') {
+    if (pricing?.status !== 'MATERIAL_CALCULATED' || !Number.isFinite(pricing.material_total) || pricing.material_total < 0) throw new Error('Verified material pricing unavailable')
+    const quantity=decision.known_facts.find((fact:any)=>fact.key==='quantity_yards')?.value
+    const knownMaterial=decision.known_facts.find((fact:any)=>fact.key==='material')?.value
+    if (Number(quantity)!==pricing.yards || typeof knownMaterial!=='string' || knownMaterial.toLowerCase()!==String(pricing.material_name).toLowerCase()) throw new Error('Pricing facts require confirmation')
+    // Prices are rendered from the calculation, never copied from model prose.
+    const amount = pricing.material_total.toFixed(2)
+    const material = String(pricing.material_name).toLowerCase().replace(/[—–-]/g, ' ')
+    const addressKnown=decision.known_facts.some((fact:any)=>['address','delivery_address'].includes(fact.key)&&fact.value)
+    return decision.detected_language === 'SPANISH'
+      ? `el material para ${pricing.yards} yardas de ${material} cuesta $${amount}. la entrega y los impuestos se confirman por separado.${addressKnown?'':' cuál es la dirección exacta de entrega.'}`
+      : `the material for ${pricing.yards} yards of ${material} is $${amount}. delivery and tax are confirmed separately.${addressKnown?'':' what is the exact delivery address.'}`
+  }
+  if (decision.recommended_action !== 'ASK_NEXT_MISSING_FACT') throw new Error('This AI action requires staff review')
+  if (/[$€£]|\b(dollars?|dólares|paid|refunded|booked|scheduled|discount|pagado|reembolsado|agendado|descuento)\b/i.test(decision.draft_reply)) throw new Error('Financial or scheduling commitment requires staff review')
+  return decision.draft_reply
+}
+
+const spanish = (text: string) => /\b(hola|necesito|quiero|cuanto|cuánto|yardas|cargas|entrega|direccion|dirección|gracias|ocupo|camino)\b/i.test(text)
+
+async function scheduledText(service: any, job: any, config: AiConfig) {
+  if (['new-lead','quote-follow-up'].includes(job.rule_id)) {
+    const result = await generateAiDraft(service, { mode: 'AUTOMATION_DRY_RUN', automation_rule_id: job.rule_id,
+      subject_type: job.context.subject_type, subject_id: job.context.subject_id }, null, config)
+    return autonomousReply(result.decision, result.tool_results.pricing)
+  }
+  const lead = await service.from('leads').select('customer_id').eq('id',job.lead_id).single()
+  if (lead.error) throw new Error('Lead context unavailable')
+  const messages = await service.from('lead_messages').select('body').eq('customer_id',lead.data.customer_id).eq('sender_type','CUSTOMER').eq('message_kind','INBOUND').order('created_at',{ascending:false}).limit(1)
+  const runtime = await service.from('communication_runtime').select('timezone').eq('id',1).single()
+  const settings = await service.from('control_center_settings').select('review_url,ai_english,ai_spanish').eq('id',1).single()
+  if (messages.error || runtime.error || settings.error) throw new Error('Communication context unavailable')
+  const es = spanish(messages.data?.[0]?.body ?? '')
+  if (es ? !settings.data.ai_spanish : !settings.data.ai_english) throw new Error('Conversation language is disabled')
+  if (job.rule_id === 'job-reminder') {
+    // The guard's anchor is a database-converted real scheduled timestamp.
+    const when = new Intl.DateTimeFormat(es ? 'es-US' : 'en-US', {
+      timeZone: runtime.data.timezone, weekday:'long',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',
+    }).format(new Date(job.context.anchor))
+    return es ? `un recordatorio de monkey trucking. su trabajo está programado para ${when}. avísenos si hay algo que debamos saber antes de llegar.`
+      : `a reminder from monkey trucking. your job is scheduled for ${when}. please let us know if there is anything we should know before arriving.`
+  }
+  const invoice = await service.from('invoices').select('amount,invoice_number').eq('id',job.context.subject_id).eq('customer_id',lead.data.customer_id).single()
+  if (invoice.error || !Number.isFinite(Number(invoice.data.amount))) throw new Error('Invoice context unavailable')
+  if (job.rule_id === 'invoice-follow-up') {
+    const amount = Number(invoice.data.amount).toFixed(2)
+    return es ? `un recordatorio de monkey trucking. la factura ${invoice.data.invoice_number} por $${amount} sigue pendiente. si ya envió el pago, avísenos para que salvador lo revise.`
+      : `a reminder from monkey trucking. invoice ${invoice.data.invoice_number} for $${amount} is still open. if you already sent payment, please let us know so salvador can check it.`
+  }
+  if (job.rule_id === 'review-request') {
+    const url = settings.data.review_url
+    if (typeof url !== 'string' || !url.startsWith('https://')) throw new Error('Approved review URL is missing')
+    return es ? `gracias por confiar en monkey trucking. si desea compartir cómo le fue con nuestro trabajo, puede dejar su reseña aquí: ${url}`
+      : `thank you for trusting monkey trucking. if you would like to share your experience with our work, you can leave a review here: ${url}`
+  }
+  if (job.rule_id === 'reactivation') return es
+    ? 'hola, somos monkey trucking. esperamos que todo siga bien. si necesita más material o tiene otro trabajo en mente, aquí estamos a su servicio. responda STOP para dejar de recibir mensajes.'
+    : 'hi, this is monkey trucking. we hope everything is going well. if you need more material or have another project in mind, we are here to help. reply STOP to opt out.'
+  throw new Error('This scheduled rule has no verified provider integration')
+}
+
+export async function runCommunicationJob(service: any, config: AiConfig, templateId?: string) {
+  const claimed = await service.rpc('claim_communication_job')
+  if (claimed.error) throw new Error('Communication jobs could not be claimed')
+  const job = claimed.data
+  if (!job) return { processed: false }
+  let text: string | null = null
+  let reason: string | null = null
+  try {
+    const eligible = await service.rpc('communication_job_eligible', { p_job_id: job.id, p_lease_token: job.lease_token })
+    if (eligible.error || eligible.data !== true) throw new Error('Communication job is no longer eligible')
+    if (job.kind === 'AI_REPLY') {
+      const result = await generateAiDraft(service, { lead_id: job.lead_id }, null, config)
+      text = autonomousReply(result.decision, result.tool_results.pricing)
+    } else text = await scheduledText(service, job, config)
+    if (!text || text.length>420 || /[—–]/.test(text)) throw new Error('Automated message failed length or style checks')
+  } catch (error) { reason = error instanceof Error ? error.message : 'Communication generation failed' }
+  const finished = await service.rpc('finish_communication_job', {
+    p_job_id:job.id,p_lease_token:job.lease_token,p_body:reason ? null : text,p_template_id:templateId ?? null,p_error:reason,
+  })
+  if (finished.error) throw new Error('Communication result could not be committed')
+  return { processed:true, reserved:Boolean(finished.data?.id), blocked:Boolean(reason) }
+}

@@ -1,125 +1,143 @@
 # sent.DM SMS production runbook
 
-Approved Monkey Trucking number: `+19453750877`
+## Verified provider baseline, 2026-09-13
 
-Provider configuration created on 2026-09-13:
+- Business number: `+19453750877`; controlled handset: `+12143568256`.
+- Supabase project: `dugmcjpistrxxryaubkd`.
+- First-contact template: Monkey Trucking Update, APPROVED,
+  `48d013e5-debe-4efa-864b-c90798242ab4`.
+- Template body: `Monkey Trucking: {{message}} Reply STOP to opt out.`
+- Provider STOP, START and HELP auto-replies are approved.
+- Existing webhook is active for all ten message events:
+  https://dugmcjpistrxxryaubkd.supabase.co/functions/v1/sent-dm-webhook
+- Registration shown in sent.DM is Customer Care. Promotional coverage and
+  voice capability for this number are NOT verified.
+- Existing Edge secrets: SENT_DM_API_KEY, SENT_DM_WEBHOOK_SECRET,
+  SENT_DM_FIRST_CONTACT_TEMPLATE_ID. SENT_DM_PROFILE_ID is intentionally absent
+  because no separate sender profile was established. Never print their values.
+- SMS is TESTING, Calling SETUP_REQUIRED. AI READY describes drafting only.
 
-- First-contact template `Monkey Trucking Update`
-- Template ID `48d013e5-debe-4efa-864b-c90798242ab4`
-- Template status at creation: `PENDING`
-- Current template status: `APPROVED` on 2026-09-13
-- Production webhook `Monkey Trucking Production SMS`
-- Webhook subscribed to all ten `message.*` event types
-- Protected STOP, START, and HELP auto-replies were already `APPROVED`
+The original foundation migration `20260913090000_sent_dm_sms_transport.sql`
+was applied previously. Do not rerun historical broad UI/schema migrations.
 
-Production deployment completed on 2026-09-13:
+## New deployment order
 
-- `SENT_DM_API_KEY`, `SENT_DM_WEBHOOK_SECRET`, and
-  `SENT_DM_FIRST_CONTACT_TEMPLATE_ID` stored as Supabase secrets
-- Migration `20260913090000_sent_dm_sms_transport.sql` applied once
-- `send-sms`, `sent-dm-webhook`, and `ai-draft` deployed
-- Unsigned webhook request rejected without a database write
-- sent.DM signed `message.queued` test reached the production webhook successfully
-- Existing counts preserved at deployment: 3 customers, 2 leads, 0 lead messages
-- A rollback-only production transaction passed unknown inbound, duplicate
-  inbound, STOP, START, HELP, manual reservation, human takeover, delivery
-  updates, and webhook idempotency checks with no retained fixture data
-- SMS is `TESTING`; Calling remains `SETUP_REQUIRED`
+Apply these incremental migrations in order, exactly once:
 
-The migration intentionally leaves SMS and Calling in `SETUP_REQUIRED`.
-Neither status is changed automatically by a deploy or an API response.
+1. `20260913170000_durable_sms_pipeline.sql`
+2. `20260913171000_sms_consent_and_inbox.sql`
+3. `20260913172000_communication_worker.sql`
 
-## 1. Confirm the sent.DM sender
+Then deploy the checked source for `send-sms`, `sent-dm-webhook`, `ai-draft`
+and `process-communications`, including their shared modules. Each implements
+its own authentication; preserve the settings in `config.toml`.
 
-The current account exposes the approved number under Channels and does not
-have a separate Sender Profile enabled. `SENT_DM_PROFILE_ID` is intentionally
-unset. In the sent.DM dashboard confirm:
+Provision one dedicated random internal credential as Edge secret
+`COMMUNICATIONS_WORKER_SECRET` and Vault secret `communications_worker_secret`.
+Never commit or print the value. Run `install_communications_cron.sql` only
+after that credential and the worker are deployed. This installs one minute
+worker wakeup, independent of the existing email cron. It does not enable AI
+or scheduled customer sending.
 
-- The Monkey Trucking channel owns `+19453750877`.
-- The SMS channel is Active and the number is capable of receiving inbound SMS.
-- US messaging and billing are active.
-- STOP, START, and HELP auto-replies are configured.
-- The approved first-contact template contains a `message` parameter for the
-  dashboard staff message.
+Deploy the frontend AFTER the schema and functions. The new runtime settings
+are required data. Verify the actual hosted build, not just GitHub sync.
 
-Use the existing active organization API key unless sent.DM later enables a
-separate Monkey Trucking Sender Profile. Never commit either value.
+## Safe operating state
 
-## 2. Configure Supabase secrets
+The new singleton `communication_runtime` defaults to:
 
-Set these secrets on Supabase project `dugmcjpistrxxryaubkd`:
+- test_numbers: controlled handset only
+- ai_sending_enabled: false
+- scheduled_sending_enabled: false
+- marketing_approved: false
+- activated_at: null
+- business timezone America/Chicago, weekdays 09:00 to 17:00
 
-- `SENT_DM_API_KEY` (required)
-- `SENT_DM_WEBHOOK_SECRET` (required, generated when the webhook is registered)
-- `SENT_DM_FIRST_CONTACT_TEMPLATE_ID` (required for contacts who have not replied)
-- `SENT_DM_PROFILE_ID` (only for an organization-scoped API key)
+In TESTING the normal dashboard composer works only for the server-side
+allowlisted handset. Initial recorded consent is required. Use Request SMS
+confirmation for the contextual double opt-in; an arbitrary YES does not grant
+consent. START and STOP are ordered by provider event time. HELP changes no
+consent. Provider-owned compliance replies never trigger AI duplicates.
 
-## 3. Apply and deploy
+Manual replies pause AI before dispatch and cancel undispatched automation.
+Resume AI is explicit, audited and applies only to future messages.
+A request already in flight with the carrier cannot be recalled.
 
-Apply migration `20260913090000_sent_dm_sms_transport.sql`, then deploy:
+All sends reserve one permanent operation identity and an immutable payload
+in the same outbox. Retry uncertain submissions with that identity. Three
+attempts or the conservative 23-hour retry window end in REVIEW; do not
+generate a fresh ID to bypass ambiguity. Reconciliation reads provider status,
+it does not resend.
 
-- `send-sms`
-- `sent-dm-webhook`
-- `ai-draft`
+## First failed handset test and reconciliation
 
-The sent.DM webhook URL is:
+The earlier test was sent using sent.DM Playground, NOT the dashboard:
 
-`https://dugmcjpistrxxryaubkd.supabase.co/functions/v1/sent-dm-webhook`
+- provider ID: `7e335b98-0651-4188-a31d-b18a31a11b63`
+- local message: `611406db-4cfa-4494-b3c2-6e92cc3e16a3`
+- lead: `d5500f93-448a-4ba2-acda-5c6e8acf08f9`
+- sent.DM visibly ended FAILED; the activity detail exposed no carrier cause.
+- The old deployed webhook left the local message SENT because it compared
+  the outbound recipient against the business number.
 
-Subscribe it to the canonical `message` event, including received, queued,
-routed, scheduled, sent, delivered, failed, filtered, and blocked statuses.
-Copy the webhook signing secret to Supabase before enabling live deliveries.
+After deploying, invoke authenticated send-sms with action `reconcile`,
+the leadId and messageId above. This reads sent.DM's status endpoint, updates
+the same row and records SMS_RECONCILED. Preserve the failed evidence.
+Do not claim that repairing status reporting fixes the carrier failure.
 
-The first-contact template is approved and SMS entered `TESTING` on 2026-09-13.
+## Release test matrix
 
-## 4. Enter testing state
+Automated tests run locally are not evidence of handset delivery.
+Before customer-wide READY, retain local/provider IDs and verify:
 
-After secrets and the webhook are deployed and the template is approved, set
-only SMS to `TESTING`:
+1. Dashboard first-contact template actually arrives from the approved number.
+2. Real inbound reply creates one message on the correct conversation.
+3. Contextual double opt-in, then dashboard free-form reply and delivery update.
+4. Provider FAILED/FILTERED/BLOCKED remain distinguishable; later SENT cannot
+   erase terminal outcomes. Events before ID linking reconcile.
+5. Signed webhook replay creates no duplicate message/activity; invalid
+   signature creates no database write.
+6. Unknown inbound is captured safely.
+7. STOP blocks manual and automated work, including already claimed but not
+   dispatched work. START restores only appropriate consent. HELP is harmless.
+8. Provider compliance reply arrives once, without AI duplicate.
+9. Enable AI for the allowlisted test only: English/Spanish, latest context,
+   deterministic material pricing, uncertainty escalation, missing-data failure,
+   staff takeover during generation, and explicit future-only resume.
+10. Enable one transactional scheduled rule at a time using a new activation
+    timestamp; verify current-record guards, business time and frequency caps.
+    Historical records must not create catchup blasts.
+11. Verify browser conversation updates, actual status/error display, retained
+    composer draft after failure, no duplicate send on double click/retry,
+    and preservation of existing dashboard sync/realtime behavior.
+12. Verify worker authentication, one cron job, bounded leases/retries and logs.
 
-```sql
-update public.control_center_settings
-set sms_status = 'TESTING', updated_at = now()
-where id = 1;
-```
+Promotional/reactivation/review sends require actual approved campaign coverage
+AND explicit `sms_marketing_consent_at`, in addition to normal double opt-in.
+Calling remains SETUP_REQUIRED until the exact number's supported voice API and
+missed-call events are documented and exercised.
 
-This step is complete in production. The normal dashboard composer remains
-locked until the final READY decision.
-Use an authenticated admin/staff function invocation for the controlled live
-test. Do not test against a real customer record.
+Only after applicable live evidence passes should SMS become READY. Enable AI,
+scheduled sending and individual rules separately; do not conflate their gates.
 
-## 5. Required end-to-end evidence
+## Recovery
 
-Use controlled test customers and retain the sent.DM message IDs:
+For a sending incident, immediately set AI and scheduled runtime flags false,
+and set sms_status to OFF to stop new dispatches. Inspect accepted/in-flight
+provider IDs before any resend. Cancel only undispatched outbox/job work with
+an audit; retain message/event evidence. Do not roll back by deleting schema,
+messages or consent history. Redeploy the previous compatible code only after
+checking the new database contracts. Existing email scheduling stays untouched.
 
-1. First-contact template is received from `+19453750877`.
-2. Customer reply creates exactly one inbound conversation message.
-3. A dashboard free-form reply is delivered and updates the same outbound row.
-4. Replayed webhooks do not duplicate messages or activities.
-5. An unknown inbound number creates a safe customer and lead.
-6. STOP records an opt-out and blocks subsequent sends.
-7. The provider's STOP confirmation is received without an AI duplicate.
-8. START clears the opt-out and records the double opt-in timestamp.
-9. HELP receives the configured provider response without an AI duplicate.
-10. Failed, filtered, and blocked sends remain distinguishable in the database.
-11. A staff reply enables human takeover before provider transmission.
-12. Automation previews remain blocked without double opt-in.
+## Local verification before deployment
 
-Only after the evidence passes:
+- 253 tests across 39 files passed, including 15 executed PostgreSQL behavior
+  cases and transport, AI, composer and realtime tests.
+- Production Vite build and application TypeScript check passed.
+- Deno native checks passed for all four Edge Function entrypoints.
+- Targeted ESLint: zero errors, existing AppState fast-refresh warning.
+- PGlite tests exercise actual PostgreSQL state transitions in memory but do
+  not simulate independent database connections or real carrier traffic.
 
-```sql
-update public.control_center_settings
-set sms_status = 'READY', updated_at = now()
-where id = 1 and sms_status = 'TESTING';
-```
-
-## 6. Calling and automations
-
-Calling remains `SETUP_REQUIRED`. sent.DM's published API documents messaging
-channels, not voice or missed-call events. Obtain written confirmation of voice
-support for this exact number before adding a call integration.
-
-Live scheduled automations remain off until their sent.DM templates are approved
-and the manual SMS test matrix above passes. Enable each rule separately, starting
-with transactional reminders. Promotional reactivation must require
-`sms_double_opt_in_at`, no current opt-out, and its own approved template.
+Deployment and live results must be appended to the execution audit; this
+section is not a claim that the new release is already deployed.

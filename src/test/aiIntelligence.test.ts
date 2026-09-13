@@ -90,7 +90,7 @@ describe('Phase 06 OpenAI intelligence safety contracts', () => {
   })
 
   it('enforces draft-only server and database boundaries', () => {
-    const edge = read('supabase/functions/ai-draft/index.ts')
+    const edge = read('supabase/functions/ai-draft/index.ts') + read('supabase/functions/_shared/ai-engine.ts')
     const migration = read('supabase/migrations/20260827143000_phase06_ai_draft_dry_run.sql')
     expect(edge).toContain("send_allowed: false")
     expect(edge).toContain("store: false")
@@ -149,7 +149,7 @@ describe('Phase 06 OpenAI intelligence safety contracts', () => {
   })
 
   it('keeps server-side model precedence with the approved fallback', () => {
-    const edge = read('supabase/functions/ai-draft/index.ts')
+    const edge = read('supabase/functions/_shared/ai-config.ts')
     expect(edge).toContain("Deno.env.get('OPENAI_MODEL') ?? Deno.env.get('LOVABLE_AI_MODEL') ?? 'gpt-5.6-terra'")
     expect(edge).not.toContain('gpt-5-mini')
     expect(read('src/control-center/ai/service.ts')).not.toContain('gpt-5.6-terra')

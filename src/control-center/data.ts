@@ -257,6 +257,15 @@ export type ControlSettings = {
   updated_at: string;
 };
 
+export type CommunicationRuntime = {
+  id: number;
+  ai_sending_enabled: boolean;
+  scheduled_sending_enabled: boolean;
+  marketing_approved: boolean;
+  timezone: string;
+  activated_at: string | null;
+};
+
 export type FinancialHistory = {
   id: string;
   record_type: "INVOICE" | "PAYMENT" | "WORKER_PAYMENT";
@@ -396,6 +405,7 @@ type ControlDatabase = {
       lead_messages: Table<LeadMessage>;
       financial_history: Table<FinancialHistory>;
       control_center_settings: Table<ControlSettings>;
+      communication_runtime: Table<CommunicationRuntime>;
       automation_rules: Table<AutomationRule>;
       tracking_link_groups: Table<TrackingLinkGroup>;
       tracking_links: Table<TrackingLink>;
@@ -448,6 +458,7 @@ export type ControlData = {
   appSettings: AppSettings | null;
   userRoles: UserRole[];
   controlSettings: ControlSettings | null;
+  communicationRuntime?: CommunicationRuntime | null;
   automations: AutomationRule[];
   trackingLinkGroups: TrackingLinkGroup[];
   trackingLinks: TrackingLink[];
@@ -613,7 +624,7 @@ export async function loadControlData(): Promise<ControlData> {
   const [
     customers, leads, quotes, quoteItems, jobs, tickets, ticketItems, ticketHistory, invoices,
     invoiceTickets, payments, workers, workerPayments, activities, messages, financialHistory,
-    materials, drivers, appSettings, userRoles, controlSettings, automations, snoozes,
+    materials, drivers, appSettings, userRoles, controlSettings, automations, snoozes, communicationRuntime,
   ] = await Promise.all([
     controlDb.from("customers").select("*").order("last_activity_at", { ascending: false }),
     controlDb.from("leads").select("*").order("created_at", { ascending: false }),
@@ -638,6 +649,7 @@ export async function loadControlData(): Promise<ControlData> {
     controlDb.from("control_center_settings").select("*").eq("id", 1).maybeSingle(),
     controlDb.from("automation_rules").select("*").order("name"),
     controlDb.from("attention_snoozes").select("*"),
+    controlDb.from('communication_runtime').select('id,ai_sending_enabled,scheduled_sending_enabled,marketing_approved,timezone,activated_at').eq('id',1).maybeSingle(),
   ]);
   const optionalAi = await optionalAiPromise;
   const optionalStripe = await optionalStripePromise;
@@ -665,6 +677,7 @@ export async function loadControlData(): Promise<ControlData> {
     appSettings: unwrap(appSettings, "Business settings") as AppSettings | null,
     userRoles: unwrap(userRoles, "User roles") ?? [],
     controlSettings: unwrap(controlSettings, "Control Center settings"),
+    communicationRuntime: unwrap(communicationRuntime,'Communication runtime'),
     automations: unwrap(automations, "Automation rules") ?? [],
     trackingLinkGroups: optionalTracking.groups,
     trackingLinks: optionalTracking.links,
@@ -973,14 +986,23 @@ export type SendLeadSmsResult = {
   success: boolean;
   idempotent?: boolean;
   messageId: string;
-  providerMessageId: string;
+  providerMessageId: string | null;
   status: LeadMessage["delivery_status"];
+  queueState?: 'QUEUED' | 'LEASED' | 'DISPATCHING' | 'RETRY' | 'ACCEPTED' | 'FAILED' | 'REVIEW' | 'CANCELLED';
+  error?: string | null;
 };
 
 export async function sendLeadSms(input: { leadId: string; body: string; requestId: string }): Promise<SendLeadSmsResult> {
   const { data, error } = await supabase.functions.invoke("send-sms", { body: input });
   if (error) throw new Error(await functionErrorMessage(error));
-  if (data?.error) throw new Error(String(data.error));
+  if (!data?.success) throw new Error(String(data?.error ?? 'SMS request failed'));
+  return data as SendLeadSmsResult;
+}
+
+export async function changeConversationSms(input: { leadId: string; action: 'resume-ai' | 'request-opt-in'; requestId?: string }) {
+  const { data, error } = await supabase.functions.invoke('send-sms', { body: input });
+  if (error) throw new Error(await functionErrorMessage(error));
+  if (!data?.success || data?.error) throw new Error(String(data?.error ?? 'Conversation action failed'));
   return data as SendLeadSmsResult;
 }
 

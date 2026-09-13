@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { flushQueue, getPendingCount } from "@/lib/admin/tickets";
 import { invoiceStatus, loadControlData, type ControlData } from "./data";
 import { useDemoMode } from "./demo/DemoMode";
+import { subscribeToCommunicationChanges } from './communicationRealtime';
 
 export type NewAction = "menu" | "lead" | "job" | "payment" | null;
 export type AttentionItem = {
@@ -64,7 +65,7 @@ function deriveAttention(data: ControlData): AttentionItem[] {
     const customer = data.customers.find((entry) => entry.id === lead.customer_id);
     const messages = data.messages.filter((message) => message.lead_id === lead.id);
     const latest = messages.at(-1);
-    if (latest?.sender_type === "CUSTOMER" && !lead.human_takeover) {
+    if (latest?.sender_type === "CUSTOMER") {
       items.push({
         id: `customer-waiting:${lead.id}`,
         rank: 20,
@@ -231,6 +232,11 @@ export function ControlCenterProvider({ children }: { children: ReactNode }) {
       document.removeEventListener("visibilitychange", handleVisibility);
       window.clearInterval(interval);
     };
+  }, [demo.enabled, refresh, user?.id]);
+
+  useEffect(() => {
+    if (demo.enabled || !user?.id) return;
+    return subscribeToCommunicationChanges(refresh);
   }, [demo.enabled, refresh, user?.id]);
 
   const activeData = demo.enabled ? demo.data : query.data ?? null;

@@ -223,7 +223,7 @@ export function CustomerDetail() {
                   <ActionLink
                     size="sm"
                     tone="onSolid"
-                    href={smsHref(customer.phone)}
+                    href={leads[0] ? `/admin/leads/${leads[0].id}?attention=reply` : '/admin/leads'}
                     icon={<MessageSquare className="h-4 w-4" strokeWidth={2.2} />}
                   >
                     Text

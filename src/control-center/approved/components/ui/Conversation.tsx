@@ -81,6 +81,13 @@ export function ConversationMessage({ message }: { message: Message }) {
           {message.text}
         </div>
 
+        {!incoming && message.deliveryStatus && message.deliveryStatus !== 'INTERNAL' && (
+          <p className={cn('mt-1 text-right text-[12px]', message.sendError ? 'text-warn' : 'text-cc-muted')} role="status">
+            {(message.providerStatus ?? message.deliveryStatus).replaceAll('_', ' ').toLowerCase()}
+            {message.sendError ? ` · ${message.sendError}` : ''}
+          </p>
+        )}
+
         {message.escalation && (
           <div className={cn('mt-2 flex', incoming ? 'justify-start' : 'justify-end')}>
             <StatusPill tone="now" size="sm">
@@ -162,16 +169,29 @@ export function ReplyComposer({
   paused,
   disabled = false,
 }: {
-  onSend: (text: string) => void
+  onSend: (text: string) => void | Promise<void>
   paused: boolean
   disabled?: boolean
 }) {
   const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+  const inFlight = useRef(false)
 
-  const send = () => {
-    if (!text.trim()) return
-    onSend(text)
-    setText('')
+  const send = async () => {
+    if (disabled || inFlight.current || !text.trim() || text.trim().length > 1600) return
+    inFlight.current = true
+    setSending(true)
+    setError('')
+    try {
+      await onSend(text.trim())
+      setText('')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Reply could not be sent. Your text has been kept.')
+    } finally {
+      inFlight.current = false
+      setSending(false)
+    }
   }
 
   return (
@@ -188,24 +208,27 @@ export function ReplyComposer({
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end">
         <textarea
           value={text}
-          disabled={disabled}
+          disabled={disabled || sending}
+          maxLength={1600}
+          aria-label="Reply message"
           rows={2}
           placeholder={disabled ? 'Connect SMS in Settings to reply' : 'Write a reply'}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) send()
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void send() }
           }}
           className="w-full resize-y rounded-xl border border-line bg-raised px-4 py-3 text-[16px] leading-relaxed text-ink placeholder:text-cc-muted transition-colors focus:border-ice/60 focus:outline-none"
         />
         <PrimaryButton
-          onClick={send}
-          disabled={disabled || !text.trim()}
+          onClick={() => void send()}
+          disabled={disabled || sending || !text.trim()}
           className="shrink-0"
           icon={<Send className="h-4 w-4" strokeWidth={2.4} />}
         >
-          Send
+          {sending ? 'Sending' : 'Send'}
         </PrimaryButton>
       </div>
+      {error && <p role="alert" className="mt-3 text-[13px] text-warn">{error}</p>}
     </div>
   )
 }

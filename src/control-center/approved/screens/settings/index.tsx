@@ -872,7 +872,7 @@ export function SettingsCommunication() {
     setNumber(settings.business_number ?? '')
     setEnglish(settings.ai_english)
     setSpanish(settings.ai_spanish)
-    setTakeover(settings.human_takeover_on_reply)
+    setTakeover(true)
   }, [settings])
 
   const save = async () => {
@@ -924,6 +924,8 @@ export function SettingsCommunication() {
             tone={readinessTone(readiness.capabilities.ai.status)}
             line={readiness.capabilities.ai.reason}
           />
+          <StatusRow label="AI replies" value={sourceData?.communicationRuntime?.ai_sending_enabled ? 'Enabled' : 'Off'} tone="ice" line="Automatic customer replies are separate from draft generation and require confirmed SMS consent." />
+          <StatusRow label="Scheduled SMS" value={sourceData?.communicationRuntime?.scheduled_sending_enabled ? 'Enabled' : 'Off'} tone="ice" line="Only enabled rules can send. Promotional messages remain blocked until campaign coverage is verified." />
           <StatusRow
             label="Transactional email"
             value={readiness.capabilities.email.label}
@@ -950,9 +952,9 @@ export function SettingsCommunication() {
           />
           <Toggle
             label="Human takeover"
-            line="Stops AI when Salvador replies."
-            value={takeover}
-            onChange={setTakeover}
+            line="Always stops AI when a staff member replies. Required for SMS safety."
+            value={true}
+            onChange={() => { setTakeover(true); toast.info('Human takeover stays enabled for SMS safety.') }}
           />
         </div>
         <div className="mt-5">

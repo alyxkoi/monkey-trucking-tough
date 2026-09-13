@@ -26,6 +26,8 @@ import { useDemoMode } from '@/control-center/demo/DemoMode'
 import { QA_FIXTURE_USER_ID } from '@/control-center/demo/constants'
 import type { Json } from '@/integrations/supabase/types'
 import { useControlCenter } from '@/control-center/context'
+import { changeConversationSms } from '@/control-center/data'
+import { clearSmsRequestIdentity, smsRequestIdentity } from '@/control-center/smsRequestIdentity'
 
 export function LeadDetail() {
   const { leadId = '' } = useParams()
@@ -48,6 +50,8 @@ export function LeadDetail() {
   const [aiResult, setAiResult] = useState<AiEvaluationResult | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
+  const [smsActionPending, setSmsActionPending] = useState(false)
+  const optInRequestIds = useRef(new Map<string,string>())
 
   const { entry, recommend, markActed } = useAttentionEntry()
   const lead = leadById(leadId)
@@ -66,6 +70,7 @@ export function LeadDetail() {
   }
 
   const customer = customerById(lead.customerId)
+  const smsCustomer = sourceData?.customers.find((row) => row.id === lead.customerId)
   const quote = lead.quoteId ? quoteById(lead.quoteId) : undefined
   const activities = activitiesForCustomer(lead.customerId).slice(0, 3)
   const savedDraft = sourceData?.aiDrafts.find((draft) => draft.lead_id === lead.id && draft.status === 'DRAFT')
@@ -103,6 +108,23 @@ export function LeadDetail() {
 
   const focusReply = () => {
     conversationRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    conversationRef.current?.querySelector('textarea')?.focus({ preventScroll: true })
+  }
+
+  const conversationAction = async (action: 'resume-ai' | 'request-opt-in') => {
+    if (smsActionPending || demo.enabled) return
+    setSmsActionPending(true)
+    setAiError('')
+    try {
+      const identity = action === 'request-opt-in' ? await smsRequestIdentity(lead.id,'__request-opt-in__',optInRequestIds.current) : null
+      await changeConversationSms({ leadId: lead.id, action, requestId: identity?.id })
+      if (identity) clearSmsRequestIdentity(identity.key,optInRequestIds.current)
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : 'Conversation action failed')
+    } finally {
+      await refresh().catch(() => undefined)
+      setSmsActionPending(false)
+    }
   }
 
   const openQuote = () => quote && navigate(`/admin/quotes/${quote.id}`)
@@ -198,7 +220,7 @@ export function LeadDetail() {
                 <ActionLink
                   size="sm"
                   tone="onSolid"
-                  href={smsHref(customer.phone)}
+                  href={`#conversation-${lead.id}`}
                   icon={<MessageSquare className="h-4 w-4" strokeWidth={2.2} />}
                 >
                   Text
@@ -240,7 +262,7 @@ export function LeadDetail() {
       </SolidInfoModule>
 
       <div className="grid gap-5 lg:grid-cols-12 lg:gap-6">
-        <div ref={conversationRef} className="min-w-0 lg:col-span-7">
+        <div id={`conversation-${lead.id}`} ref={conversationRef} className="min-w-0 lg:col-span-7">
           <Panel padded={false} title="Conversation">
             <ConversationThread
               messages={lead.messages}
@@ -268,7 +290,17 @@ export function LeadDetail() {
                 </SecondaryButton>
               </div>
               {lead.aiPaused && (
-                <p className="mt-3 text-[13px] font-medium text-warn">Human takeover is active. Conversational AI stays paused.</p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <p className="text-[13px] font-medium text-warn">Human takeover is active. Conversational AI stays paused.</p>
+                  {!demo.enabled && <SecondaryButton size="sm" disabled={smsActionPending} onClick={() => void conversationAction('resume-ai')}>Resume AI for future replies</SecondaryButton>}
+                </div>
+              )}
+              {sourceData?.controlSettings?.sms_status === 'TESTING' && <p className="mt-3 text-[13px] text-warn">SMS testing mode. Only approved test numbers can receive messages.</p>}
+              {smsCustomer?.sms_consent_at && !smsCustomer.sms_double_opt_in_at && !smsCustomer.sms_opted_out_at && !demo.enabled && (
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <p className="text-[13px] text-cc-muted">Initial consent recorded. AI sending requires SMS confirmation.</p>
+                  <SecondaryButton size="sm" disabled={!communicationReady || smsActionPending} onClick={() => void conversationAction('request-opt-in')}>Request SMS confirmation</SecondaryButton>
+                </div>
               )}
               {aiError && (
                 <div className="mt-3 rounded-xl border border-mt-red/30 bg-mt-red/10 p-3 text-[13px] text-ink">
@@ -305,6 +337,7 @@ export function LeadDetail() {
               )}
             </div>
             <ReplyComposer
+              key={lead.id}
               paused={lead.aiPaused}
               disabled={!communicationReady}
               onSend={(text) => replyToLead(lead.id, text)}

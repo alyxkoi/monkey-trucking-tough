@@ -80,6 +80,9 @@ export function mapLeads(data: ControlData): Lead[] {
         actor: messageActor(message.sender_type),
         at: requiredAt(message.created_at),
         text: message.body,
+        deliveryStatus: message.delivery_status,
+        providerStatus: message.provider_status,
+        sendError: message.send_error,
         escalation: message.sender_type === 'SYSTEM' && /salvador|human/i.test(message.body),
       }))
     const quote = data.quotes.find((entry) => entry.lead_id === row.id && entry.status !== 'VOID')
@@ -113,8 +116,9 @@ export function mapLeads(data: ControlData): Lead[] {
       createdAt: requiredAt(row.created_at),
       lastActivityAt: Math.max(requiredAt(row.updated_at), latestMessageAt),
       needsSalvador: Boolean(
+        messages.some((message) => message.sendError && message.actor !== 'customer') ||
         (!row.human_takeover && (latestAiAudit?.status === 'FAILED' || aiDecision?.requires_human === true)) ||
-        (lastCustomer && (!lastHuman || lastCustomer.at > lastHuman.at) && !row.human_takeover),
+        (lastCustomer && (!lastHuman || lastCustomer.at > lastHuman.at)),
       ),
       aiPaused: row.human_takeover,
       notes: row.notes ?? '',
