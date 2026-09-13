@@ -622,6 +622,8 @@ export type Database = {
           phone: string | null
           sms_consent_at: string | null
           sms_consent_source: string | null
+          sms_double_opt_in_at: string | null
+          sms_opt_out_source: string | null
           sms_opted_out_at: string | null
           updated_at: string
         }
@@ -639,6 +641,8 @@ export type Database = {
           phone?: string | null
           sms_consent_at?: string | null
           sms_consent_source?: string | null
+          sms_double_opt_in_at?: string | null
+          sms_opt_out_source?: string | null
           sms_opted_out_at?: string | null
           updated_at?: string
         }
@@ -656,6 +660,8 @@ export type Database = {
           phone?: string | null
           sms_consent_at?: string | null
           sms_consent_source?: string | null
+          sms_double_opt_in_at?: string | null
+          sms_opt_out_source?: string | null
           sms_opted_out_at?: string | null
           updated_at?: string
         }
@@ -1124,39 +1130,79 @@ export type Database = {
       }
       lead_messages: {
         Row: {
+          automation_rule_id: string | null
           body: string
           created_at: string
           created_by: string | null
           customer_id: string
+          delivered_at: string | null
           delivery_status: string
+          failed_at: string | null
           id: string
+          idempotency_key: string | null
           lead_id: string
+          message_kind: string | null
+          provider: string | null
           provider_message_id: string | null
+          provider_status: string | null
+          provider_template_id: string | null
+          send_error: string | null
           sender_type: string
+          sent_at: string | null
+          updated_at: string
         }
         Insert: {
+          automation_rule_id?: string | null
           body: string
           created_at?: string
           created_by?: string | null
           customer_id: string
+          delivered_at?: string | null
           delivery_status?: string
+          failed_at?: string | null
           id?: string
+          idempotency_key?: string | null
           lead_id: string
+          message_kind?: string | null
+          provider?: string | null
           provider_message_id?: string | null
+          provider_status?: string | null
+          provider_template_id?: string | null
+          send_error?: string | null
           sender_type: string
+          sent_at?: string | null
+          updated_at?: string
         }
         Update: {
+          automation_rule_id?: string | null
           body?: string
           created_at?: string
           created_by?: string | null
           customer_id?: string
+          delivered_at?: string | null
           delivery_status?: string
+          failed_at?: string | null
           id?: string
+          idempotency_key?: string | null
           lead_id?: string
+          message_kind?: string | null
+          provider?: string | null
           provider_message_id?: string | null
+          provider_status?: string | null
+          provider_template_id?: string | null
+          send_error?: string | null
           sender_type?: string
+          sent_at?: string | null
+          updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "lead_messages_automation_rule_id_fkey"
+            columns: ["automation_rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lead_messages_customer_id_fkey"
             columns: ["customer_id"]
@@ -1521,6 +1567,86 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sms_consent_events: {
+        Row: {
+          created_at: string
+          customer_id: string
+          event_type: string
+          id: string
+          keyword: string
+          occurred_at: string
+          provider_message_id: string
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          event_type: string
+          id?: string
+          keyword: string
+          occurred_at: string
+          provider_message_id: string
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          event_type?: string
+          id?: string
+          keyword?: string
+          occurred_at?: string
+          provider_message_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_consent_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_webhook_events: {
+        Row: {
+          error_message: string | null
+          event_key: string
+          event_type: string
+          message_status: string
+          processed_at: string | null
+          processing_status: string
+          provider: string
+          provider_message_id: string
+          received_at: string
+          updated_at: string
+        }
+        Insert: {
+          error_message?: string | null
+          event_key: string
+          event_type: string
+          message_status: string
+          processed_at?: string | null
+          processing_status?: string
+          provider?: string
+          provider_message_id: string
+          received_at?: string
+          updated_at?: string
+        }
+        Update: {
+          error_message?: string | null
+          event_key?: string
+          event_type?: string
+          message_status?: string
+          processed_at?: string | null
+          processing_status?: string
+          provider?: string
+          provider_message_id?: string
+          received_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       stripe_checkout_sessions: {
         Row: {
@@ -2267,6 +2393,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      apply_sms_delivery_status: {
+        Args: {
+          p_error_message?: string
+          p_provider_message_id: string
+          p_provider_status: string
+        }
+        Returns: Json
+      }
       complete_job_and_prepare_invoice: {
         Args: { p_job_id: string }
         Returns: string
@@ -2519,6 +2653,8 @@ export type Database = {
           phone: string | null
           sms_consent_at: string | null
           sms_consent_source: string | null
+          sms_double_opt_in_at: string | null
+          sms_opt_out_source: string | null
           sms_opted_out_at: string | null
           updated_at: string
         }
@@ -2588,6 +2724,16 @@ export type Database = {
           read_ct: number
         }[]
       }
+      record_inbound_sms: {
+        Args: {
+          p_body: string
+          p_keyword?: string
+          p_phone: string
+          p_provider_message_id: string
+          p_received_at?: string
+        }
+        Returns: Json
+      }
       record_invoice_payment_full: {
         Args: {
           p_invoice_id: string
@@ -2604,6 +2750,17 @@ export type Database = {
       reorder_tracking_link_groups: {
         Args: { p_group_ids: string[] }
         Returns: undefined
+      }
+      reserve_manual_sms: {
+        Args: {
+          p_actor_id: string
+          p_body: string
+          p_idempotency_key: string
+          p_lead_id: string
+          p_message_kind: string
+          p_template_id?: string
+        }
+        Returns: Json
       }
       reserve_stripe_checkout_session: {
         Args: {
@@ -2633,6 +2790,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      resolve_inbound_sms_conversation: {
+        Args: { p_phone: string }
+        Returns: Json
       }
       revise_draft_invoice: {
         Args: {
