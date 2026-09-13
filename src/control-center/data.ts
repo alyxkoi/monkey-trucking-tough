@@ -19,7 +19,9 @@ export type Customer = {
   notes: string | null;
   sms_consent_at: string | null;
   sms_consent_source: string | null;
+  sms_double_opt_in_at?: string | null;
   sms_opted_out_at: string | null;
+  sms_opt_out_source?: string | null;
   is_active: boolean;
   last_activity_at: string;
   created_by: string | null;
@@ -217,10 +219,21 @@ export type LeadMessage = {
   customer_id: string;
   sender_type: "CUSTOMER" | "AI" | "HUMAN" | "SYSTEM";
   body: string;
-  delivery_status: "INTERNAL" | "PENDING" | "SENT" | "DELIVERED" | "FAILED";
+  delivery_status: "INTERNAL" | "PENDING" | "QUEUED" | "ROUTED" | "SCHEDULED" | "SENT" | "DELIVERED" | "READ" | "FAILED" | "FILTERED" | "BLOCKED" | "RECEIVED";
+  provider?: "SENT_DM" | null;
+  provider_status?: string | null;
   provider_message_id: string | null;
+  message_kind?: "FREEFORM" | "TEMPLATE" | "INBOUND" | "COMPLIANCE" | null;
+  provider_template_id?: string | null;
+  idempotency_key?: string | null;
+  automation_rule_id?: string | null;
+  send_error?: string | null;
+  sent_at?: string | null;
+  delivered_at?: string | null;
+  failed_at?: string | null;
   created_by: string | null;
   created_at: string;
+  updated_at?: string;
 };
 
 export type ControlSettings = {
@@ -232,7 +245,7 @@ export type ControlSettings = {
   custom_work_tax_rule: "PENDING" | "TAXED" | "EXEMPT";
   review_url: string | null;
   business_number: string | null;
-  sms_status: "READY" | "SETUP_REQUIRED" | "OFF";
+  sms_status: "READY" | "TESTING" | "SETUP_REQUIRED" | "OFF";
   calling_status: "READY" | "SETUP_REQUIRED" | "OFF";
   ai_status: "READY" | "SETUP_REQUIRED" | "OFF";
   payment_processor_status: "READY" | "SETUP_REQUIRED" | "OFF";
@@ -855,23 +868,6 @@ export const saveQuoteChanges = (quoteId: string, draft: QuoteDraft) => runRpc<v
   },
 );
 
-export const addLeadMessage = async (input: {
-  leadId: string;
-  customerId: string;
-  body: string;
-  deliveryStatus: LeadMessage["delivery_status"];
-}) => {
-  const { error } = await controlDb.from("lead_messages").insert({
-    lead_id: input.leadId,
-    customer_id: input.customerId,
-    sender_type: "HUMAN",
-    body: input.body,
-    delivery_status: input.deliveryStatus,
-  });
-  if (error) throw new Error(error.message);
-  await updateLead(input.leadId, { human_takeover: true, last_contact_at: new Date().toISOString() });
-};
-
 export const updateLead = async (id: string, values: Partial<Lead>) => {
   const { error } = await controlDb.from("leads").update(values).eq("id", id);
   if (error) throw new Error(error.message);
@@ -971,6 +967,21 @@ async function functionErrorMessage(error: unknown): Promise<string> {
     }
   }
   return fallback;
+}
+
+export type SendLeadSmsResult = {
+  success: boolean;
+  idempotent?: boolean;
+  messageId: string;
+  providerMessageId: string;
+  status: LeadMessage["delivery_status"];
+};
+
+export async function sendLeadSms(input: { leadId: string; body: string; requestId: string }): Promise<SendLeadSmsResult> {
+  const { data, error } = await supabase.functions.invoke("send-sms", { body: input });
+  if (error) throw new Error(await functionErrorMessage(error));
+  if (data?.error) throw new Error(String(data.error));
+  return data as SendLeadSmsResult;
 }
 
 export async function sendCustomerEmail(input: CustomerEmailRequest): Promise<CustomerEmailResult> {

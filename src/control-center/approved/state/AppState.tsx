@@ -13,7 +13,6 @@ import type { Json } from '@/integrations/supabase/types'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
 import {
-  addLeadMessage,
   confirmWorkerPayment,
   completeJobAndPrepareInvoice,
   controlDb,
@@ -28,6 +27,7 @@ import {
   recordPayment as recordPaymentRecord,
   reviseDraftInvoice,
   saveQuoteChanges,
+  sendLeadSms,
   sendCustomerEmail,
   snoozeAttention as persistSnooze,
   updateJob,
@@ -263,6 +263,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [quoteDrafts, setQuoteDrafts] = useState<Record<string, Quote>>({})
   const quoteDraftsRef = useRef<Record<string, Quote>>({})
   const noteTimers = useRef<Record<string, number>>({})
+  const smsRequestIds = useRef(new Map<string, string>())
   const configuredData = useRef<ControlData | null>(null)
 
   // The approved pickers import stable catalog arrays directly. Hydrate those
@@ -634,7 +635,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       return
     }
     if (data?.controlSettings?.sms_status !== 'READY') { toast.error('SMS setup is required before a reply can be sent.'); return }
-    launch(async () => { await addLeadMessage({ leadId: id, customerId: lead.customerId, body: text, deliveryStatus: 'PENDING' }); await refresh() })
+    const requestKey = `${id}:${text}`
+    const requestId = smsRequestIds.current.get(requestKey) ?? crypto.randomUUID()
+    smsRequestIds.current.set(requestKey, requestId)
+    launch(async () => {
+      await sendLeadSms({ leadId: id, body: text, requestId })
+      smsRequestIds.current.delete(requestKey)
+      toast.success('SMS queued with sent.DM.')
+      await refresh()
+    })
   }, [data?.controlSettings?.sms_status, demo, launch, leadById, refresh])
 
   const quoteDraft = useCallback((quote: Quote): QuoteDraft => {

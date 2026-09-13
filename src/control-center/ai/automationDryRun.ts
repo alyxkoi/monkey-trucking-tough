@@ -231,6 +231,9 @@ export function buildAutomationPreviews(data: ControlData, now = Date.now()): Au
     if (!customer?.sms_consent_at) {
       return { ...preview, eligible: false, blockedReason: 'Customer SMS consent is not recorded.', reason: 'Dry run will not treat unknown consent as permission.' }
     }
+    if (!customer.sms_double_opt_in_at) {
+      return { ...preview, eligible: false, blockedReason: 'Customer has not completed SMS double opt in.', reason: 'Automations remain blocked until an affirmative SMS confirmation is recorded.' }
+    }
     return preview
   })
 }

@@ -24,7 +24,9 @@ select
   (select count(*) from public.ai_drafts) as ai_drafts,
   (select count(*) from public.ai_audit_logs where customer_id is not null or lead_id is not null) as customer_linked_ai_audit_logs,
   (select count(*) from public.stripe_checkout_sessions) as stripe_checkout_sessions,
-  (select count(*) from public.stripe_webhook_events) as stripe_webhook_events;
+  (select count(*) from public.stripe_webhook_events) as stripe_webhook_events,
+  (select count(*) from public.sms_webhook_events) as sms_webhook_events,
+  (select count(*) from public.sms_consent_events) as sms_consent_events;
 
 select
   coalesce((select sum(amount) from public.payments where voided_at is null), 0) as collected,

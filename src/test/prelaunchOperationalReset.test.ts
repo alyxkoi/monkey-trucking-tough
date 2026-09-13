@@ -29,6 +29,7 @@ describe('guarded prelaunch operational reset', () => {
       'payments', 'worker_payments', 'activity_history', 'financial_history',
       'attention_snoozes', 'customer_document_tokens', 'stripe_checkout_sessions',
       'stripe_webhook_events', 'ai_drafts', 'ai_conversation_state',
+      'sms_webhook_events', 'sms_consent_events',
     ]) {
       expect(reset).toContain(`delete from public.${table}`)
     }
@@ -52,6 +53,10 @@ describe('guarded prelaunch operational reset', () => {
     expect(reset).toContain("set_config('app.financial_safe_write', 'true', true)")
     expect(postflight).toContain('quote_sequence_last_value')
     expect(postflight).toContain('invoice_sequence_last_value')
+    expect(preflight).toContain("'sms_webhook_events', (select count(*) from public.sms_webhook_events)")
+    expect(preflight).toContain("'sms_consent_events', (select count(*) from public.sms_consent_events)")
+    expect(postflight).toContain('as sms_webhook_events')
+    expect(postflight).toContain('as sms_consent_events')
   })
 })
 

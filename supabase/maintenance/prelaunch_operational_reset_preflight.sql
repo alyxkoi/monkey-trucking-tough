@@ -14,6 +14,7 @@ begin
     'customer_document_tokens','email_send_log','email_unsubscribe_tokens',
     'ai_conversation_state','ai_audit_logs','ai_drafts','stripe_checkout_sessions',
     'stripe_webhook_events','materials','drivers','workers','app_settings',
+    'sms_webhook_events','sms_consent_events',
     'control_center_settings','automation_rules','tracking_link_groups',
     'tracking_links','tracking_link_visits','user_roles',
     'email_send_state','suppressed_emails','ticket_deletion_audit'
@@ -80,6 +81,8 @@ select * from (
     ('ai_drafts', (select count(*) from public.ai_drafts)),
     ('stripe_checkout_sessions', (select count(*) from public.stripe_checkout_sessions)),
     ('stripe_webhook_events', (select count(*) from public.stripe_webhook_events)),
+    ('sms_webhook_events', (select count(*) from public.sms_webhook_events)),
+    ('sms_consent_events', (select count(*) from public.sms_consent_events)),
     ('ticket_deletion_audit_retained', (select count(*) from public.ticket_deletion_audit))
 ) as counts(record_type, row_count)
 order by record_type;
@@ -173,6 +176,8 @@ select upper(md5(jsonb_build_object(
   'ai_drafts', (select count(*) from public.ai_drafts),
   'stripe_sessions', (select count(*) from public.stripe_checkout_sessions),
   'stripe_events', (select count(*) from public.stripe_webhook_events),
+  'sms_webhook_events', (select count(*) from public.sms_webhook_events),
+  'sms_consent_events', (select count(*) from public.sms_consent_events),
   'next_ticket_number', (select next_ticket_number from public.app_settings order by id limit 1),
   'quote_sequence', (select jsonb_build_array(last_value, is_called) from public.quote_number_seq),
   'invoice_sequence', (select jsonb_build_array(last_value, is_called) from public.invoice_number_seq)

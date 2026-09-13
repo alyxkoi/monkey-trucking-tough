@@ -68,6 +68,7 @@ function outputText(response: any) {
 
 function forcedEscalation(text: string, takeover: boolean) {
   if (takeover) return 'Human takeover is active.'
+  if (/^(?:stop|cancel|unsubscribe|quit|end|start|unstop|subscribe|help|info)$/i.test(text.trim())) return 'Compliance keyword is handled by sent.DM and must not receive an AI reply.'
   if (/\b(i sent|i paid|sent the zelle|mand[eé] el zelle|ya pagu[eé])\b/i.test(text)) return 'Payment claim requires human verification.'
   if (/\b(discount|cheaper|price match|can you do (?:it|that) for|if i pay today|menos|descuento)\b/i.test(text)) return 'Pricing negotiation requires Salvador.'
   if (/\b(driveway|private road|pond|grading|grade|site prep|clearing|ditch)\b/i.test(text) && /\b(how much|price|cost|total|cuanto|cuánto|fix|repair|arreglar)\b/i.test(text)) return 'Custom work pricing requires Salvador.'
@@ -192,7 +193,7 @@ Deno.serve(async (req) => {
 
     if (!customerId) throw new Error('Customer context could not be resolved.')
     const [customerResult, messageResult, stateResult, quoteResult, jobResult, invoiceResult, paymentResult, materialResult, appResult, controlResult] = await Promise.all([
-      service.from('customers').select('id,name,phone,email,notes,sms_consent_at,sms_consent_source,sms_opted_out_at').eq('id', customerId).single(),
+      service.from('customers').select('id,name,phone,email,notes,sms_consent_at,sms_consent_source,sms_double_opt_in_at,sms_opted_out_at').eq('id', customerId).single(),
       leadId ? service.from('lead_messages').select('id,sender_type,body,created_at').eq('lead_id', leadId).order('created_at').limit(80) : Promise.resolve({ data: [], error: null }),
       leadId ? service.from('ai_conversation_state').select('*').eq('lead_id', leadId).maybeSingle() : Promise.resolve({ data: null, error: null }),
       service.from('quotes').select('id,quote_number,status,description,address,grand_total,sent_at,accepted_at').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(3),
