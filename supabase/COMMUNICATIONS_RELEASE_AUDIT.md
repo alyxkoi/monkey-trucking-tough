@@ -2,7 +2,7 @@
 
 ## Source checkpoint
 
-Implementation commit: `aef5a62`, pushed to `origin/main`.
+Implementation commits: `aef5a62` and `0de87bf`, pushed to `origin/main`.
 Previous baseline: `0f1e5bc`.
 
 Implemented one durable outbox for dashboard, AI and scheduled SMS; immutable
@@ -17,12 +17,12 @@ integration was made. Existing dashboard refresh and email cron are preserved.
 
 ## Verified locally
 
-- Full suite: 39 files, 253 tests passed after final source edits.
-- Includes 15 executed PostgreSQL behavior tests, transport/HMAC/AI tests,
+- Full suite: 41 files, 264 tests passed after final source edits.
+- Includes 16 executed PostgreSQL behavior tests, transport/HMAC/AI tests,
   composer tests and realtime scheduling/cleanup tests.
 - Application TypeScript check and production Vite build passed.
-- Deno 2.9.6 checks passed for send-sms, sent-dm-webhook, ai-draft and
-  process-communications with Supabase JS pinned to 2.116.0.
+- Deno 2.9.6 checks passed for all 12 Edge Function entrypoints. The four
+  communications functions pin Supabase JS to 2.116.0.
 - Targeted ESLint: zero errors; one existing AppState fast-refresh warning.
 - Git whitespace/diff check passed.
 
@@ -37,39 +37,87 @@ findings; no broad or unreviewed dependency upgrade was attempted.
 - Three existing provider secret names present; no values displayed or changed.
 - Customers 3, leads 2, messages 1; no historical data deleted.
 - Four prior outbound webhook events were IGNORED by the old deployed handler.
-- The only real handset test remains FAILED in sent.DM, but incorrectly SENT
-  locally. Carrier cause is not exposed in the activity detail.
+- The earlier real handset test was FAILED in sent.DM, but incorrectly SENT
+  locally. This historical discrepancy is now corrected, as recorded below.
 - SMS TESTING; Calling SETUP_REQUIRED; AI READY describes draft generation,
   not autonomous sending. No fully double-opted-in customer was established.
 - Existing email cron only; Vault has email_queue_cron_secret only.
 - sent.DM registration is Customer Care. Promotional coverage and voice are
   unverified. Keep both gated.
 
-## Deployment status at this checkpoint
+## Production deployment and independent verification
 
-**New production migrations/functions/cron/frontend have NOT been deployed.**
+The owner confirmed production permissions, private worker provisioning,
+deployment and controlled tests to their handset. Backend deployment completed:
 
-GitHub main sync is visible in Lovable. Its preview reports Build unsuccessful
-and Preview is out of date for this and older commits despite the passing local
-build. This must be diagnosed/verified before claiming the hosted frontend is
-current. Git push is not proof of production publication.
+- Applied the three canonical migrations ending 170000, 171000 and 172000 once.
+- Applied `20260913180000_worker_vault_auth.sql` verbatim through Cloud SQL.
+  The migration tool rejects Vault references, so this last migration was not
+  recorded by that tool. Verify its live function before any future migration
+  runner attempts to apply it again.
+- Deployed send-sms, sent-dm-webhook, ai-draft; redeployed process-communications
+  with the Vault verifier from `0de87bf`.
+- Installed `install_communications_cron.sql`: one named private Vault secret,
+  one minute communications cron, existing five-minute email cron unchanged.
+  No secret value was retrieved, printed, committed or copied to Edge secrets.
+- Independent SQL checks observed three successive worker HTTP 200 responses:
+  `{"planned":0,"job":{"processed":false},"dispatches":0}` before the test.
+- Live HTTP checks rejected absent staff/worker credentials, forged role claims,
+  an invalid 64-hex Vault token, and forged webhook signatures. Missing webhook
+  signature headers return 400; other invalid credentials return 401.
+- Independent function privilege checks found zero anon/authenticated execution
+  grants on enqueue_sms, verify_communications_worker and wake_communication_worker.
+- AI/scheduled/marketing gates remain false; one test handset; SMS TESTING;
+  Calling SETUP_REQUIRED. Customer and lead counts remain 3 and 2.
 
-Deployment through the available browser-based Cloud controls will apply new
-database permissions and establish a persistent private worker credential.
-An action-time security confirmation is required before those operations.
-No new secret, cron job, live SMS or readiness promotion was performed during
-this implementation pass.
+Legacy hosted-check blockers were fixed minimally: two email callback type
+annotations, a SupabaseClient type annotation, and the exact already-imported
+Stripe 20.4.0 development dependency. The connected build tool reports build OK;
+historical GitHub cards still display old failed-preview labels.
 
-After confirmation, use the exact staged order in SENT_DM_SMS_RUNBOOK.md:
-three incremental migrations; four checked Edge Functions; dedicated worker
-credential in Edge secrets and Vault; single minute cron; compatible frontend;
-provider reconciliation; then only allowlisted real handset tests. Keep global
-AI/scheduled/marketing gates off until their individual live tests pass.
+**Frontend publication remains pending.** The permission reviewer rejected the
+final Publish changes action because it interpreted the prior backend-only
+deployment scope as requiring separate frontend authorization. No alternate
+publication path was attempted. The live admin page also requires sign-in;
+no admin session was minted or authentication bypassed. Backend testing below
+is not a claim that the live dashboard composer has been tested.
+
+## Controlled real provider test
+
+One owner-authorized confirmation request was reserved through the deployed
+enqueue_sms RPC using the existing admin actor and dispatched by the real worker.
+Preflight required the exact owner phone after normalization, existing initial
+consent, no opt-out, SMS TESTING, the single-recipient allowlist and closed gates.
+No double opt-in was fabricated.
+
+- Permanent operation: `release_opt_in_20260913_owner_8256`.
+- Local message: `7e59233c-6def-4160-a0c1-8f17f8c4d9d3`.
+- Provider message: `c5cf44f4-3734-4742-a27b-c0b75d449f79`.
+- sent.DM queued at 17:01:03 CDT, sent at 17:01:04, FAILED at 17:01:05,
+  September 13, 2026. The approved utility template rendered two SMS segments.
+- One outbox attempt, one local message, provider accepted the submission.
+  Outbox ACCEPTED describes provider submission, not successful delivery.
+- All four real signed queued/routed/sent/failed webhooks were PROCESSED and
+  updated that same message to FAILED. No duplicate message or resend occurred.
+- sent.DM Activities shows no carrier reason/code beyond FAILED. Actual handset
+  delivery, inbound replies and provider-side cause are still unverified.
+
+The earlier test `611406db-4cfa-4494-b3c2-6e92cc3e16a3` / provider
+`7e335b98-0651-4188-a31d-b18a31a11b63` was corrected to FAILED through the existing
+status RPC, based on independently observed sent.DM Activities. An idempotent
+SMS_RECONCILED audit explicitly identifies UI evidence, not a provider API GET.
+No historical message or webhook evidence was deleted and no message was resent.
+
+Final independent SQL check: customers 3, leads 2, messages 2, outbox 1,
+pending/retry/leased outbox 0, jobs 0, consent events 0, webhook events 8.
+The historical correction has exactly one reconciliation audit entry.
+`SENT_DM_DELIVERY_SUPPORT_DRAFT.md` is an unsent provider investigation report.
 
 ## Further audit items and live evidence still required
 
 - Actual first-contact delivery and inbound/compliance replies from the handset.
-- Correct the old FAILED record using provider reconciliation, retaining audit.
+- Diagnose the provider-side FAILED result before any further paid resend.
+- Complete frontend publication and authenticated dashboard composer verification.
 - Real signed event replay and unknown-number routing; no forged customer
   inbound traffic should be represented as a real provider test.
 - AI English/Spanish, escalation, latest context, takeover race and resume.
@@ -82,5 +130,9 @@ AI/scheduled/marketing gates off until their individual live tests pass.
   claims without verifying that token's signature. This is outside the changed
   SMS pipeline and remains a separate security finding. The new communications
   worker verifies the actual credential and does not use that pattern.
+- Lovable's basic scan also flags a public contact write-policy warning and
+  authenticated SECURITY DEFINER execution. These generic findings were not
+  auto-fixed, suppressed or treated as proof that the new private worker RPCs
+  are exposed; their direct privilege checks passed.
 
 Do not mark SMS or Calling READY solely because this source audit passed.
