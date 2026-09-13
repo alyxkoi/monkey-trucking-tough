@@ -64,6 +64,13 @@
       "when": 1789334912929,
       "tag": "0008_phase07_sms_consent_and_inbox",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789334992303,
+      "tag": "0009_phase07_communication_worker",
+      "breakpoints": true
     }
   ]
 }

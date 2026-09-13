@@ -487,6 +487,9 @@ export type Database = {
         Row: {
           activated_at: string | null
           ai_sending_enabled: boolean
+          business_days: number[]
+          business_end_hour: number
+          business_start_hour: number
           id: number
           marketing_approved: boolean
           scheduled_sending_enabled: boolean
@@ -497,6 +500,9 @@ export type Database = {
         Insert: {
           activated_at?: string | null
           ai_sending_enabled?: boolean
+          business_days?: number[]
+          business_end_hour?: number
+          business_start_hour?: number
           id: number
           marketing_approved?: boolean
           scheduled_sending_enabled?: boolean
@@ -507,6 +513,9 @@ export type Database = {
         Update: {
           activated_at?: string | null
           ai_sending_enabled?: boolean
+          business_days?: number[]
+          business_end_hour?: number
+          business_start_hour?: number
           id?: number
           marketing_approved?: boolean
           scheduled_sending_enabled?: boolean
@@ -2619,7 +2628,24 @@ export type Database = {
         Args: { p_lease_token: string; p_message_id: string }
         Returns: Json
       }
+      claim_communication_job: { Args: never; Returns: Json }
       claim_sms: { Args: { p_message_id?: string }; Returns: Json }
+      communication_candidates: {
+        Args: { p_now?: string }
+        Returns: {
+          due_at: string
+          guard: Json
+          lead_id: string
+          rule_id: string
+          step: number
+          subject_id: string
+          subject_type: string
+        }[]
+      }
+      communication_job_eligible: {
+        Args: { p_job_id: string; p_lease_token: string }
+        Returns: boolean
+      }
       complete_job_and_prepare_invoice: {
         Args: { p_job_id: string }
         Returns: string
@@ -2920,6 +2946,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      finish_communication_job: {
+        Args: {
+          p_body?: string
+          p_error?: string
+          p_job_id: string
+          p_lease_token: string
+          p_template_id?: string
+        }
+        Returns: Json
+      }
       ingest_sms_event: {
         Args: {
           p_body?: string
@@ -2972,6 +3008,7 @@ export type Database = {
       next_invoice_number: { Args: never; Returns: string }
       next_quote_number: { Args: never; Returns: string }
       next_ticket_number: { Args: never; Returns: string }
+      plan_communication_jobs: { Args: never; Returns: number }
       process_stripe_checkout_payment: {
         Args: {
           p_amount_cents: number
@@ -3088,6 +3125,19 @@ export type Database = {
       set_tracking_link_archived: {
         Args: { p_archived: boolean; p_tracking_link_id: string }
         Returns: undefined
+      }
+      sms_automation_guard: {
+        Args: {
+          p_guard: Json
+          p_lead_id: string
+          p_now?: string
+          p_rule: string
+        }
+        Returns: boolean
+      }
+      sms_business_time: {
+        Args: { p_at: string; p_hours?: number }
+        Returns: string
       }
       update_customer_contact: {
         Args: { p_customer_id: string; p_email: string; p_phone: string }
