@@ -622,6 +622,8 @@ export type Database = {
           phone: string | null
           sms_consent_at: string | null
           sms_consent_source: string | null
+          sms_double_opt_in_at: string | null
+          sms_opt_out_source: string | null
           sms_opted_out_at: string | null
           updated_at: string
         }
@@ -639,6 +641,8 @@ export type Database = {
           phone?: string | null
           sms_consent_at?: string | null
           sms_consent_source?: string | null
+          sms_double_opt_in_at?: string | null
+          sms_opt_out_source?: string | null
           sms_opted_out_at?: string | null
           updated_at?: string
         }
@@ -656,6 +660,8 @@ export type Database = {
           phone?: string | null
           sms_consent_at?: string | null
           sms_consent_source?: string | null
+          sms_double_opt_in_at?: string | null
+          sms_opt_out_source?: string | null
           sms_opted_out_at?: string | null
           updated_at?: string
         }
@@ -1124,39 +1130,79 @@ export type Database = {
       }
       lead_messages: {
         Row: {
+          automation_rule_id: string | null
           body: string
           created_at: string
           created_by: string | null
           customer_id: string
+          delivered_at: string | null
           delivery_status: string
+          failed_at: string | null
           id: string
+          idempotency_key: string | null
           lead_id: string
+          message_kind: string | null
+          provider: string | null
           provider_message_id: string | null
+          provider_status: string | null
+          provider_template_id: string | null
+          send_error: string | null
           sender_type: string
+          sent_at: string | null
+          updated_at: string
         }
         Insert: {
+          automation_rule_id?: string | null
           body: string
           created_at?: string
           created_by?: string | null
           customer_id: string
+          delivered_at?: string | null
           delivery_status?: string
+          failed_at?: string | null
           id?: string
+          idempotency_key?: string | null
           lead_id: string
+          message_kind?: string | null
+          provider?: string | null
           provider_message_id?: string | null
+          provider_status?: string | null
+          provider_template_id?: string | null
+          send_error?: string | null
           sender_type: string
+          sent_at?: string | null
+          updated_at?: string
         }
         Update: {
+          automation_rule_id?: string | null
           body?: string
           created_at?: string
           created_by?: string | null
           customer_id?: string
+          delivered_at?: string | null
           delivery_status?: string
+          failed_at?: string | null
           id?: string
+          idempotency_key?: string | null
           lead_id?: string
+          message_kind?: string | null
+          provider?: string | null
           provider_message_id?: string | null
+          provider_status?: string | null
+          provider_template_id?: string | null
+          send_error?: string | null
           sender_type?: string
+          sent_at?: string | null
+          updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "lead_messages_automation_rule_id_fkey"
+            columns: ["automation_rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lead_messages_customer_id_fkey"
             columns: ["customer_id"]
@@ -1521,6 +1567,86 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sms_consent_events: {
+        Row: {
+          created_at: string
+          customer_id: string
+          event_type: string
+          id: string
+          keyword: string
+          occurred_at: string
+          provider_message_id: string
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          event_type: string
+          id?: string
+          keyword: string
+          occurred_at: string
+          provider_message_id: string
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          event_type?: string
+          id?: string
+          keyword?: string
+          occurred_at?: string
+          provider_message_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_consent_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_webhook_events: {
+        Row: {
+          error_message: string | null
+          event_key: string
+          event_type: string
+          message_status: string
+          processed_at: string | null
+          processing_status: string
+          provider: string
+          provider_message_id: string
+          received_at: string
+          updated_at: string
+        }
+        Insert: {
+          error_message?: string | null
+          event_key: string
+          event_type: string
+          message_status: string
+          processed_at?: string | null
+          processing_status?: string
+          provider?: string
+          provider_message_id: string
+          received_at?: string
+          updated_at?: string
+        }
+        Update: {
+          error_message?: string | null
+          event_key?: string
+          event_type?: string
+          message_status?: string
+          processed_at?: string | null
+          processing_status?: string
+          provider?: string
+          provider_message_id?: string
+          received_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       stripe_checkout_sessions: {
         Row: {
@@ -2237,7 +2363,15 @@ export type Database = {
           source?: string | null
           visits?: never
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tracking_links_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_link_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -2249,20 +2383,6 @@ export type Database = {
           status: string
         }[]
       }
-      create_tracking_link: {
-        Args: {
-          p_campaign: string
-          p_destination: string
-          p_group_id?: string | null
-          p_slug: string
-          p_source: string
-        }
-        Returns: string
-      }
-      create_tracking_link_group: {
-        Args: { p_name: string }
-        Returns: string
-      }
       activate_stripe_checkout_session: {
         Args: {
           p_checkout_url: string
@@ -2272,6 +2392,14 @@ export type Database = {
           p_stripe_session_id: string
         }
         Returns: undefined
+      }
+      apply_sms_delivery_status: {
+        Args: {
+          p_error_message?: string
+          p_provider_message_id: string
+          p_provider_status: string
+        }
+        Returns: Json
       }
       complete_job_and_prepare_invoice: {
         Args: { p_job_id: string }
@@ -2444,6 +2572,17 @@ export type Database = {
           ticket_number: string
         }[]
       }
+      create_tracking_link: {
+        Args: {
+          p_campaign: string
+          p_destination: string
+          p_group_id?: string
+          p_slug: string
+          p_source: string
+        }
+        Returns: string
+      }
+      create_tracking_link_group: { Args: { p_name: string }; Returns: string }
       create_website_contact_submission: {
         Args: { p_submission: Json }
         Returns: Json
@@ -2473,12 +2612,12 @@ export type Database = {
         Args: { p_confirmation: string; p_reason: string; p_ticket_id: string }
         Returns: Json
       }
-      delete_tracking_link_if_unused: {
-        Args: { p_tracking_link_id: string }
-        Returns: Json
-      }
       delete_tracking_link_group: {
         Args: { p_group_id: string; p_move_links_to_ungrouped?: boolean }
+        Returns: Json
+      }
+      delete_tracking_link_if_unused: {
+        Args: { p_tracking_link_id: string }
         Returns: Json
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
@@ -2514,6 +2653,8 @@ export type Database = {
           phone: string | null
           sms_consent_at: string | null
           sms_consent_source: string | null
+          sms_double_opt_in_at: string | null
+          sms_opt_out_source: string | null
           sms_opted_out_at: string | null
           updated_at: string
         }
@@ -2550,6 +2691,14 @@ export type Database = {
         }
         Returns: number
       }
+      move_tracking_link: {
+        Args: {
+          p_group_id: string
+          p_position: number
+          p_tracking_link_id: string
+        }
+        Returns: undefined
+      }
       next_invoice_number: { Args: never; Returns: string }
       next_quote_number: { Args: never; Returns: string }
       next_ticket_number: { Args: never; Returns: string }
@@ -2575,17 +2724,15 @@ export type Database = {
           read_ct: number
         }[]
       }
-      move_tracking_link: {
-        Args: { p_group_id: string | null; p_position: number; p_tracking_link_id: string }
-        Returns: undefined
-      }
-      rename_tracking_link_group: {
-        Args: { p_group_id: string; p_name: string }
-        Returns: undefined
-      }
-      reorder_tracking_link_groups: {
-        Args: { p_group_ids: string[] }
-        Returns: undefined
+      record_inbound_sms: {
+        Args: {
+          p_body: string
+          p_keyword?: string
+          p_phone: string
+          p_provider_message_id: string
+          p_received_at?: string
+        }
+        Returns: Json
       }
       record_invoice_payment_full: {
         Args: {
@@ -2595,6 +2742,25 @@ export type Database = {
           p_received_at: string
         }
         Returns: string
+      }
+      rename_tracking_link_group: {
+        Args: { p_group_id: string; p_name: string }
+        Returns: undefined
+      }
+      reorder_tracking_link_groups: {
+        Args: { p_group_ids: string[] }
+        Returns: undefined
+      }
+      reserve_manual_sms: {
+        Args: {
+          p_actor_id: string
+          p_body: string
+          p_idempotency_key: string
+          p_lead_id: string
+          p_message_kind: string
+          p_template_id?: string
+        }
+        Returns: Json
       }
       reserve_stripe_checkout_session: {
         Args: {
@@ -2624,6 +2790,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      resolve_inbound_sms_conversation: {
+        Args: { p_phone: string }
+        Returns: Json
       }
       revise_draft_invoice: {
         Args: {
@@ -2711,12 +2881,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2740,11 +2910,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2765,11 +2935,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2790,11 +2960,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2807,11 +2977,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
