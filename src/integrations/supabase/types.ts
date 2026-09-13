@@ -404,6 +404,127 @@ export type Database = {
         }
         Relationships: []
       }
+      communication_jobs: {
+        Row: {
+          attempts: number
+          context: Json
+          created_at: string
+          due_at: string
+          expires_at: string
+          id: string
+          kind: string
+          last_error: string | null
+          lead_id: string
+          lease_token: string | null
+          lease_until: string | null
+          operation_key: string
+          rule_id: string | null
+          state: string
+          trigger_message_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          due_at?: string
+          expires_at?: string
+          id?: string
+          kind: string
+          last_error?: string | null
+          lead_id: string
+          lease_token?: string | null
+          lease_until?: string | null
+          operation_key: string
+          rule_id?: string | null
+          state?: string
+          trigger_message_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          due_at?: string
+          expires_at?: string
+          id?: string
+          kind?: string
+          last_error?: string | null
+          lead_id?: string
+          lease_token?: string | null
+          lease_until?: string | null
+          operation_key?: string
+          rule_id?: string | null
+          state?: string
+          trigger_message_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_jobs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_jobs_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_jobs_trigger_message_id_fkey"
+            columns: ["trigger_message_id"]
+            isOneToOne: false
+            referencedRelation: "lead_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_runtime: {
+        Row: {
+          activated_at: string | null
+          ai_sending_enabled: boolean
+          business_days: number[]
+          business_end_hour: number
+          business_start_hour: number
+          id: number
+          marketing_approved: boolean
+          scheduled_sending_enabled: boolean
+          test_numbers: string[]
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          ai_sending_enabled?: boolean
+          business_days?: number[]
+          business_end_hour?: number
+          business_start_hour?: number
+          id: number
+          marketing_approved?: boolean
+          scheduled_sending_enabled?: boolean
+          test_numbers?: string[]
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          ai_sending_enabled?: boolean
+          business_days?: number[]
+          business_end_hour?: number
+          business_start_hour?: number
+          id?: number
+          marketing_approved?: boolean
+          scheduled_sending_enabled?: boolean
+          test_numbers?: string[]
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contact_submissions: {
         Row: {
           campaign: string | null
@@ -498,6 +619,8 @@ export type Database = {
       }
       control_center_settings: {
         Row: {
+          ai_english: boolean
+          ai_spanish: boolean
           ai_status: string
           business_number: string | null
           calling_status: string
@@ -505,6 +628,7 @@ export type Database = {
           custom_work_tax_rule: string
           default_invoice_due_days: number
           email_status: string
+          human_takeover_on_reply: boolean
           id: number
           payment_processor_status: string
           printable_logo_status: string
@@ -515,6 +639,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_english?: boolean
+          ai_spanish?: boolean
           ai_status?: string
           business_number?: string | null
           calling_status?: string
@@ -522,6 +648,7 @@ export type Database = {
           custom_work_tax_rule?: string
           default_invoice_due_days?: number
           email_status?: string
+          human_takeover_on_reply?: boolean
           id?: number
           payment_processor_status?: string
           printable_logo_status?: string
@@ -532,6 +659,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_english?: boolean
+          ai_spanish?: boolean
           ai_status?: string
           business_number?: string | null
           calling_status?: string
@@ -539,6 +668,7 @@ export type Database = {
           custom_work_tax_rule?: string
           default_invoice_due_days?: number
           email_status?: string
+          human_takeover_on_reply?: boolean
           id?: number
           payment_processor_status?: string
           printable_logo_status?: string
@@ -622,7 +752,11 @@ export type Database = {
           phone: string | null
           sms_consent_at: string | null
           sms_consent_source: string | null
+          sms_consent_updated_at: string | null
           sms_double_opt_in_at: string | null
+          sms_marketing_consent_at: string | null
+          sms_opt_in_request_message_id: string | null
+          sms_opt_in_requested_at: string | null
           sms_opt_out_source: string | null
           sms_opted_out_at: string | null
           updated_at: string
@@ -641,7 +775,11 @@ export type Database = {
           phone?: string | null
           sms_consent_at?: string | null
           sms_consent_source?: string | null
+          sms_consent_updated_at?: string | null
           sms_double_opt_in_at?: string | null
+          sms_marketing_consent_at?: string | null
+          sms_opt_in_request_message_id?: string | null
+          sms_opt_in_requested_at?: string | null
           sms_opt_out_source?: string | null
           sms_opted_out_at?: string | null
           updated_at?: string
@@ -660,7 +798,11 @@ export type Database = {
           phone?: string | null
           sms_consent_at?: string | null
           sms_consent_source?: string | null
+          sms_consent_updated_at?: string | null
           sms_double_opt_in_at?: string | null
+          sms_marketing_consent_at?: string | null
+          sms_opt_in_request_message_id?: string | null
+          sms_opt_in_requested_at?: string | null
           sms_opt_out_source?: string | null
           sms_opted_out_at?: string | null
           updated_at?: string
@@ -1222,6 +1364,7 @@ export type Database = {
       leads: {
         Row: {
           campaign: string | null
+          conversation_revision: number
           created_at: string
           created_by: string | null
           customer_id: string
@@ -1237,6 +1380,7 @@ export type Database = {
         }
         Insert: {
           campaign?: string | null
+          conversation_revision?: number
           created_at?: string
           created_by?: string | null
           customer_id: string
@@ -1252,6 +1396,7 @@ export type Database = {
         }
         Update: {
           campaign?: string | null
+          conversation_revision?: number
           created_at?: string
           created_by?: string | null
           customer_id?: string
@@ -1609,12 +1754,88 @@ export type Database = {
           },
         ]
       }
+      sms_outbox: {
+        Row: {
+          attempts: number
+          conversation_revision: number
+          created_at: string
+          expires_at: string
+          first_attempt_at: string | null
+          guard: Json
+          last_error: string | null
+          lease_token: string | null
+          lease_until: string | null
+          message_id: string
+          next_attempt_at: string
+          operation_key: string
+          origin: string
+          payload: Json
+          state: string
+          trigger_message_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          conversation_revision: number
+          created_at?: string
+          expires_at?: string
+          first_attempt_at?: string | null
+          guard?: Json
+          last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          message_id: string
+          next_attempt_at?: string
+          operation_key: string
+          origin: string
+          payload: Json
+          state?: string
+          trigger_message_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          conversation_revision?: number
+          created_at?: string
+          expires_at?: string
+          first_attempt_at?: string | null
+          guard?: Json
+          last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          message_id?: string
+          next_attempt_at?: string
+          operation_key?: string
+          origin?: string
+          payload?: Json
+          state?: string
+          trigger_message_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_outbox_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: true
+            referencedRelation: "lead_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_outbox_trigger_message_id_fkey"
+            columns: ["trigger_message_id"]
+            isOneToOne: false
+            referencedRelation: "lead_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sms_webhook_events: {
         Row: {
           error_message: string | null
           event_key: string
           event_type: string
           message_status: string
+          occurred_at: string | null
           processed_at: string | null
           processing_status: string
           provider: string
@@ -1627,6 +1848,7 @@ export type Database = {
           event_key: string
           event_type: string
           message_status: string
+          occurred_at?: string | null
           processed_at?: string | null
           processing_status?: string
           provider?: string
@@ -1639,6 +1861,7 @@ export type Database = {
           event_key?: string
           event_type?: string
           message_status?: string
+          occurred_at?: string | null
           processed_at?: string | null
           processing_status?: string
           provider?: string
@@ -2363,7 +2586,15 @@ export type Database = {
           source?: string | null
           visits?: never
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tracking_links_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "tracking_link_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -2393,9 +2624,40 @@ export type Database = {
         }
         Returns: Json
       }
+      authorize_sms_dispatch: {
+        Args: { p_lease_token: string; p_message_id: string }
+        Returns: Json
+      }
+      claim_communication_job: { Args: never; Returns: Json }
+      claim_sms: { Args: { p_message_id?: string }; Returns: Json }
+      communication_candidates: {
+        Args: { p_now?: string }
+        Returns: {
+          due_at: string
+          guard: Json
+          lead_id: string
+          rule_id: string
+          step: number
+          subject_id: string
+          subject_type: string
+        }[]
+      }
+      communication_job_eligible: {
+        Args: { p_job_id: string; p_lease_token: string }
+        Returns: boolean
+      }
       complete_job_and_prepare_invoice: {
         Args: { p_job_id: string }
         Returns: string
+      }
+      complete_sms_dispatch: {
+        Args: {
+          p_lease_token: string
+          p_message_id: string
+          p_provider_message_id: string
+          p_status: string
+        }
+        Returns: Json
       }
       confirm_worker_payment_details: {
         Args: { p_worker_payment_id: string }
@@ -2568,7 +2830,7 @@ export type Database = {
         Args: {
           p_campaign: string
           p_destination: string
-          p_group_id?: string | null
+          p_group_id?: string
           p_slug: string
           p_source: string
         }
@@ -2617,6 +2879,29 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      enqueue_sms: {
+        Args: {
+          p_actor_id?: string
+          p_body: string
+          p_guard?: Json
+          p_lead_id: string
+          p_operation_key: string
+          p_origin: string
+          p_rule_id?: string
+          p_template_id?: string
+          p_trigger_message_id?: string
+        }
+        Returns: Json
+      }
+      fail_sms_dispatch: {
+        Args: {
+          p_error: string
+          p_lease_token: string
+          p_message_id: string
+          p_retryable: boolean
+        }
+        Returns: undefined
+      }
       fail_stripe_checkout_session: {
         Args: { p_reason: string; p_reservation_id: string }
         Returns: undefined
@@ -2645,7 +2930,11 @@ export type Database = {
           phone: string | null
           sms_consent_at: string | null
           sms_consent_source: string | null
+          sms_consent_updated_at: string | null
           sms_double_opt_in_at: string | null
+          sms_marketing_consent_at: string | null
+          sms_opt_in_request_message_id: string | null
+          sms_opt_in_requested_at: string | null
           sms_opt_out_source: string | null
           sms_opted_out_at: string | null
           updated_at: string
@@ -2656,6 +2945,31 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      finish_communication_job: {
+        Args: {
+          p_body?: string
+          p_error?: string
+          p_job_id: string
+          p_lease_token: string
+          p_template_id?: string
+        }
+        Returns: Json
+      }
+      ingest_sms_event: {
+        Args: {
+          p_body?: string
+          p_business_number: string
+          p_error?: string
+          p_event_type: string
+          p_inbound: boolean
+          p_keyword?: string
+          p_message_id: string
+          p_occurred_at?: string
+          p_phone?: string
+          p_status: string
+        }
+        Returns: Json
       }
       is_admin_or_staff:
         | { Args: never; Returns: boolean }
@@ -2685,7 +2999,7 @@ export type Database = {
       }
       move_tracking_link: {
         Args: {
-          p_group_id: string | null
+          p_group_id: string
           p_position: number
           p_tracking_link_id: string
         }
@@ -2694,6 +3008,7 @@ export type Database = {
       next_invoice_number: { Args: never; Returns: string }
       next_quote_number: { Args: never; Returns: string }
       next_ticket_number: { Args: never; Returns: string }
+      plan_communication_jobs: { Args: never; Returns: number }
       process_stripe_checkout_payment: {
         Args: {
           p_amount_cents: number
@@ -2787,6 +3102,10 @@ export type Database = {
         Args: { p_phone: string }
         Returns: Json
       }
+      resume_conversation_ai: {
+        Args: { p_actor_id: string; p_lead_id: string }
+        Returns: undefined
+      }
       revise_draft_invoice: {
         Args: {
           p_amount: number
@@ -2806,6 +3125,19 @@ export type Database = {
       set_tracking_link_archived: {
         Args: { p_archived: boolean; p_tracking_link_id: string }
         Returns: undefined
+      }
+      sms_automation_guard: {
+        Args: {
+          p_guard: Json
+          p_lead_id: string
+          p_now?: string
+          p_rule: string
+        }
+        Returns: boolean
+      }
+      sms_business_time: {
+        Args: { p_at: string; p_hours?: number }
+        Returns: string
       }
       update_customer_contact: {
         Args: { p_customer_id: string; p_email: string; p_phone: string }
