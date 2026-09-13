@@ -2920,6 +2920,21 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ingest_sms_event: {
+        Args: {
+          p_body?: string
+          p_business_number: string
+          p_error?: string
+          p_event_type: string
+          p_inbound: boolean
+          p_keyword?: string
+          p_message_id: string
+          p_occurred_at?: string
+          p_phone?: string
+          p_status: string
+        }
+        Returns: Json
+      }
       is_admin_or_staff:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
@@ -3049,6 +3064,10 @@ export type Database = {
       resolve_inbound_sms_conversation: {
         Args: { p_phone: string }
         Returns: Json
+      }
+      resume_conversation_ai: {
+        Args: { p_actor_id: string; p_lead_id: string }
+        Returns: undefined
       }
       revise_draft_invoice: {
         Args: {
