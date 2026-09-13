@@ -7,6 +7,7 @@ Provider configuration created on 2026-09-13:
 - First-contact template `Monkey Trucking Update`
 - Template ID `48d013e5-debe-4efa-864b-c90798242ab4`
 - Template status at creation: `PENDING`
+- Current template status: `APPROVED` on 2026-09-13
 - Production webhook `Monkey Trucking Production SMS`
 - Webhook subscribed to all ten `message.*` event types
 - Protected STOP, START, and HELP auto-replies were already `APPROVED`
@@ -20,7 +21,10 @@ Production deployment completed on 2026-09-13:
 - Unsigned webhook request rejected without a database write
 - sent.DM signed `message.queued` test reached the production webhook successfully
 - Existing counts preserved at deployment: 3 customers, 2 leads, 0 lead messages
-- SMS and Calling remain `SETUP_REQUIRED`
+- A rollback-only production transaction passed unknown inbound, duplicate
+  inbound, STOP, START, HELP, manual reservation, human takeover, delivery
+  updates, and webhook idempotency checks with no retained fixture data
+- SMS is `TESTING`; Calling remains `SETUP_REQUIRED`
 
 The migration intentionally leaves SMS and Calling in `SETUP_REQUIRED`.
 Neither status is changed automatically by a deploy or an API response.
@@ -66,12 +70,12 @@ Subscribe it to the canonical `message` event, including received, queued,
 routed, scheduled, sent, delivered, failed, filtered, and blocked statuses.
 Copy the webhook signing secret to Supabase before enabling live deliveries.
 
-Do not enter `TESTING` until the first-contact template status changes from
-`PENDING` to `APPROVED`.
+The first-contact template is approved and SMS entered `TESTING` on 2026-09-13.
 
 ## 4. Enter testing state
 
-After secrets and the webhook are deployed, set only SMS to `TESTING`:
+After secrets and the webhook are deployed and the template is approved, set
+only SMS to `TESTING`:
 
 ```sql
 update public.control_center_settings
@@ -79,7 +83,8 @@ set sms_status = 'TESTING', updated_at = now()
 where id = 1;
 ```
 
-The normal dashboard composer remains locked until the final READY decision.
+This step is complete in production. The normal dashboard composer remains
+locked until the final READY decision.
 Use an authenticated admin/staff function invocation for the controlled live
 test. Do not test against a real customer record.
 
