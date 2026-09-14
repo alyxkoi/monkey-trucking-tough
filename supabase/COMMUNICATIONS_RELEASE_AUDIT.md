@@ -187,6 +187,15 @@ Do not mark SMS or Calling READY solely because this source audit passed.
   DELIVERED, one attempt, and the exact text in the immutable outbound payload.
   Dashboard displayed delivered and cleared the composer after success.
   Each consent, YES and free-form message has exactly one provider-linked row.
-- Awaiting owner's handset appearance confirmation and real STOP test.
+- Owner confirmed the free-form reply looked clean on the handset, without
+  the template prefix/footer. Real STOP arrived at 15:49:54 UTC, local
+  `98928a2a-d63d-4d62-b300-2bd8da0574f4`, provider
+  `b1e64cc5-3caa-4229-aeb4-f48b4b0f624a`. SQL verified PROCESSED, one OPT_OUT
+  event, matching sms_opted_out_at, source SENT_DM_STOP, takeover true, and
+  zero active jobs/outbox. A subsequent authenticated dashboard send was
+  rejected with "Customer has opted out of SMS"; the composer retained the
+  draft, and SQL verified zero message rows for the blocked test body. The
+  test draft was then cleared. Marketing consent remains null.
+- START/HELP handset actions requested; provider auto-reply receipt pending.
   START/HELP, signed replay, unknown-number production evidence, controlled
   AI and scheduled-rule tests remain launch gates. SMS remains TESTING.
