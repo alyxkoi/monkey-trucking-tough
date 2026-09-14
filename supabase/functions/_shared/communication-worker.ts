@@ -26,6 +26,11 @@ export function autonomousReply(decision: any, pricing: any): string {
 
 const spanish = (text: string) => /\b(hola|necesito|quiero|cuanto|cuánto|yardas|cargas|entrega|direccion|dirección|gracias|ocupo|camino)\b/i.test(text)
 
+export function jobReminderText(when: string, es: boolean) {
+  const compactWhen = when.replace(/[\u00a0\u202f]/g, ' ').replace(/\s+/g, ' ').replace(/\.+$/, '')
+  return es ? `Recordatorio: su trabajo es el ${compactWhen}.` : `Reminder: your job is ${compactWhen}.`
+}
+
 async function scheduledText(service: any, job: any, config: AiConfig) {
   if (['new-lead','quote-follow-up'].includes(job.rule_id)) {
     const result = await generateAiDraft(service, { mode: 'AUTOMATION_DRY_RUN', automation_rule_id: job.rule_id,
@@ -43,10 +48,9 @@ async function scheduledText(service: any, job: any, config: AiConfig) {
   if (job.rule_id === 'job-reminder') {
     // The guard's anchor is a database-converted real scheduled timestamp.
     const when = new Intl.DateTimeFormat(es ? 'es-US' : 'en-US', {
-      timeZone: runtime.data.timezone, weekday:'long',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',
+      timeZone: runtime.data.timezone, weekday:'long',day:'numeric',hour:'numeric',minute:'2-digit',
     }).format(new Date(job.context.anchor))
-    return es ? `un recordatorio de monkey trucking. su trabajo está programado para ${when}. avísenos si hay algo que debamos saber antes de llegar.`
-      : `a reminder from monkey trucking. your job is scheduled for ${when}. please let us know if there is anything we should know before arriving.`
+    return jobReminderText(when, es)
   }
   const invoice = await service.from('invoices').select('amount,invoice_number').eq('id',job.context.subject_id).eq('customer_id',lead.data.customer_id).single()
   if (invoice.error || !Number.isFinite(Number(invoice.data.amount))) throw new Error('Invoice context unavailable')

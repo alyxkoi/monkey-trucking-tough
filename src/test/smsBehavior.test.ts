@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createHmac } from 'node:crypto'
 import { dispatchSms } from '../../supabase/functions/_shared/sms-dispatch'
 import { verifySignature } from '../../supabase/functions/_shared/sms-signature'
-import { autonomousReply } from '../../supabase/functions/_shared/communication-worker'
+import { autonomousReply, jobReminderText } from '../../supabase/functions/_shared/communication-worker'
 import { generateAiDraft, materialTool } from '../../supabase/functions/_shared/ai-engine'
 
 afterEach(()=>vi.unstubAllGlobals())
@@ -17,6 +17,13 @@ function senderService(overrides:Record<string,unknown>={}) {
 }
 
 describe('SMS transport behavior',()=>{
+  it('keeps localized job reminders concise and removes doubled punctuation',()=>{
+    const spanishReminder=jobReminderText('martes, 15, 12:02\u202fp.\u00a0m.',true)
+    expect(spanishReminder).toBe('Recordatorio: su trabajo es el martes, 15, 12:02 p. m.')
+    expect(spanishReminder.length).toBeLessThanOrEqual(67)
+    expect(spanishReminder).not.toContain('..')
+    expect(jobReminderText('Tuesday 15, 12:02 PM.',false)).toBe('Reminder: your job is Tuesday 15, 12:02 PM.')
+  })
   it('submits only the reserved immutable payload with one stable provider key',async()=>{
     const service=senderService()
     const fetcher=vi.fn(async()=>new Response(JSON.stringify({data:{recipients:[{message_id:'provider-id',status:'QUEUED'}]}}),{status:202}))

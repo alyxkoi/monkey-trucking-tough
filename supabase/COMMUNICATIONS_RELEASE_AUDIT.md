@@ -431,3 +431,34 @@ Do not mark SMS or Calling READY solely because this source audit passed.
   of the same sample. This is not being overstated: live database duplicate
   handling is proven separately above, while a provider-signed duplicate of a
   previously processed real event remains unavailable from the current UI.
+
+## September 14: controlled scheduled job-reminder test
+
+- Preflight verified the owner test customer retained consent and double opt-in,
+  had no opt-out, no takeover, no active business job and no active communication
+  job. A clearly labeled synthetic job `7f0197a5-30a5-4d1c-b846-6ec1d7dfdd76`
+  was scheduled about 24 hours ahead. Only `job-reminder` was temporarily set ON
+  and scheduled sending was temporarily enabled; SMS stayed TESTING with the
+  same single-number allowlist and every other sending rule stayed disabled.
+- The 17:03 UTC minute worker succeeded and created one AUTOMATION job
+  `74aa633f-a1f6-4480-8904-053bdd0814b8`. It completed DONE after one attempt,
+  reserving local message `298e9ecc-12fb-4e77-b0de-dd4fa6d8219b` and provider
+  message `c543f535-c4a5-48ce-bd82-92b322bd83ec`. The outbox reached ACCEPTED
+  after one provider submission; queued, routed and sent webhooks were processed
+  without duplicate message rows or send errors.
+- Immediately after the one reservation, scheduled sending was set false,
+  activated_at was cleared, `job-reminder` returned to SETUP_REQUIRED and the
+  synthetic business job was marked CANCELLED with an explicit test-complete
+  reason. Final cleanup showed zero active jobs and zero active/review outbox.
+- sent.DM Activity exposed a presentation/cost issue: the first reminder counted
+  as three segments, and localized `p. m.` punctuation
+  produced a doubled period. The worker now uses a compact reminder containing
+  only the verified weekday, day and time, normalizes non-breaking spaces and
+  strips trailing periods before adding one final period. The Spanish regression
+  is at most 67 characters; it contains no repeated opt-out footer or automatic
+  brand preamble. The original reminder subsequently reached DELIVERED through
+  four processed lifecycle events: queued, routed, sent and delivered. The new
+  regression failed on the old behavior; all 49 focused SMS tests and all 271
+  repository tests pass after the fix, targeted lint is clean and the production
+  build succeeds. Deployment and one final carrier-confirmed retest remain
+  required before enabling scheduling.
