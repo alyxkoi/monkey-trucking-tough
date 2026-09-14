@@ -67,6 +67,9 @@ describe('sent.DM transport contracts', () => {
     expect(source('supabase/migrations/20260913170000_durable_sms_pipeline.sql')).toContain("'channel',jsonb_build_array('sms')")
     expect(sender).toContain("'Idempotency-Key': sentDmIdempotencyKey(message_id)")
     expect(sender.indexOf("service.rpc('enqueue_sms'")).toBeLessThan(sender.indexOf("await dispatchSms("))
+    expect(sender).toContain('Please reply YES to confirm you want texts about your request and service.')
+    expect(sender).not.toContain('texts from Monkey Trucking about your request and service.')
+    expect(sender).not.toContain('Reply STOP to opt out or HELP for help.')
     expect(sender).not.toContain("sms_status: 'READY'")
   })
 

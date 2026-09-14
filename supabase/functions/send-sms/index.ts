@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     if (!UUID_PATTERN.test(input?.requestId ?? '')) throw new HttpError(400, 'A stable request ID is required')
     const optIn = input?.action === 'request-opt-in'
     const text = optIn
-      ? 'Please reply YES to confirm you want texts from Monkey Trucking about your request and service. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help.'
+      ? 'Please reply YES to confirm you want texts about your request and service. Message frequency varies. Message and data rates may apply. Reply HELP for help.'
       : typeof input?.body === 'string' ? input.body.trim() : ''
     if (!text || text.length > 1600) throw new HttpError(400, 'Enter a message between 1 and 1600 characters')
     const apiKey = Deno.env.get('SENT_DM_API_KEY')
