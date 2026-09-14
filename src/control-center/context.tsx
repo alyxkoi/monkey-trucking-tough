@@ -1,11 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { flushQueue, getPendingCount } from "@/lib/admin/tickets";
 import { invoiceStatus, loadControlData, type ControlData } from "./data";
 import { useDemoMode } from "./demo/DemoMode";
-import { subscribeToCommunicationChanges } from './communicationRealtime';
+import { applyCommunicationRealtimeChange, subscribeToCommunicationChanges } from './communicationRealtime';
 
 export type NewAction = "menu" | "lead" | "job" | "payment" | null;
 export type AttentionItem = {
@@ -163,6 +163,7 @@ function deriveAttention(data: ControlData): AttentionItem[] {
 export function ControlCenterProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const demo = useDemoMode();
+  const queryClient = useQueryClient();
   const [action, setAction] = useState<NewAction>(null);
   const [pendingTickets, setPendingTickets] = useState(0);
   const loadDashboardData = useCallback(async () => {
@@ -236,8 +237,14 @@ export function ControlCenterProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (demo.enabled || !user?.id) return;
-    return subscribeToCommunicationChanges(refresh);
-  }, [demo.enabled, refresh, user?.id]);
+    return subscribeToCommunicationChanges({
+      refresh,
+      applyChange: (change) => {
+        queryClient.setQueryData<ControlData>(["admin", "control-center"], (current) =>
+          current ? applyCommunicationRealtimeChange(current, change) : current);
+      },
+    });
+  }, [demo.enabled, queryClient, refresh, user?.id]);
 
   const activeData = demo.enabled ? demo.data : query.data ?? null;
   const fixturePending = demo.enabled
