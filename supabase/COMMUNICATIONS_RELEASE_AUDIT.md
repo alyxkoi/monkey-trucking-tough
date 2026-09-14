@@ -344,3 +344,43 @@ Do not mark SMS or Calling READY solely because this source audit passed.
   literal bilingual name (including both 1-inch/3-inch options); it did not
   invent a variant-specific price or a booking. Human-request escalation is
   the next controlled conversational test; SMS remains TESTING.
+
+## September 14: explicit human request and operational checkpoint
+
+- Real request for Salvador arrived at 16:30:22 UTC, local
+  `c97648af-767e-4d41-b5b3-a48088a84a69`, provider
+  `5b6807d8-2458-41bf-b6ca-97ae549145ff`. Prompt-v4 audit
+  `f663a95d-5410-45f9-9c6b-2f7d282a2e24` records requires_human true,
+  ai_may_continue false and reason "Customer requested a human."
+- Job `9f3e81a3-ebb4-499c-a15b-d9b5920ec03e` ended in the existing FAILED
+  safety-stop state after one evaluation, with no outbound reply. Activity
+  `a881dda3-a2d0-447d-8ce5-f2019eb8709d` records AI_REQUIRES_HUMAN at
+  16:31:07 UTC. This is a successful escalation test, not a provider failure.
+- Operational checkpoint: one process-communications-minute cron, most recent
+  16:33 UTC run succeeded, zero active jobs, zero active outbox and zero REVIEW
+  outbox. Runtime remains SMS TESTING, AI enabled only for the owner handset,
+  scheduled/marketing false, activated_at null and Calling SETUP_REQUIRED.
+  Cron SQL execution success alone is not proof of downstream SMS delivery;
+  the separate provider-linked tests above supply that evidence.
+- Owner restored the sent.DM browser session. The active production webhook
+  `584720ad-a0ff-418b-beb9-bf37c33dd51a` still listens to ten event types.
+  Its price-message delivered event shows HTTP 200 and the correct existing
+  local message/customer/lead IDs in the endpoint response. No webhook settings
+  or credentials were changed or exposed.
+- Inspected per-event details and webhook test controls. The available test
+  form sends sample events, not a selected historical event; no sample event
+  was sent. Current provider documentation confirms message-based deduplication
+  rather than treating the webhook-configuration ID as a unique delivery ID:
+  https://docs.sent.dm/start/webhooks/handling-retries . The deployed handler
+  already uses provider message ID plus status, consistent with that contract.
+- Controlled database-level replay invoked the deployed ingest_sms_event for
+  the already-PROCESSED human-request inbound and price DELIVERED transition.
+  Both returned duplicate:true. Follow-up SQL confirms one local message and
+  one matching event row per provider ID, only the original human-request job,
+  no triggered outbox, and unchanged RECEIVED/DELIVERED statuses. This proves
+  live database duplicate handling, not a full signed HTTP replay.
+- Remaining release evidence: a genuinely unknown handset, signed HTTP replay,
+  controlled scheduled transactional rule and broader scheduling/lease guards.
+  Owner was asked to have a different phone send a labeled integration test;
+  it must not be enrolled or automatically contacted. No additional number
+  was assumed, no historical consent fabricated, and no scheduled rule enabled.
