@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, CircleAlert, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,28 +16,42 @@ const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const redirecting = useRef(false);
+  const passwordInput = useRef<HTMLInputElement>(null);
+
+  const goToControlCenter = useCallback(() => {
+    if (redirecting.current) return;
+    redirecting.current = true;
+    navigate("/admin", { replace: true });
+  }, [navigate]);
 
   useEffect(() => {
-    if (user) navigate("/admin", { replace: true });
-  }, [user, navigate]);
+    if (user) goToControlCenter();
+  }, [user, goToControlCenter]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy) return;
+
     setBusy(true);
     setError(null);
-    const { error: err } = await signIn(email.trim(), password);
-    setBusy(false);
-    if (err) {
-      setError("Sign in failed. Check your email and password.");
-      return;
+    try {
+      const { error: err } = await signIn(email.trim(), password);
+      if (err) {
+        const offline = !navigator.onLine || /network|fetch|reach/i.test(err);
+        setError(offline
+          ? "We couldn't reach the sign-in service. Check your connection and try again."
+          : "That email or password is incorrect.");
+        passwordInput.current?.focus({ preventScroll: true });
+        return;
+      }
+      goToControlCenter();
+    } catch {
+      setError("We couldn't reach the sign-in service. Check your connection and try again.");
+      passwordInput.current?.focus({ preventScroll: true });
+    } finally {
+      setBusy(false);
     }
-    navigate("/admin", { replace: true });
-  };
-
-  // Keep the focused field (and the button below it) above the keyboard.
-  const keepVisible = (e: React.FocusEvent<HTMLInputElement>) => {
-    const el = e.currentTarget;
-    window.setTimeout(() => el.scrollIntoView({ block: "center", behavior: "smooth" }), 250);
   };
 
   return (
@@ -87,8 +101,10 @@ const SignIn = () => {
                 spellCheck={false}
                 required
                 value={email}
-                onFocus={keepVisible}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (error) setError(null);
+                }}
                 aria-invalid={Boolean(error)}
                 aria-describedby={error ? "signin-error" : undefined}
                 className="signin-input"
@@ -96,16 +112,22 @@ const SignIn = () => {
             </div>
 
             <div className="signin-field">
-              <label htmlFor="signin-password" className="signin-label">Password</label>
+              <div className="signin-field__heading">
+                <label htmlFor="signin-password" className="signin-label">Password</label>
+                <Link to="/forgot-password" className="signin-text-link">Forgot password?</Link>
+              </div>
               <div className="signin-password">
                 <Input
+                  ref={passwordInput}
                   id="signin-password"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   required
                   value={password}
-                  onFocus={keepVisible}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (error) setError(null);
+                  }}
                   aria-invalid={Boolean(error)}
                   aria-describedby={error ? "signin-error" : undefined}
                   className="signin-input signin-input--password"
@@ -123,12 +145,14 @@ const SignIn = () => {
               </div>
             </div>
 
-            {error && (
-              <p id="signin-error" role="alert" className="signin-error">
-                <CircleAlert aria-hidden="true" />
-                <span>{error}</span>
-              </p>
-            )}
+            <div className="signin-feedback" aria-live="polite">
+              {error && (
+                <p id="signin-error" role="alert" className="signin-error">
+                  <CircleAlert aria-hidden="true" />
+                  <span>{error}</span>
+                </p>
+              )}
+            </div>
 
             <Button type="submit" disabled={busy} className="signin-submit">
               {busy && <LoaderCircle aria-hidden="true" className="signin-spinner" />}

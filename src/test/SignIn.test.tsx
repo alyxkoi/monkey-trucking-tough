@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { HelmetProvider } from "react-helmet-async";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import SignIn from "@/pages/SignIn";
 
@@ -18,7 +19,9 @@ vi.mock("react-router-dom", async (importOriginal) => {
 
 const renderSignIn = () => render(
   <HelmetProvider>
-    <SignIn />
+    <MemoryRouter>
+      <SignIn />
+    </MemoryRouter>
   </HelmetProvider>,
 );
 
@@ -49,7 +52,7 @@ describe("standalone sign-in page", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "wrong-password" } });
     fireEvent.submit(screen.getByRole("button", { name: "SIGN IN" }).closest("form")!);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Sign in failed. Check your email and password.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("That email or password is incorrect.");
     expect(screen.getByLabelText("Email")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByLabelText("Password")).toHaveAttribute("aria-invalid", "true");
     expect(navigate).not.toHaveBeenCalled();
@@ -64,6 +67,24 @@ describe("standalone sign-in page", () => {
     fireEvent.submit(screen.getByRole("button", { name: "SIGN IN" }).closest("form")!);
 
     expect(await screen.findByRole("button", { name: "SIGNING IN…" })).toBeDisabled();
+  });
+
+  it("recovers from an unexpected authentication exception", async () => {
+    signIn.mockRejectedValue(new Error("network failed"));
+    renderSignIn();
+
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "salvador@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "wrong-password" } });
+    fireEvent.submit(screen.getByRole("button", { name: "SIGN IN" }).closest("form")!);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("sign-in service");
+    expect(screen.getByRole("button", { name: "SIGN IN" })).toBeEnabled();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("links directly to password recovery", () => {
+    renderSignIn();
+    expect(screen.getByRole("link", { name: "Forgot password?" })).toHaveAttribute("href", "/forgot-password");
   });
 
   it("reveals and hides the password without changing its value", () => {

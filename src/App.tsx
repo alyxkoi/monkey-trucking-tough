@@ -22,6 +22,8 @@ const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const SignIn = lazy(() => import("./pages/SignIn"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const PublicQuote = lazy(() => import("./pages/CustomerDocument").then((module) => ({ default: module.PublicQuote })));
 const PublicInvoice = lazy(() => import("./pages/CustomerDocument").then((module) => ({ default: module.PublicInvoice })));
 const ControlCenterLayout = lazy(() => import("./control-center/ExactControlCenterLayout"));
@@ -86,6 +88,8 @@ const App = () => (
               </Route>
               <Route path="/driveways" element={<Driveways />} />
               <Route path="/signin" element={<SignIn />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/quote/:token" element={<PublicQuote />} />
               <Route path="/invoice/:token" element={<PublicInvoice />} />
               <Route path="/admin" element={<ControlCenterLayout />}>

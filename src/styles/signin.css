@@ -71,6 +71,8 @@
 
 .signin-back:focus-visible,
 .signin-password__toggle:focus-visible,
+.signin-text-link:focus-visible,
+.signin-secondary-action:focus-visible,
 .signin-submit:focus-visible {
   outline: 2px solid var(--signin-ink);
   outline-offset: 3px;
@@ -120,7 +122,11 @@
 
 .signin-form { display: grid; gap: 1.15rem; margin-top: 2rem; }
 .signin-field { display: grid; gap: 0.55rem; }
+.signin-field__heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .signin-label { color: rgba(245, 245, 247, 0.76); font-family: "Barlow Semi Condensed", Barlow, Inter, sans-serif; font-size: 0.78rem; font-weight: 700; line-height: 1; letter-spacing: 0.12em; text-transform: uppercase; }
+.signin-text-link { color: rgba(245, 245, 247, 0.68); font-size: 0.83rem; font-weight: 600; text-decoration: none; transition: color 180ms ease; }
+.signin-text-link:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+.signin-field-hint { margin: 0; color: rgba(245, 245, 247, 0.48); font-size: 0.8rem; line-height: 1.35; }
 
 .signin-card .signin-input {
   height: 56px;
@@ -151,8 +157,25 @@
 .signin-password__toggle:hover { background: rgba(245, 245, 247, 0.07); color: var(--signin-ink); }
 .signin-password__toggle:focus-visible { outline-offset: -2px; }
 
+.signin-icon-input { position: relative; }
+.signin-icon-input > svg { position: absolute; top: 50%; left: 1rem; z-index: 1; width: 18px; height: 18px; color: rgba(245, 245, 247, 0.44); transform: translateY(-50%); pointer-events: none; }
+.signin-card .signin-input--icon { padding-left: 2.8rem; }
+
+.signin-feedback { min-height: 54px; }
 .signin-error { display: flex; align-items: flex-start; gap: 0.6rem; margin: -0.1rem 0 0; border: 1px solid rgba(255, 49, 49, 0.2); border-left: 3px solid var(--signin-red); border-radius: 8px; background: rgba(255, 49, 49, 0.08); padding: 0.75rem 0.8rem; color: #ff9696; font-size: 0.875rem; line-height: 1.42; animation: signin-error-enter 220ms ease-out both; }
 .signin-error svg { width: 17px; height: 17px; flex: 0 0 auto; margin-top: 0.08rem; }
+
+.signin-state { display: grid; gap: 1.2rem; margin-top: 2rem; }
+.signin-state--center { min-height: 170px; place-content: center; justify-items: center; color: var(--signin-muted); font-size: 0.92rem; }
+.signin-notice { display: flex; align-items: flex-start; gap: 0.8rem; border: 1px solid rgba(255, 49, 49, 0.22); border-radius: 12px; background: rgba(255, 49, 49, 0.075); padding: 1rem; color: #ffc1c1; }
+.signin-notice > svg { width: 21px; height: 21px; flex: 0 0 auto; margin-top: 0.08rem; }
+.signin-notice > div { display: grid; gap: 0.25rem; }
+.signin-notice strong { color: #fff; font-size: 0.94rem; }
+.signin-notice span { color: rgba(245, 245, 247, 0.64); font-size: 0.875rem; line-height: 1.45; overflow-wrap: anywhere; }
+.signin-notice--success { border-color: rgba(74, 222, 128, 0.24); background: rgba(74, 222, 128, 0.075); color: #6ee7a0; }
+.signin-help { margin: -0.2rem 0 0; color: rgba(245, 245, 247, 0.5); font-size: 0.82rem; line-height: 1.5; text-align: center; }
+.signin-secondary-action { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; border: 0; background: transparent; color: rgba(245, 245, 247, 0.66); font: inherit; font-size: 0.88rem; font-weight: 600; text-decoration: none; cursor: pointer; transition: color 180ms ease; }
+.signin-secondary-action:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
 
 .signin-card .signin-submit { min-height: 56px; margin-top: 0.25rem; border: 1px solid var(--signin-red); border-radius: 12px; background: var(--signin-red); color: #fff; font-family: Anton, Impact, sans-serif; font-size: 1.08rem; font-weight: 400; letter-spacing: 0.055em; box-shadow: 0 16px 30px -20px rgba(255, 49, 49, 0.72); transition: color 190ms ease, background-color 190ms ease, border-color 190ms ease, box-shadow 190ms ease, transform 190ms ease; }
 .signin-card .signin-submit:active { transform: translateY(0) scale(0.985); }
@@ -196,6 +219,8 @@
   .signin-back,
   .signin-input,
   .signin-password__toggle,
+  .signin-text-link,
+  .signin-secondary-action,
   .signin-submit { transition-duration: 1ms !important; }
   .signin-back:hover,
   .signin-card .signin-submit:hover,

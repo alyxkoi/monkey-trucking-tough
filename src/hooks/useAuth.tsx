@@ -8,7 +8,10 @@ interface AuthContextValue {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isPasswordRecovery: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  requestPasswordReset: (email: string, redirectTo: string) => Promise<{ error: string | null }>;
+  updatePassword: (password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -16,13 +19,17 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   session: null,
   loading: true,
+  isPasswordRecovery: false,
   signIn: async () => ({ error: "not ready" }),
+  requestPasswordReset: async () => ({ error: "not ready" }),
+  updatePassword: async () => ({ error: "not ready" }),
   signOut: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
     let disposed = false;
@@ -34,9 +41,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (disposed) return;
 
         // Register the listener first so no auth event is missed.
-        const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        const { data: sub } = supabase.auth.onAuthStateChange((event, nextSession) => {
           if (disposed) return;
           setSession(nextSession);
+          if (event === "PASSWORD_RECOVERY") setIsPasswordRecovery(true);
+          if (event === "SIGNED_OUT") setIsPasswordRecovery(false);
           setLoading(false);
         });
         unsubscribe = () => sub.subscription.unsubscribe();
@@ -52,7 +61,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    const needsAuthImmediately = window.location.pathname.startsWith("/admin") || window.location.pathname === "/signin";
+    const authRoutes = ["/signin", "/forgot-password", "/reset-password"];
+    const needsAuthImmediately = window.location.pathname.startsWith("/admin") || authRoutes.includes(window.location.pathname);
     let idleHandle: number | undefined;
     let timeoutHandle: number | undefined;
 
@@ -79,13 +89,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const supabase = await loadSupabase();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (data.session) {
-      setSession(data.session);
-      setLoading(false);
+    try {
+      const supabase = await loadSupabase();
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (data.session) {
+        setSession(data.session);
+        setLoading(false);
+      }
+      return { error: error?.message ?? null };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Unable to reach the authentication service" };
     }
-    return { error: error?.message ?? null };
+  };
+
+  const requestPasswordReset = async (email: string, redirectTo: string) => {
+    try {
+      const supabase = await loadSupabase();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      return { error: error?.message ?? null };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Unable to reach the authentication service" };
+    }
+  };
+
+  const updatePassword = async (password: string) => {
+    try {
+      const supabase = await loadSupabase();
+      const { error } = await supabase.auth.updateUser({ password });
+      return { error: error?.message ?? null };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Unable to reach the authentication service" };
+    }
   };
 
   const signOut = async () => {
@@ -95,7 +129,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user: session?.user ?? null, session, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{
+      user: session?.user ?? null,
+      session,
+      loading,
+      isPasswordRecovery,
+      signIn,
+      requestPasswordReset,
+      updatePassword,
+      signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   );
