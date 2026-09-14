@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.116.0'
 import { complianceKeyword, normalizeSentDmStatus, normalizeUsE164 } from '../_shared/sent-dm-domain.ts'
-import { verifySignature } from '../_shared/sms-signature.ts'
+import { diagnoseSignatureVariants, verifySignature } from '../_shared/sms-signature.ts'
 import { HttpError } from '../_shared/staff-auth.ts'
 import { kickCommunications } from '../_shared/communication-kick.ts'
 
@@ -29,6 +29,9 @@ Deno.serve(async (req) => {
       const runtimeCredentialFingerprint = Array.from(credentialDigest.slice(0, 8))
         .map((byte) => byte.toString(16).padStart(2, '0')).join('')
       const runtimeCredentialLength = secret.length
+      const alternativeSignatureMatches = timestampSkewSeconds !== null && timestampSkewSeconds <= 300
+        ? await diagnoseSignatureVariants(req, rawBody, secret)
+        : []
       console.warn('sent.DM webhook rejected', {
         reason: timestampSkewSeconds === null || timestampSkewSeconds > 300 ? 'stale_timestamp' : 'invalid_signature',
         timestampSkewSeconds,
@@ -36,6 +39,7 @@ Deno.serve(async (req) => {
         signatureVersion: req.headers.get('X-Webhook-Signature')?.split(',')[0] ?? null,
         runtimeCredentialLength,
         runtimeCredentialFingerprint,
+        alternativeSignatureMatches,
       })
       return json({ error: 'Invalid webhook signature' }, 401)
     }

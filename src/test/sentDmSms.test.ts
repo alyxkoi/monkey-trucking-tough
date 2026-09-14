@@ -87,6 +87,7 @@ describe('sent.DM transport contracts', () => {
     expect(webhook).toContain("signatureVersion: req.headers.get('X-Webhook-Signature')?.split(',')[0] ?? null")
     expect(webhook).toContain('runtimeCredentialLength')
     expect(webhook).toContain('runtimeCredentialFingerprint')
+    expect(webhook).toContain('alternativeSignatureMatches')
     const diagnostic = webhook.slice(
       webhook.indexOf("console.warn('sent.DM webhook rejected'"),
       webhook.indexOf("return json({ error: 'Invalid webhook signature'"),

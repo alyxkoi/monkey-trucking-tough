@@ -16,6 +16,18 @@ function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
   return difference === 0
 }
 
+function signatureCandidates(signatureHeader: string): Uint8Array[] {
+  return signatureHeader.split(' ').flatMap((part) => part.split(','))
+    .map((part) => part.trim()).filter((part) => part && part !== 'v1')
+    .map(base64Bytes).filter((candidate): candidate is Uint8Array => Boolean(candidate))
+}
+
+async function hmacMatches(keyBytes: Uint8Array, payload: string, candidates: Uint8Array[]): Promise<boolean> {
+  const key = await crypto.subtle.importKey('raw', new Uint8Array(keyBytes), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const expected = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload)))
+  return candidates.some((candidate) => equalBytes(expected, candidate))
+}
+
 export async function verifySignature(req: Request, rawBody: string, secret: string): Promise<boolean> {
   const webhookId = req.headers.get('X-Webhook-ID')
   const timestamp = req.headers.get('X-Webhook-Timestamp')
@@ -26,14 +38,32 @@ export async function verifySignature(req: Request, rawBody: string, secret: str
 
   const keyBytes = base64Bytes(secret.replace(/^whsec_/, ''))
   if (!keyBytes) return false
-  const key = await crypto.subtle.importKey('raw', new Uint8Array(keyBytes), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-  const expected = new Uint8Array(await crypto.subtle.sign(
-    'HMAC', key, new TextEncoder().encode(`${webhookId}.${timestamp}.${rawBody}`),
-  ))
-  const candidates = signatureHeader.split(' ').flatMap((part) => part.split(','))
-    .map((part) => part.trim()).filter((part) => part && part !== 'v1')
-  return candidates.some((candidate) => {
-    const actual = base64Bytes(candidate)
-    return actual ? equalBytes(expected, actual) : false
-  })
+  return hmacMatches(keyBytes, `${webhookId}.${timestamp}.${rawBody}`, signatureCandidates(signatureHeader))
+}
+
+export async function diagnoseSignatureVariants(req: Request, rawBody: string, secret: string): Promise<string[]> {
+  const webhookId = req.headers.get('X-Webhook-ID')
+  const timestamp = req.headers.get('X-Webhook-Timestamp')
+  const signatureHeader = req.headers.get('X-Webhook-Signature')
+  if (!webhookId || !timestamp || !signatureHeader) return []
+
+  const suffix = secret.replace(/^whsec_/, '')
+  const decodedSecret = base64Bytes(suffix)
+  if (!decodedSecret) return []
+  const encoder = new TextEncoder()
+  const candidates = signatureCandidates(signatureHeader)
+  const documentedPayload = `${webhookId}.${timestamp}.${rawBody}`
+  const variants: Array<[string, Uint8Array, string]> = [
+    ['utf8_full_secret_documented_payload', encoder.encode(secret), documentedPayload],
+    ['utf8_secret_suffix_documented_payload', encoder.encode(suffix), documentedPayload],
+    ['decoded_secret_timestamp_body', decodedSecret, `${timestamp}.${rawBody}`],
+    ['decoded_secret_raw_body', decodedSecret, rawBody],
+    ['utf8_full_secret_raw_body', encoder.encode(secret), rawBody],
+    ['utf8_secret_suffix_raw_body', encoder.encode(suffix), rawBody],
+  ]
+  const matches: string[] = []
+  for (const [label, keyBytes, payload] of variants) {
+    if (await hmacMatches(keyBytes, payload, candidates)) matches.push(label)
+  }
+  return matches
 }
