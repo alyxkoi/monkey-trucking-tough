@@ -242,6 +242,8 @@ describe("Phase 05 Control Center contracts", () => {
     expect(lead).not.toContain("Generate AI Draft");
     expect(lead).toContain("Human takeover is active");
     expect(lead).toContain("Request SMS confirmation");
+    expect(lead).toContain('<div className="hidden lg:block">{activityPanel}</div>');
+    expect(lead).toContain('<div className="lg:hidden">{activityPanel}</div>');
   });
 
   it("keeps profile avatars private, owner-scoped, and immediately replacing", () => {

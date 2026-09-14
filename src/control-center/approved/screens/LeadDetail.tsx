@@ -133,6 +133,38 @@ export function LeadDetail() {
     return { label: 'Reply', run: focusReply }
   })()
 
+  const activityPanel = (
+    <Panel
+      title="Activity"
+      padded={false}
+      right={
+        customer && (
+          <button
+            type="button"
+            onClick={() => navigate(`/admin/customers/${customer.id}`)}
+            className="flex h-11 items-center font-label text-[12px] font-semibold uppercase tracking-[0.12em] text-cc-muted transition-colors hover:text-ink"
+          >
+            Full history
+          </button>
+        )
+      }
+    >
+      <div className="divide-y divide-line border-t border-line">
+        {activities.length === 0 && (
+          <div className="px-5 py-4 text-[15px] text-cc-muted">Nothing logged yet.</div>
+        )}
+        {activities.map((activity) => (
+          <div key={activity.id} className="px-5 py-3.5">
+            <div className="text-[15px] font-semibold text-ink">{activity.title}</div>
+            {activity.body && (
+              <div className="mt-0.5 text-[14px] text-cc-muted">{activity.body}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </Panel>
+  )
+
   return (
     <div className="animate-page space-y-5 lg:space-y-6">
       <RecordHeader
@@ -237,41 +269,45 @@ export function LeadDetail() {
       </SolidInfoModule>
 
       <div className="grid gap-5 lg:grid-cols-12 lg:gap-6">
-        <div id={`conversation-${lead.id}`} ref={conversationRef} className="min-w-0 lg:col-span-7">
-          <Panel padded={false} title="Conversation">
-            <ConversationThread
-              messages={lead.messages}
-              className="border-t border-white/[0.07]"
-            />
-            {showConversationNotice && (
-              <div className="space-y-3 border-t border-line bg-canvas/25 p-4 sm:p-5">
-                {lead.aiPaused && (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <p className="text-[13px] font-medium text-warn">Human takeover is active. Conversational AI stays paused.</p>
-                    {!demo.enabled && <SecondaryButton size="sm" disabled={smsActionPending} onClick={() => void conversationAction('resume-ai')}>Resume AI for future replies</SecondaryButton>}
-                  </div>
-                )}
-                {sourceData?.controlSettings?.sms_status === 'TESTING' && <p className="text-[13px] text-warn">SMS testing mode. Only approved test numbers can receive messages.</p>}
-                {needsSmsConfirmation && (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <p className="text-[13px] text-cc-muted">Initial consent recorded. AI sending requires SMS confirmation.</p>
-                    <SecondaryButton size="sm" disabled={!communicationReady || smsActionPending} onClick={() => void conversationAction('request-opt-in')}>Request SMS confirmation</SecondaryButton>
-                  </div>
-                )}
-                {aiError && (
-                  <div className="rounded-xl border border-mt-red/30 bg-mt-red/10 p-3 text-[13px] text-ink">
-                    {aiError} You can retry or reply manually.
-                  </div>
-                )}
-              </div>
-            )}
-            <ReplyComposer
-              key={lead.id}
-              paused={lead.aiPaused}
-              disabled={!communicationReady}
-              onSend={(text) => replyToLead(lead.id, text)}
-            />
-          </Panel>
+        <div className="min-w-0 space-y-5 lg:col-span-7 lg:space-y-6">
+          <div id={`conversation-${lead.id}`} ref={conversationRef} className="min-w-0">
+            <Panel padded={false} title="Conversation">
+              <ConversationThread
+                messages={lead.messages}
+                className="border-t border-white/[0.07]"
+              />
+              {showConversationNotice && (
+                <div className="space-y-3 border-t border-line bg-canvas/25 p-4 sm:p-5">
+                  {lead.aiPaused && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="text-[13px] font-medium text-warn">Human takeover is active. Conversational AI stays paused.</p>
+                      {!demo.enabled && <SecondaryButton size="sm" disabled={smsActionPending} onClick={() => void conversationAction('resume-ai')}>Resume AI for future replies</SecondaryButton>}
+                    </div>
+                  )}
+                  {sourceData?.controlSettings?.sms_status === 'TESTING' && <p className="text-[13px] text-warn">SMS testing mode. Only approved test numbers can receive messages.</p>}
+                  {needsSmsConfirmation && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="text-[13px] text-cc-muted">Initial consent recorded. AI sending requires SMS confirmation.</p>
+                      <SecondaryButton size="sm" disabled={!communicationReady || smsActionPending} onClick={() => void conversationAction('request-opt-in')}>Request SMS confirmation</SecondaryButton>
+                    </div>
+                  )}
+                  {aiError && (
+                    <div className="rounded-xl border border-mt-red/30 bg-mt-red/10 p-3 text-[13px] text-ink">
+                      {aiError} You can retry or reply manually.
+                    </div>
+                  )}
+                </div>
+              )}
+              <ReplyComposer
+                key={lead.id}
+                paused={lead.aiPaused}
+                disabled={!communicationReady}
+                onSend={(text) => replyToLead(lead.id, text)}
+              />
+            </Panel>
+          </div>
+
+          <div className="hidden lg:block">{activityPanel}</div>
         </div>
 
         <div className="min-w-0 space-y-5 lg:col-span-5 lg:space-y-6">
@@ -337,35 +373,7 @@ export function LeadDetail() {
             <p className="mt-2 text-[13px] text-cc-muted">Saves as you type.</p>
           </Panel>
 
-          <Panel
-            title="Activity"
-            padded={false}
-            right={
-              customer && (
-                <button
-                  type="button"
-                  onClick={() => navigate(`/admin/customers/${customer.id}`)}
-                  className="flex h-11 items-center font-label text-[12px] font-semibold uppercase tracking-[0.12em] text-cc-muted transition-colors hover:text-ink"
-                >
-                  Full history
-                </button>
-              )
-            }
-          >
-            <div className="divide-y divide-line border-t border-line">
-              {activities.length === 0 && (
-                <div className="px-5 py-4 text-[15px] text-cc-muted">Nothing logged yet.</div>
-              )}
-              {activities.map((activity) => (
-                <div key={activity.id} className="px-5 py-3.5">
-                  <div className="text-[15px] font-semibold text-ink">{activity.title}</div>
-                  {activity.body && (
-                    <div className="mt-0.5 text-[14px] text-cc-muted">{activity.body}</div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </Panel>
+          <div className="lg:hidden">{activityPanel}</div>
         </div>
       </div>
       <ScheduleJobSheet
