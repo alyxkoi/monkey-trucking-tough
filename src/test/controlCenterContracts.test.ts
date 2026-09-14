@@ -234,6 +234,16 @@ describe("Phase 05 Control Center contracts", () => {
     expect(overview).toContain("label: 'Scheduled Jobs'");
   });
 
+  it("keeps the lead screen focused on the conversation and an organized AI summary", () => {
+    const lead = read("src/control-center/approved/screens/LeadDetail.tsx");
+
+    expect(lead).toContain('<Panel title="What the AI knows">');
+    expect(lead).not.toContain("OpenAI intelligence · draft only");
+    expect(lead).not.toContain("Generate AI Draft");
+    expect(lead).toContain("Human takeover is active");
+    expect(lead).toContain("Request SMS confirmation");
+  });
+
   it("keeps profile avatars private, owner-scoped, and immediately replacing", () => {
     const avatar = read("src/control-center/approved/components/shell/ProfileAvatar.tsx");
     const sheet = read("src/control-center/approved/components/shell/Sheet.tsx");
