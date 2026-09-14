@@ -384,3 +384,38 @@ Do not mark SMS or Calling READY solely because this source audit passed.
   Owner was asked to have a different phone send a labeled integration test;
   it must not be enrolled or automatically contacted. No additional number
   was assumed, no historical consent fabricated, and no scheduled rule enabled.
+
+## September 14: unknown-number capture and scheduling gate audit
+
+- A genuinely unknown handset sent the labeled integration test at 16:50 UTC.
+  The production webhook created customer `bbb0f0c4-4f5a-493a-a36d-852929af4c13`,
+  lead `eccd87ab-e16c-4b55-b506-4c669ce5cf58` and inbound message
+  `5b1e344b-7f9e-49b6-80b1-54ff5dc0c664` with provider ID
+  `afe21112-b681-49f5-81ea-52a9ec7233a1`. The phone is intentionally not
+  recorded in this repository; the audit query masked it to the final four
+  digits.
+- The live dashboard displayed a separate `Unknown SMS` lead and the inbound
+  body once. Production SQL independently verified RECEIVED plus one PROCESSED
+  webhook event, one inbound row, zero outbound rows, zero communication jobs
+  and zero outbox rows. The customer has no recorded SMS consent, no double
+  opt-in and no fabricated opt-out. Human takeover remains false, while the
+  testing allowlist keeps the reply composer disabled for this number.
+- This proves that an unknown sender is retained safely without being enrolled,
+  discarded, answered by AI or contacted automatically. The row remains as a
+  real inbound lead for staff follow-up under the normal consent rules.
+- The follow-up scheduling audit found `scheduled_sending_enabled=false`,
+  `activated_at=null`, `marketing_approved=false`, zero due candidates, zero
+  active jobs and zero active/review outbox rows. Only `human-takeover` is ON;
+  every message-producing automation rule remains SETUP_REQUIRED. Business
+  hours remain 09:00-17:00, Monday-Friday, America/Chicago. SMS remains TESTING
+  with AI restricted to the owner handset; Calling remains SETUP_REQUIRED.
+- Unknown-number production evidence is complete. A full provider-signed HTTP
+  replay and a controlled scheduled transactional send remain release gates;
+  the database-level duplicate replay is already verified above. No production
+  gate was broadened during this test.
+- Final regression: all 270 repository tests passed across 41 files, the
+  production build completed, and targeted communications lint returned zero
+  errors (one pre-existing Fast Refresh warning in AppState). At 16:56 UTC the
+  minute worker's latest run was succeeded, the unknown provider ID still had
+  exactly one event, active jobs/outbox remained zero, and every production
+  gate above was unchanged.
