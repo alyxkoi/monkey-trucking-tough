@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
     p_error: null,
   })
   if (result.error) return json({ error: 'Webhook could not be committed; retry required' }, 503)
-  const jobId = typeof result.data?.job_id === 'string' ? result.data.job_id : null
+  const jobId = typeof result.data?.result?.job_id === 'string' ? result.data.result.job_id : null
   if (jobId) kickCommunications(url, key, { jobId })
   return json(result.data)
 })

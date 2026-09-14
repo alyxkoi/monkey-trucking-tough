@@ -83,6 +83,7 @@ describe('sent.DM transport contracts', () => {
     expect(webhook.indexOf('await verifySignature(')).toBeLessThan(webhook.indexOf("service.rpc('ingest_sms_event'"))
     expect(webhook).toContain("toLowerCase() !== 'sms'")
     expect(webhook).toContain("businessNumber !== '+19453750877'")
+    expect(webhook).toContain("result.data?.result?.job_id")
     expect(webhook).toContain('kickCommunications(url, key, { jobId })')
     expect(sql).toContain('pg_advisory_xact_lock')
     expect(sql).toContain("then 'UNMATCHED' else 'PROCESSED'")
