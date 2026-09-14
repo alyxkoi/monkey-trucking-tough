@@ -215,3 +215,21 @@ Do not mark SMS or Calling READY solely because this source audit passed.
 - Signed replay, unknown-number production evidence, controlled AI and
   scheduled-rule tests remain launch gates. SMS remains TESTING; calling and
   marketing remain unverified and disabled.
+
+## September 14: first controlled autonomous conversation
+
+- Real English inquiry arrived at 16:00:15 UTC, local
+  `6ba5598b-1898-44f8-bc46-e5d5d8377104`, provider
+  `7419689c-5978-47fc-a4e0-db95d28beed7`. One AI_REPLY job
+  `ad731be5-a199-4e4c-9828-7ae8de046af6` was created and attempted once.
+- The configured `gpt-5.6-terra` model completed successfully at 16:01:08 UTC,
+  drafted a question about the delivery address, but classified unspecified
+  gravel type/load size as uncertain_facts. The unchanged autonomous guard
+  rejected this with `AI decision needs human review`; no outgoing message
+  was created. This verifies safe blocking, not autonomous delivery.
+- Prompt v3 distinguishes ordinary missing intake details from conflicting
+  facts or uncertainty in proposed claims. It explicitly prohibits assuming
+  truckload yardage or a catalog material. The uncertainty guard is unchanged.
+  A prompt-contract regression failed before the edit; 34 focused AI/SMS tests
+  pass afterward, including continued rejection of conflicting facts. Mocked
+  model tests are not live model behavior proof; deployment/retest pending.

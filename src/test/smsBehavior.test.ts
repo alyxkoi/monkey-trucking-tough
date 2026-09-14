@@ -84,6 +84,18 @@ function aiService(failingTable?:string,takeoverOnRecheck=false) {
   return {from,calls}
 }
 describe('shared production AI safety',()=>{
+  it('distinguishes missing intake details from conflicting facts without weakening uncertainty guards',async()=>{
+    const fetcher=vi.fn(async()=>new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)})))
+    vi.stubGlobal('fetch',fetcher)
+    await generateAiDraft(aiService(),{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model'})
+    const request=fetcher.mock.calls[0] as unknown as [string,RequestInit]
+    const prompt=JSON.parse(request[1].body as string).instructions
+    expect(prompt).toContain('Ordinary unanswered intake questions belong in missing_facts')
+    expect(prompt).toContain('Never assume a truckload equals a particular yard quantity')
+    expect(prompt).toContain('Conflicting facts or uncertainty about a claim you would make belong in uncertain_facts')
+    expect(autonomousReply({...decision,missing_facts:['specific gravel type','yard quantity','delivery address']},{})).toBe(decision.draft_reply)
+    expect(()=>autonomousReply({...decision,uncertain_facts:['Conflicting delivery addresses.']},{})).toThrow('human review')
+  })
   it('loads the latest 80 messages and fails closed when payment or settings context is missing',async()=>{
     const fetcher=vi.fn(async()=>new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)})))
     vi.stubGlobal('fetch',fetcher)
