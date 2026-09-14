@@ -196,6 +196,22 @@ Do not mark SMS or Calling READY solely because this source audit passed.
   rejected with "Customer has opted out of SMS"; the composer retained the
   draft, and SQL verified zero message rows for the blocked test body. The
   test draft was then cleared. Marketing consent remains null.
-- START/HELP handset actions requested; provider auto-reply receipt pending.
-  START/HELP, signed replay, unknown-number production evidence, controlled
-  AI and scheduled-rule tests remain launch gates. SMS remains TESTING.
+- Real START arrived at 15:54:04 UTC, local
+  `343665a9-620b-40f5-9710-888ba053904d`, provider
+  `c177d959-1da7-40fc-ba9f-4b3db80c3bec`. Its processed OPT_IN event cleared
+  sms_opted_out_at and restored sms_double_opt_in_at at that event time.
+  Marketing consent remains null.
+- Real HELP arrived at 15:55:05 UTC, local
+  `a84c180a-a6c1-4917-a4b6-f2afa0477739`, provider
+  `de089374-e4b1-4448-975c-718a37ed7fe6`. Its processed HELP event left
+  restored consent unchanged. Owner acknowledged the handset test; exact
+  provider auto-reply counts have not been independently verified.
+- After HELP verification, the dashboard Resume AI action cleared takeover
+  for the owner lead and recorded future-only resume activity. A guarded
+  runtime update enabled AI only with SMS TESTING, the single owner handset
+  allowlist, restored consent, no active jobs, and scheduled/marketing gates
+  false. SQL returned the updated row with ai_sending_enabled true and the
+  exact test allowlist. No historical message was backfilled as an AI job.
+- Signed replay, unknown-number production evidence, controlled AI and
+  scheduled-rule tests remain launch gates. SMS remains TESTING; calling and
+  marketing remain unverified and disabled.
