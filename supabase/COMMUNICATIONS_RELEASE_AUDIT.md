@@ -419,3 +419,15 @@ Do not mark SMS or Calling READY solely because this source audit passed.
   minute worker's latest run was succeeded, the unknown provider ID still had
   exactly one event, active jobs/outbox remained zero, and every production
   gate above was unchanged.
+- sent.DM's Test Webhook then delivered its static signed `message.delivered`
+  sample at 16:58 UTC. The provider recorded HTTP 200 with endpoint response
+  `received:true, unmatched:true`. Production SQL found exactly one UNMATCHED
+  event for the sample provider ID and zero message rows, proving the deployed
+  HTTP signature path accepts authentic provider traffic without attaching an
+  unknown outbound status to customer data.
+- An immediate repeat through sent.DM's test dialog reported failure before a
+  second delivery appeared in its event list; the database remained at one
+  event row. The provider test harness therefore cannot prove a signed replay
+  of the same sample. This is not being overstated: live database duplicate
+  handling is proven separately above, while a provider-signed duplicate of a
+  previously processed real event remains unavailable from the current UI.
