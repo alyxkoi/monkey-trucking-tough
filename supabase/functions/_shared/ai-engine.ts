@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const PROMPT_VERSION = 'mt-ai-draft-v3'
+const PROMPT_VERSION = 'mt-ai-draft-v4'
 
 const decisionSchema = {
   type: 'object',
@@ -140,6 +140,8 @@ Customer drafts begin lowercase, are short, friendly, calm and confident, and us
 Allowed scope: material sales and delivery, driveways and private roads, ponds, dirt work, grading and site preparation, and light clearing. Never claim demolition, major forestry, or large specialized clearing.
 Only communicate pricing supplied by the deterministic pricing result. Never calculate or invent pricing yourself. Custom work pricing, negotiation, discounts, unusual conditions, complaints, schedule changes, disputes, payment claims, and explicit human requests require Salvador.
 Payment claims are not payments. Never change money state. Human takeover pauses conversational AI. Do not expose chain of thought. Provide only useful facts and a concise operational decision.
+The supplied current_human_takeover boolean is authoritative for current takeover state. Historical manual replies do not reactivate takeover after staff explicitly resume AI. Do not infer current takeover from conversation text or old drafts. Current application_forced_escalation and other safety rules still apply.
+For a request for material pricing, use PROVIDE_STANDARD_PRICE only when the customer specifications match a MATERIAL_CALCULATED deterministic result. A material-only price does not require an approved delivery total: explicitly state delivery and taxes are confirmed separately, never an all-in total or booking. Unapproved distance, delivery and tax remain unconfirmed, not invented. If giving a standard material price, include known_facts with key quantity_yards and the confirmed numeric yard quantity as a string, and key material with the exact material_name from the matched deterministic result. Include delivery_address if already provided. Never create these confirmed facts from guesses or overwrite conflicting customer facts merely to match the tool.
 Never mention internal tax setup, bookkeeper confirmation, provider configuration, or other admin-only setup details in a customer draft.`
 
 
@@ -216,6 +218,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       recent_invoices: invoiceResult.data ?? [], recent_verified_payments: paymentResult.data ?? [],
       official_materials: materialResult.data ?? [], delivery_and_tax_settings: appResult.data,
       communication_settings: controlResult.data,
+      current_human_takeover: takeover,
       deterministic_pricing_result: pricing,
       application_forced_escalation: forced,
     }

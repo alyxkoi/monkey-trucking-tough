@@ -61,7 +61,7 @@ describe('SMS transport behavior',()=>{
 })
 
 const decision={detected_language:'ENGLISH',customer_intent:'MATERIAL_DELIVERY',extracted_facts:[],known_facts:[],missing_facts:['address'],uncertain_facts:[],ai_may_continue:true,requires_human:false,escalation_reason:null,recommended_action:'ASK_NEXT_MISSING_FACT',draft_reply:'what is the exact delivery address.',confidence:'HIGH',deterministic_pricing_required:false,payment_claim_detected:false,automation_state:{mode:'CONVERSATION',rule_id:null,transport:'SETUP_REQUIRED',send_allowed:false}}
-function aiService(failingTable?:string,takeoverOnRecheck=false) {
+function aiService(failingTable?:string,takeoverOnRecheck=false,initialTakeover=false) {
   let leadReads=0
   const calls:Array<{table:string;order?:string;options?:unknown;limit?:number}>=[]
   const from=vi.fn((table:string)=>{
@@ -71,7 +71,7 @@ function aiService(failingTable?:string,takeoverOnRecheck=false) {
       insert:(value:unknown)=>{insert=value;return chain},upsert:()=>chain,
       then:(resolve:(value:unknown)=>unknown)=>{
         const data={
-          leads:{id:'lead',customer_id:'customer',human_takeover:takeoverOnRecheck&&++leadReads>1,conversation_revision:1},
+          leads:{id:'lead',customer_id:'customer',human_takeover:initialTakeover||(takeoverOnRecheck&&++leadReads>1),conversation_revision:1},
           customers:{id:'customer',sms_consent_at:'2026-09-01',sms_double_opt_in_at:'2026-09-02'},
           lead_messages:[{id:'new',sender_type:'CUSTOMER',body:'I need gravel delivered',created_at:'2026-09-13'},{id:'old',sender_type:'HUMAN',body:'How can we help?',created_at:'2026-09-12'}],
           app_settings:{tax_enabled:false},control_center_settings:{ai_english:true,ai_spanish:true},ai_conversation_state:null,
@@ -84,6 +84,33 @@ function aiService(failingTable?:string,takeoverOnRecheck=false) {
   return {from,calls}
 }
 describe('shared production AI safety',()=>{
+  it('supplies authoritative current takeover state and separates material-only pricing from unapproved delivery',async()=>{
+    const fetcher=vi.fn(async()=>new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)})))
+    vi.stubGlobal('fetch',fetcher)
+    await generateAiDraft(aiService(),{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model'})
+    const request=fetcher.mock.calls[0] as unknown as [string,RequestInit]
+    const body=JSON.parse(request[1].body as string)
+    expect(JSON.parse(body.input[0].content[0].text).current_human_takeover).toBe(false)
+    expect(body.instructions).toContain('Historical manual replies do not reactivate takeover after staff explicitly resume AI')
+    expect(body.instructions).toContain('A material-only price does not require an approved delivery total')
+    expect(body.instructions).toContain('quantity_yards')
+    expect(body.instructions).toContain('exact material_name')
+    fetcher.mockClear()
+    const paused=await generateAiDraft(aiService(undefined,false,true),{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model'})
+    expect(paused.paused).toBe(true)
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+  it('renders only verified material pricing and rejects mismatched canonical facts',()=>{
+    const pricing={status:'MATERIAL_CALCULATED',material_total:1820,yards:50,material_name:'Flexbase First Class',grand_total:null,delivery_total:'REQUIRES_APPROVED_DISTANCE',tax_total:null}
+    const priced={...decision,detected_language:'SPANISH',recommended_action:'PROVIDE_STANDARD_PRICE',draft_reply:'el material cuesta $1.',known_facts:[{key:'material',value:pricing.material_name},{key:'quantity_yards',value:'50'},{key:'delivery_address',value:'test address'}]}
+    const reply=autonomousReply(priced,pricing)
+    expect(reply).toContain('$1820.00')
+    expect(reply).toContain('la entrega y los impuestos se confirman por separado')
+    expect(reply).not.toContain('cuál es la dirección')
+    expect(()=>autonomousReply({...priced,known_facts:[{key:'material',value:'Other Material'},{key:'quantity_yards',value:'50'}]},pricing)).toThrow('Pricing facts require confirmation')
+    expect(()=>autonomousReply(priced,{...pricing,yards:15})).toThrow('Pricing facts require confirmation')
+    expect(()=>autonomousReply(priced,{...pricing,status:'UNAVAILABLE'})).toThrow('Verified material pricing unavailable')
+  })
   it('distinguishes missing intake details from conflicting facts without weakening uncertainty guards',async()=>{
     const fetcher=vi.fn(async()=>new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)})))
     vi.stubGlobal('fetch',fetcher)

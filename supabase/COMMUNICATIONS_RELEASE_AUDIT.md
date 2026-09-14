@@ -299,3 +299,24 @@ Do not mark SMS or Calling READY solely because this source audit passed.
   After explicit dashboard resume, a 16:19:35 UTC recheck showed takeover
   false with all three counts still zero. Resume did not backfill the paused
   text. A fresh material-price inquiry was requested to test pricing next.
+
+## September 14: material-pricing resume regression
+
+- Real price inquiry `a7b4625e-f16c-4e78-adbd-20552fea3a19`, provider
+  `8cbb3787-d1f1-4af9-bb0e-0c3a94afd817`, arrived at 16:20:31 UTC.
+  Job `f69a52a1-2102-42c8-adeb-b5868e05ced6` attempted once and failed safely.
+  No price SMS was created. Audit `c17f14b7-bffb-4be2-923f-094ca37bf847`
+  incorrectly inferred current takeover from the earlier manual-test text,
+  despite the persisted explicit resume, and also held a material-only request
+  because delivery remained unpriced. The stored material calculation was
+  50 yards, total 1820, with delivery, tax and grand total unconfirmed.
+- Prompt v4 now receives an explicit current_human_takeover boolean and states
+  historical manual replies cannot override current resumed state. It clarifies
+  material-only pricing with separate delivery/tax caveats and the existing
+  canonical material/quantity fact contract. Server takeover, consent,
+  uncertainty, pricing validation and deterministic rendering are unchanged.
+- A new context/prompt regression failed before the change. All 36 focused
+  tests and targeted lint pass afterward. Additional renderer tests prove
+  model-supplied amounts cannot replace calculated amounts, mismatched material
+  or quantity and unavailable official prices still block, and current takeover
+  still skips the model. Live v4 deployment and pricing retest are pending.
