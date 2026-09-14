@@ -32,6 +32,7 @@ describe('website request confirmation safety', () => {
     expect(edge).toContain('emailWarnings.push')
     expect(edge).toContain(".rpc('schedule_website_contact_response'")
     expect(edge).toContain('SENT_DM_FIRST_CONTACT_TEMPLATE_ID')
+    expect(edge).toContain('kickCommunications(supabaseUrl, supabaseServiceKey')
     expect(edge).toContain('communicationWarnings')
     expect(edge).toContain('JSON.stringify({ success: true, submissionId')
     expect(worker).toContain(".eq('idempotency_key', payload.idempotency_key)")

@@ -41,6 +41,7 @@ beforeAll(async () => {
   await db.exec("update control_center_settings set sms_status='TESTING'")
   await db.exec(read('20260914154000_failed_consent_retry'))
   await db.exec(read('20260914190000_initial_response_and_reschedule_intake'))
+  await db.exec(read('20260914223000_immediate_sms_processing'))
 }, 30_000)
 afterAll(async () => { await db?.close() })
 
@@ -58,7 +59,7 @@ describe.sequential('executed PostgreSQL SMS transactions', () => {
     expect(r.ai_sending_enabled).toBe(false)
     expect(r.scheduled_sending_enabled).toBe(false)
     expect(r.marketing_approved).toBe(false)
-    expect((await query('select ai_english,ai_spanish,initial_response_target_seconds from control_center_settings'))[0]).toMatchObject({ ai_english: true, ai_spanish: true, initial_response_target_seconds: 60 })
+    expect((await query('select ai_english,ai_spanish,initial_response_target_seconds from control_center_settings'))[0]).toMatchObject({ ai_english: true, ai_spanish: true, initial_response_target_seconds: 0 })
   })
 
   it('records website requests in the conversation and schedules the compliant first response once', async () => {
@@ -74,7 +75,7 @@ describe.sequential('executed PostgreSQL SMS transactions', () => {
     await db.exec('update communication_runtime set ai_sending_enabled=false')
   })
 
-  it('queues an already opted-in website lead and a first direct text within the one-minute target', async () => {
+  it('queues an already opted-in website lead and a first direct text immediately', async () => {
     const website = await customer('+12145550032')
     const submissionId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
     await query('update customers set sms_double_opt_in_at=now() where id=$1', [website.customerId])
@@ -88,6 +89,21 @@ describe.sequential('executed PostgreSQL SMS transactions', () => {
     await rpc('record_inbound_sms', ['first-direct', '+12145550030', 'Can you help me?'])
     expect((await query("select (due_at <= now()+interval '2 seconds') as due,context->>'initial_response' as initial from communication_jobs where lead_id=$1", [direct.leadId]))[0]).toEqual({ due: true, initial: 'true' })
     await query("update communication_jobs set state='CANCELLED' where lead_id in ($1,$2)", [website.leadId, direct.leadId])
+    await db.exec('update communication_runtime set ai_sending_enabled=false')
+  })
+
+  it('lets an immediate trigger claim only its own durable communication job', async () => {
+    const first = await customer('+12145550033')
+    const second = await customer('+12145550034')
+    await query('update customers set sms_double_opt_in_at=now() where id in ($1,$2)', [first.customerId, second.customerId])
+    await db.exec("update communication_runtime set ai_sending_enabled=true,test_numbers=array['+12145550033','+12145550034']")
+    const firstResult = await rpc('record_inbound_sms', ['targeted-first', '+12145550033', 'Need gravel'])
+    const secondResult = await rpc('record_inbound_sms', ['targeted-second', '+12145550034', 'Need sand'])
+    const claimed = await rpc('claim_communication_job_by_id', [secondResult.job_id])
+    expect(claimed.id).toBe(secondResult.job_id)
+    expect((await query('select state from communication_jobs where id=$1', [firstResult.job_id]))[0].state).toBe('QUEUED')
+    expect(await rpc('claim_communication_job_by_id', [secondResult.job_id])).toBeNull()
+    await query("update communication_jobs set state='CANCELLED' where id in ($1,$2)", [firstResult.job_id, secondResult.job_id])
     await db.exec('update communication_runtime set ai_sending_enabled=false')
   })
 
@@ -184,8 +200,8 @@ describe.sequential('executed PostgreSQL SMS transactions', () => {
   })
 
   it('denies browser RPC execution and table writes', async () => {
-    const [access] = await query("select has_function_privilege('authenticated','enqueue_sms(uuid,text,text,text,uuid,text,uuid,text,jsonb)','execute') as execute,has_table_privilege('authenticated','sms_outbox','insert') as insert")
-    expect(access).toEqual({ execute: false, insert: false })
+    const [access] = await query("select has_function_privilege('authenticated','enqueue_sms(uuid,text,text,text,uuid,text,uuid,text,jsonb)','execute') as execute,has_function_privilege('authenticated','claim_communication_job_by_id(uuid)','execute') as targeted_claim,has_table_privilege('authenticated','sms_outbox','insert') as insert")
+    expect(access).toEqual({ execute: false, targeted_claim: false, insert: false })
   })
 
   it('cancels AI work when staff replies while a draft is being generated', async () => {

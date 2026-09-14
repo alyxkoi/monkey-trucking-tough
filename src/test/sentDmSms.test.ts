@@ -83,10 +83,21 @@ describe('sent.DM transport contracts', () => {
     expect(webhook.indexOf('await verifySignature(')).toBeLessThan(webhook.indexOf("service.rpc('ingest_sms_event'"))
     expect(webhook).toContain("toLowerCase() !== 'sms'")
     expect(webhook).toContain("businessNumber !== '+19453750877'")
+    expect(webhook).toContain('kickCommunications(url, key, { jobId })')
     expect(sql).toContain('pg_advisory_xact_lock')
     expect(sql).toContain("then 'UNMATCHED' else 'PROCESSED'")
     expect(sql).toContain('public.record_inbound_sms(')
     expect(sql).toContain('public.apply_sms_delivery_status(')
+  })
+
+  it('targets immediate processing while keeping the minute worker as fallback', () => {
+    const processor = source('supabase/functions/process-communications/index.ts')
+    const worker = source('supabase/functions/_shared/communication-worker.ts')
+    const kick = source('supabase/functions/_shared/communication-kick.ts')
+    expect(processor).toContain('exactMessageId=messageId??job.messageId??null')
+    expect(worker).toContain("service.rpc('claim_communication_job_by_id'")
+    expect(kick).toContain('EdgeRuntime.waitUntil(task)')
+    expect(kick).toContain('/functions/v1/process-communications')
   })
 
   it('routes dashboard replies through the provider instead of inserting fake pending messages', () => {

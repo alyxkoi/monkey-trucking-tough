@@ -583,7 +583,7 @@ export function createQaFixtureData(reference = new Date()): ControlData {
       ai_english: true,
       ai_spanish: true,
       human_takeover_on_reply: true,
-      initial_response_target_seconds: 60,
+      initial_response_target_seconds: 0,
       updated_at: at(-1),
     },
     automations,

@@ -2632,6 +2632,10 @@ export type Database = {
         Returns: Json
       }
       claim_communication_job: { Args: never; Returns: Json }
+      claim_communication_job_by_id: {
+        Args: { p_job_id: string }
+        Returns: Json
+      }
       claim_sms: { Args: { p_message_id?: string }; Returns: Json }
       communication_candidates: {
         Args: { p_now?: string }

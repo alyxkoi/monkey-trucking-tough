@@ -75,8 +75,10 @@ async function scheduledText(service: any, job: any, config: AiConfig) {
   throw new Error('This scheduled rule has no verified provider integration')
 }
 
-export async function runCommunicationJob(service: any, config: AiConfig, templateId?: string) {
-  const claimed = await service.rpc('claim_communication_job')
+export async function runCommunicationJob(service: any, config: AiConfig, templateId?: string, jobId?: string) {
+  const claimed = jobId
+    ? await service.rpc('claim_communication_job_by_id', { p_job_id: jobId })
+    : await service.rpc('claim_communication_job')
   if (claimed.error) throw new Error('Communication jobs could not be claimed')
   const job = claimed.data
   if (!job) return { processed: false }
@@ -95,5 +97,5 @@ export async function runCommunicationJob(service: any, config: AiConfig, templa
     p_job_id:job.id,p_lease_token:job.lease_token,p_body:reason ? null : text,p_template_id:templateId ?? null,p_error:reason,
   })
   if (finished.error) throw new Error('Communication result could not be committed')
-  return { processed:true, reserved:Boolean(finished.data?.id), blocked:Boolean(reason) }
+  return { processed:true, reserved:Boolean(finished.data?.id), blocked:Boolean(reason), messageId:finished.data?.id ?? null }
 }

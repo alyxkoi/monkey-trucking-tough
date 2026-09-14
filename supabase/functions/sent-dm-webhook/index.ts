@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.116.0'
 import { complianceKeyword, normalizeSentDmStatus, normalizeUsE164 } from '../_shared/sent-dm-domain.ts'
 import { verifySignature } from '../_shared/sms-signature.ts'
 import { HttpError } from '../_shared/staff-auth.ts'
+import { kickCommunications } from '../_shared/communication-kick.ts'
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { 'Content-Type': 'application/json' },
@@ -46,5 +47,7 @@ Deno.serve(async (req) => {
     p_error: null,
   })
   if (result.error) return json({ error: 'Webhook could not be committed; retry required' }, 503)
+  const jobId = typeof result.data?.job_id === 'string' ? result.data.job_id : null
+  if (jobId) kickCommunications(url, key, { jobId })
   return json(result.data)
 })

@@ -839,7 +839,7 @@ export function SettingsCommunication() {
   const [english, setEnglish] = useState(true)
   const [spanish, setSpanish] = useState(true)
   const [takeover, setTakeover] = useState(true)
-  const [initialReplyMinutes, setInitialReplyMinutes] = useState('1')
+  const [initialReplyMinutes, setInitialReplyMinutes] = useState('0')
   const [openRule, setOpenRule] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [previewDrafts, setPreviewDrafts] = useState<Record<string, string>>({})
@@ -874,13 +874,13 @@ export function SettingsCommunication() {
     setEnglish(settings.ai_english)
     setSpanish(settings.ai_spanish)
     setTakeover(true)
-    setInitialReplyMinutes(String(Math.max(1, Math.round((settings.initial_response_target_seconds ?? 60) / 60))))
+    setInitialReplyMinutes(String(Math.max(0, Math.round((settings.initial_response_target_seconds ?? 0) / 60))))
   }, [settings])
 
   const save = async () => {
     const parsedReplyMinutes = Number(initialReplyMinutes)
-    if (!Number.isInteger(parsedReplyMinutes) || parsedReplyMinutes < 1 || parsedReplyMinutes > 10) {
-      toast.error('First reply target must be a whole number from 1 to 10 minutes.')
+    if (!Number.isInteger(parsedReplyMinutes) || parsedReplyMinutes < 0 || parsedReplyMinutes > 10) {
+      toast.error('First reply delay must be a whole number from 0 to 10 minutes.')
       return
     }
     setSaving(true)
@@ -952,11 +952,11 @@ export function SettingsCommunication() {
       <Panel title="How it talks">
         <div className="space-y-4">
           <TextField
-            label="First reply target"
+            label="First reply delay"
             value={initialReplyMinutes}
             onChange={setInitialReplyMinutes}
             inputMode="numeric"
-            hint="Minutes, from 1 to 10. Applies only to the first automated reply after a new text or website request. Ongoing replies stay fast."
+            hint="Minutes, from 0 to 10. Set to 0 for an immediate reply. Applies only to the first automated reply; ongoing replies stay immediate."
           />
           <Toggle label="English" value={english} onChange={setEnglish} />
           <Toggle

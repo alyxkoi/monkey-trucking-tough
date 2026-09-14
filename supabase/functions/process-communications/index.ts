@@ -18,20 +18,34 @@ Deno.serve(async(req) => {
   const service=createClient(url,key)
   if (!await workerAuthorized(service,token,key,secret)) return json({error:'Unauthorized'},401)
   try {
-    const planned=await service.rpc('plan_communication_jobs')
+    const input=await req.json().catch(()=>({})) as {jobId?:unknown,messageId?:unknown}
+    const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    const jobId=typeof input.jobId==='string'&&uuid.test(input.jobId)?input.jobId:null
+    const messageId=typeof input.messageId==='string'&&uuid.test(input.messageId)?input.messageId:null
+    if ((input.jobId!=null&&!jobId)||(input.messageId!=null&&!messageId)) return json({error:'Invalid processing target'},400)
+    const targeted=Boolean(jobId||messageId)
+    const planned=targeted?{data:0,error:null}:await service.rpc('plan_communication_jobs')
     if (planned.error) throw new Error('Communication scheduling failed')
     const runtime=await service.from('communication_runtime').select('ai_sending_enabled,scheduled_sending_enabled').eq('id',1).single()
     if (runtime.error) throw new Error('Runtime settings unavailable')
-    let job={processed:false}
-    if (runtime.data.ai_sending_enabled||runtime.data.scheduled_sending_enabled) {
+    let job:{processed:boolean,messageId?:string|null}={processed:false}
+    if (jobId&&runtime.data.ai_sending_enabled) {
+      job=await runCommunicationJob(service,aiConfig(),Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID'),jobId)
+    } else if (!targeted&&(runtime.data.ai_sending_enabled||runtime.data.scheduled_sending_enabled)) {
       job=await runCommunicationJob(service,aiConfig(),Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID'))
     }
     const apiKey=Deno.env.get('SENT_DM_API_KEY')
     let dispatches=0
-    if (apiKey) for(let n=0;n<2;n++) {
-      const result=await dispatchSms(service,{apiKey,profileId:Deno.env.get('SENT_DM_PROFILE_ID')})
-      if (!result.dispatched) break
-      dispatches++
+    if (apiKey) {
+      const exactMessageId=messageId??job.messageId??null
+      if (exactMessageId) {
+        const result=await dispatchSms(service,{apiKey,profileId:Deno.env.get('SENT_DM_PROFILE_ID')},exactMessageId)
+        if (result.dispatched) dispatches++
+      } else if (!targeted) for(let n=0;n<2;n++) {
+        const result=await dispatchSms(service,{apiKey,profileId:Deno.env.get('SENT_DM_PROFILE_ID')})
+        if (!result.dispatched) break
+        dispatches++
+      }
     }
     return json({planned:planned.data,job,dispatches})
   } catch(error) {

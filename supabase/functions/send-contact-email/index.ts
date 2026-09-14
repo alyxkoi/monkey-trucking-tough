@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { renderRequestReceivedEmail } from '../_shared/request-received-email.ts'
+import { kickCommunications } from '../_shared/communication-kick.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -311,6 +312,11 @@ Deno.serve(async (req) => {
       if (scheduled.error) {
         console.error('Website conversation scheduling failed after the request was stored:', scheduled.error)
         communicationWarnings.push('website_conversation_schedule_failed')
+      } else if (scheduled.data?.scheduled) {
+        kickCommunications(supabaseUrl, supabaseServiceKey, {
+          jobId: typeof scheduled.data?.job_id === 'string' ? scheduled.data.job_id : null,
+          messageId: typeof scheduled.data?.opt_in_message_id === 'string' ? scheduled.data.opt_in_message_id : null,
+        })
       }
 
       try {
