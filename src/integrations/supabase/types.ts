@@ -3143,6 +3143,10 @@ export type Database = {
         Args: { p_customer_id: string; p_email: string; p_phone: string }
         Returns: Json
       }
+      verify_communications_worker: {
+        Args: { p_token_hash: string }
+        Returns: boolean
+      }
       void_financial_record: {
         Args: { p_reason: string; p_record_id: string; p_record_type: string }
         Returns: undefined
@@ -3187,6 +3191,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      wake_communication_worker: { Args: never; Returns: number }
     }
     Enums: {
       app_role: "admin" | "staff"
