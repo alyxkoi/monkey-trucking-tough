@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { ArrowUpRight, MessageSquare, Phone } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { ScheduleJobSheet } from '@/control-center/approved/components/jobs/ScheduleJobSheet'
 import { ActionLink, PrimaryButton, SecondaryButton } from '@/control-center/approved/components/ui/Button'
 import { ConversationThread, ReplyComposer, SalvadorNeeded } from '@/control-center/approved/components/ui/Conversation'
@@ -45,6 +46,8 @@ export function LeadDetail() {
   const [scheduleSheet, setScheduleSheet] = useState(false)
   const [aiError, setAiError] = useState('')
   const [smsActionPending, setSmsActionPending] = useState(false)
+  const [quoteActionPending, setQuoteActionPending] = useState(false)
+  const [quoteActionError, setQuoteActionError] = useState('')
   const optInRequestIds = useRef(new Map<string,string>())
 
   const { entry, recommend, markActed } = useAttentionEntry()
@@ -104,8 +107,20 @@ export function LeadDetail() {
 
   const openQuote = () => quote && navigate(`/admin/quotes/${quote.id}`)
   const startQuote = async () => {
-    const id = await createQuoteFromLead(lead.id)
-    if (id) navigate(`/admin/quotes/${id}`)
+    if (quoteActionPending) return
+    setQuoteActionPending(true)
+    setQuoteActionError('')
+    try {
+      const id = await createQuoteFromLead(lead.id)
+      if (!id) throw new Error('The quote draft was not created. Please try again.')
+      navigate(`/admin/quotes/${id}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The quote draft could not be created.'
+      setQuoteActionError(message)
+      toast.error(message)
+    } finally {
+      setQuoteActionPending(false)
+    }
   }
 
   /**
@@ -253,14 +268,24 @@ export function LeadDetail() {
                   onInteract={markActed}
                   className="w-full"
                 >
-                  <PrimaryButton tone="onSolid" fullWidth onClick={primary.run}>
-                    {primary.label}
+                  <PrimaryButton
+                    tone="onSolid"
+                    fullWidth
+                    disabled={quoteActionPending && primary.label === 'Create Quote'}
+                    onClick={primary.run}
+                  >
+                    {quoteActionPending && primary.label === 'Create Quote' ? 'Creating Quote…' : primary.label}
                   </PrimaryButton>
                 </AttentionTarget>
               )}
               {secondary && (
-                <SecondaryButton tone="onSolid" fullWidth onClick={secondary.run}>
-                  {secondary.label}
+                <SecondaryButton
+                  tone="onSolid"
+                  fullWidth
+                  disabled={quoteActionPending && secondary.label === 'Create Quote'}
+                  onClick={secondary.run}
+                >
+                  {quoteActionPending && secondary.label === 'Create Quote' ? 'Creating Quote…' : secondary.label}
                 </SecondaryButton>
               )}
             </div>
@@ -345,11 +370,16 @@ export function LeadDetail() {
                   title="No quote yet"
                   line="A quote carries the customer and the need across, so nothing gets retyped."
                   action={
-                    <SecondaryButton size="sm" onClick={startQuote}>
-                      Create Quote
+                    <SecondaryButton size="sm" disabled={quoteActionPending} onClick={startQuote}>
+                      {quoteActionPending ? 'Creating Quote…' : 'Create Quote'}
                     </SecondaryButton>
                   }
                 />
+                {quoteActionError && (
+                  <p role="alert" className="mt-3 text-[13px] font-medium text-mt-red">
+                    {quoteActionError}
+                  </p>
+                )}
               </Panel>
             )
           )}

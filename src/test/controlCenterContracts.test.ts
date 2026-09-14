@@ -236,6 +236,7 @@ describe("Phase 05 Control Center contracts", () => {
 
   it("keeps the lead screen focused on the conversation and an organized AI summary", () => {
     const lead = read("src/control-center/approved/screens/LeadDetail.tsx");
+    const quoteFix = read("supabase/migrations/20260914231500_fix_create_quote_draft_ambiguous_id.sql");
 
     expect(lead).toContain('<Panel title="What the AI knows">');
     expect(lead).not.toContain("OpenAI intelligence · draft only");
@@ -244,6 +245,11 @@ describe("Phase 05 Control Center contracts", () => {
     expect(lead).toContain("Request SMS confirmation");
     expect(lead).toContain('<div className="hidden lg:block">{activityPanel}</div>');
     expect(lead).toContain('<div className="lg:hidden">{activityPanel}</div>');
+    expect(lead).toContain('quoteActionPending');
+    expect(lead).toContain('quoteActionError');
+    expect(lead).toContain("toast.error(message)");
+    expect(quoteFix).toContain('order by settings.id');
+    expect(quoteFix).not.toMatch(/from public\.app_settings\s+order by id/i);
   });
 
   it("keeps profile avatars private, owner-scoped, and immediately replacing", () => {
