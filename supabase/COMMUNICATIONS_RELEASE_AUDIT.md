@@ -167,6 +167,26 @@ Do not mark SMS or Calling READY solely because this source audit passed.
   excludes confirmed FAILED/FILTERED/BLOCKED deliveries from that check,
   retaining pending/ambiguous protection and historical evidence. Three
   regression cases failed before the fix; all 47 focused tests pass after it.
-  Migration deployment remains pending at this checkpoint.
-- The live dashboard browser is signed out. Authenticated composer, real
-  YES/STOP/START/HELP and controlled AI/scheduled tests remain launch gates.
+  Migration applied through Lovable, recorded as
+  `drizzle/migrations/0007_failed_consent_retry.sql`. Deployment verified the
+  new predicate, preserved service-only execution permissions, unchanged
+  failed-message evidence, and zero blocking requests before the next test.
+- Owner signed into the production dashboard. Its Request SMS confirmation
+  action sent local message `360df139-abd0-4cc6-b267-345d0d0714e9`, provider
+  `3726c9db-c334-4906-a086-f5435efac5e2`, at 15:43 UTC. Delivery was recorded
+  at 15:43:54 UTC, one attempt and four processed status events. The dashboard
+  updated to delivered automatically.
+- Owner replied YES at 15:44:15 UTC. Local message
+  `c8309d1c-881f-473e-b6ac-55be32a6c640`, provider
+  `5a947451-bea1-49e1-8cc0-ff85d8aa1f6f`, classified COMPLIANCE. SQL verified
+  sms_double_opt_in_at equals that real inbound time and the request pointer
+  was cleared. Dashboard removed the confirmation request control.
+- The authenticated dashboard composer sent: "Got it, thanks. What address
+  should we deliver the gravel to?" Local `cd6f3503-3a71-4961-a052-716b9589f0d3`,
+  provider `88f1ed0c-d396-42e1-8cec-734771b75dc4`. SQL verifies FREEFORM,
+  DELIVERED, one attempt, and the exact text in the immutable outbound payload.
+  Dashboard displayed delivered and cleared the composer after success.
+  Each consent, YES and free-form message has exactly one provider-linked row.
+- Awaiting owner's handset appearance confirmation and real STOP test.
+  START/HELP, signed replay, unknown-number production evidence, controlled
+  AI and scheduled-rule tests remain launch gates. SMS remains TESTING.
