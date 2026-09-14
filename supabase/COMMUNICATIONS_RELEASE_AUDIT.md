@@ -143,3 +143,30 @@ support received or acted on it.
   are exposed; their direct privilege checks passed.
 
 Do not mark SMS or Calling READY solely because this source audit passed.
+
+## September 14: live inbound and consent cleanup
+
+- Owner confirmed handset receipt of Playground SMS
+  `942bf740-c26d-4a7e-bf61-31c79f895eea`; this verifies provider delivery,
+  not the authenticated dashboard composer.
+- Real inbound `Test`, provider `5ebcc567-f340-4140-94db-8ae5060fd12f`,
+  was received at 15:19:05 UTC and processed at 15:19:07 UTC. Local message
+  `1dd16b17-ec66-49ab-ad30-26dac5a0e25c` belongs to the existing owner lead
+  `d5500f93-448a-4ba2-acda-5c6e8acf08f9`. Read-only SQL verified one message,
+  one processed webhook, one audit entry, no consent granted, takeover true,
+  and no active AI jobs or queued automation. This is not a replay test.
+- `send-sms` consent copy cleanup pushed as `6c602b8` and deployed through
+  Lovable on September 14. Deployment reports success and unauthenticated
+  POST returns 401. The approved template provides branding and STOP once;
+  the message parameter retains YES, HELP, frequency and rates information.
+- Runtime remains SMS TESTING, Calling SETUP_REQUIRED, AI/scheduled/marketing
+  off. The communications cron reported success at 15:37 UTC, queues empty.
+- Live preflight found yesterday's opt-in outbox ACCEPTED while its linked
+  delivery status is FAILED. The old seven-day pending check incorrectly
+  blocked a new request. Migration `20260914154000_failed_consent_retry.sql`
+  excludes confirmed FAILED/FILTERED/BLOCKED deliveries from that check,
+  retaining pending/ambiguous protection and historical evidence. Three
+  regression cases failed before the fix; all 47 focused tests pass after it.
+  Migration deployment remains pending at this checkpoint.
+- The live dashboard browser is signed out. Authenticated composer, real
+  YES/STOP/START/HELP and controlled AI/scheduled tests remain launch gates.

@@ -39,6 +39,7 @@ beforeAll(async () => {
   await db.exec(base.match(/insert into public\.automation_rules[\s\S]*?on conflict \(id\) do nothing;/)![0])
   for (const file of ['20260913090000_sent_dm_sms_transport', '20260913170000_durable_sms_pipeline', '20260913171000_sms_consent_and_inbox', '20260913172000_communication_worker', '20260913180000_worker_vault_auth']) await db.exec(read(file))
   await db.exec("update control_center_settings set sms_status='TESTING'")
+  await db.exec(read('20260914154000_failed_consent_retry'))
 }, 30_000)
 afterAll(async () => { await db?.close() })
 
@@ -131,6 +132,24 @@ describe.sequential('executed PostgreSQL SMS transactions', () => {
     await query("update sms_outbox set state='DISPATCHING',first_attempt_at=now()-interval '25 hours',lease_until=now()-interval '1 minute' where message_id=$1", [m.id])
     expect(await rpc('claim_sms', [m.id])).toBeNull()
     expect((await query('select state from sms_outbox where message_id=$1', [m.id]))[0].state).toBe('REVIEW')
+  })
+
+  it.each(['FAILED', 'FILTERED', 'BLOCKED'])('allows a new consent request after confirmed %s delivery, but blocks pending duplicates', async (status) => {
+    const phone = `+1214555002${['FAILED', 'FILTERED', 'BLOCKED'].indexOf(status)}`
+    const c = await customer(phone)
+    const first = await enqueue(c.leadId, `consent-first-${status}`, 'Please reply YES', 'OPT_IN')
+    const claim = await rpc('claim_sms', [first.id])
+    await rpc('authorize_sms_dispatch', [first.id, claim.lease_token])
+    const providerId = `consent-provider-${status}`
+    await rpc('complete_sms_dispatch', [first.id, claim.lease_token, providerId, 'SENT'])
+    await expect(enqueue(c.leadId, `consent-pending-${status}`, 'Please reply YES', 'OPT_IN')).rejects.toThrow('already pending')
+    await rpc('apply_sms_delivery_status', [providerId, status])
+    const replacement = await enqueue(c.leadId, `consent-replacement-${status}`, 'Please reply YES', 'OPT_IN')
+    expect(replacement.id).not.toBe(first.id)
+    expect((await query('select state from sms_outbox where message_id=$1', [first.id]))[0].state).toBe('ACCEPTED')
+    expect((await query('select delivery_status from lead_messages where id=$1', [first.id]))[0].delivery_status).toBe(status)
+    await expect(enqueue(c.leadId, `consent-duplicate-${status}`, 'Please reply YES', 'OPT_IN')).rejects.toThrow('already pending')
+    expect((await query('select sms_double_opt_in_at from customers where id=$1', [c.customerId]))[0].sms_double_opt_in_at).toBeNull()
   })
 
   it('denies browser RPC execution and table writes', async () => {
