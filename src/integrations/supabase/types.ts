@@ -630,7 +630,6 @@ export type Database = {
           email_status: string
           human_takeover_on_reply: boolean
           id: number
-          initial_response_target_seconds: number
           payment_processor_status: string
           printable_logo_status: string
           processing_fee_enabled: boolean
@@ -651,7 +650,6 @@ export type Database = {
           email_status?: string
           human_takeover_on_reply?: boolean
           id?: number
-          initial_response_target_seconds?: number
           payment_processor_status?: string
           printable_logo_status?: string
           processing_fee_enabled?: boolean
@@ -672,7 +670,6 @@ export type Database = {
           email_status?: string
           human_takeover_on_reply?: boolean
           id?: number
-          initial_response_target_seconds?: number
           payment_processor_status?: string
           printable_logo_status?: string
           processing_fee_enabled?: boolean
