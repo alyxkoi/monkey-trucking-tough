@@ -83,6 +83,14 @@ describe('sent.DM transport contracts', () => {
     expect(webhook.indexOf('await verifySignature(')).toBeLessThan(webhook.indexOf("service.rpc('ingest_sms_event'"))
     expect(webhook).toContain("toLowerCase() !== 'sms'")
     expect(webhook).toContain("businessNumber !== '+19453750877'")
+    expect(webhook).toContain("reason: timestampSkewSeconds === null || timestampSkewSeconds > 300 ? 'stale_timestamp' : 'invalid_signature'")
+    expect(webhook).toContain("signatureVersion: req.headers.get('X-Webhook-Signature')?.split(',')[0] ?? null")
+    const diagnostic = webhook.slice(
+      webhook.indexOf("console.warn('sent.DM webhook rejected'"),
+      webhook.indexOf("return json({ error: 'Invalid webhook signature'"),
+    )
+    expect(diagnostic).not.toContain('rawBody')
+    expect(diagnostic).not.toContain('secret')
     expect(webhook).toContain("result.data?.result?.job_id")
     expect(webhook).toContain('kickCommunications(url, key, { jobId })')
     expect(sql).toContain('pg_advisory_xact_lock')

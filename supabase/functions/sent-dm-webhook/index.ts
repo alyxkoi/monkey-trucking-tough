@@ -18,7 +18,19 @@ Deno.serve(async (req) => {
   const rawBody = await req.text()
   if (rawBody.length > 65536) return json({ error: 'Payload too large' }, 413)
   try {
-    if (!await verifySignature(req, rawBody, secret)) return json({ error: 'Invalid webhook signature' }, 401)
+    if (!await verifySignature(req, rawBody, secret)) {
+      const timestamp = Number(req.headers.get('X-Webhook-Timestamp'))
+      const timestampSkewSeconds = Number.isFinite(timestamp)
+        ? Math.round(Math.abs(Date.now() / 1000 - timestamp))
+        : null
+      console.warn('sent.DM webhook rejected', {
+        reason: timestampSkewSeconds === null || timestampSkewSeconds > 300 ? 'stale_timestamp' : 'invalid_signature',
+        timestampSkewSeconds,
+        hasWebhookId: Boolean(req.headers.get('X-Webhook-ID')),
+        signatureVersion: req.headers.get('X-Webhook-Signature')?.split(',')[0] ?? null,
+      })
+      return json({ error: 'Invalid webhook signature' }, 401)
+    }
   } catch (error) {
     return json({ error: 'Webhook signature verification failed' }, error instanceof HttpError ? error.status : 401)
   }
