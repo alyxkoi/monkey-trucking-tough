@@ -839,6 +839,7 @@ export function SettingsCommunication() {
   const [english, setEnglish] = useState(true)
   const [spanish, setSpanish] = useState(true)
   const [takeover, setTakeover] = useState(true)
+  const [initialReplyMinutes, setInitialReplyMinutes] = useState('1')
   const [openRule, setOpenRule] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [previewDrafts, setPreviewDrafts] = useState<Record<string, string>>({})
@@ -873,14 +874,20 @@ export function SettingsCommunication() {
     setEnglish(settings.ai_english)
     setSpanish(settings.ai_spanish)
     setTakeover(true)
+    setInitialReplyMinutes(String(Math.max(1, Math.round((settings.initial_response_target_seconds ?? 60) / 60))))
   }, [settings])
 
   const save = async () => {
+    const parsedReplyMinutes = Number(initialReplyMinutes)
+    if (!Number.isInteger(parsedReplyMinutes) || parsedReplyMinutes < 1 || parsedReplyMinutes > 10) {
+      toast.error('First reply target must be a whole number from 1 to 10 minutes.')
+      return
+    }
     setSaving(true)
     try {
       if (demo.enabled) {
         const now = new Date().toISOString()
-        demo.updateData((current) => ({ ...current, controlSettings: current.controlSettings ? { ...current.controlSettings, business_number: number.trim() || null, ai_english: english, ai_spanish: spanish, human_takeover_on_reply: takeover, updated_at: now } : null }))
+        demo.updateData((current) => ({ ...current, controlSettings: current.controlSettings ? { ...current.controlSettings, business_number: number.trim() || null, ai_english: english, ai_spanish: spanish, human_takeover_on_reply: takeover, initial_response_target_seconds: parsedReplyMinutes * 60, updated_at: now } : null }))
         toast.success('Communication settings saved in demo memory.')
         return
       }
@@ -889,6 +896,7 @@ export function SettingsCommunication() {
         ai_english: english,
         ai_spanish: spanish,
         human_takeover_on_reply: takeover,
+        initial_response_target_seconds: parsedReplyMinutes * 60,
       }).eq('id', 1)
       if (error) throw new Error(error.message)
       await refresh()
@@ -943,6 +951,13 @@ export function SettingsCommunication() {
 
       <Panel title="How it talks">
         <div className="space-y-4">
+          <TextField
+            label="First reply target"
+            value={initialReplyMinutes}
+            onChange={setInitialReplyMinutes}
+            inputMode="numeric"
+            hint="Minutes, from 1 to 10. Applies only to the first automated reply after a new text or website request. Ongoing replies stay fast."
+          />
           <Toggle label="English" value={english} onChange={setEnglish} />
           <Toggle
             label="Spanish"

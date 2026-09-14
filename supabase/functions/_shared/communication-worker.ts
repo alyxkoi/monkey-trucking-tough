@@ -19,7 +19,11 @@ export function autonomousReply(decision: any, pricing: any): string {
       ? `el material para ${pricing.yards} yardas de ${material} cuesta $${amount}. la entrega y los impuestos se confirman por separado.${addressKnown?'':' cuál es la dirección exacta de entrega.'}`
       : `the material for ${pricing.yards} yards of ${material} is $${amount}. delivery and tax are confirmed separately.${addressKnown?'':' what is the exact delivery address.'}`
   }
-  if (decision.recommended_action !== 'ASK_NEXT_MISSING_FACT') throw new Error('This AI action requires staff review')
+  if (!['ASK_NEXT_MISSING_FACT','COLLECT_RESCHEDULE_PREFERENCE'].includes(decision.recommended_action)) throw new Error('This AI action requires staff review')
+  if (decision.recommended_action === 'COLLECT_RESCHEDULE_PREFERENCE'
+    && /\b(booked|scheduled|rescheduled|confirmed|agendado|reagendado|confirmado)\b/i.test(decision.draft_reply)) {
+    throw new Error('Reschedule preference cannot be presented as a confirmed change')
+  }
   if (/[$€£]|\b(dollars?|dólares|paid|refunded|booked|scheduled|discount|pagado|reembolsado|agendado|descuento)\b/i.test(decision.draft_reply)) throw new Error('Financial or scheduling commitment requires staff review')
   return decision.draft_reply
 }

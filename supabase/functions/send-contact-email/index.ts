@@ -302,7 +302,17 @@ Deno.serve(async (req) => {
     }
 
     const emailWarnings: string[] = []
+    const communicationWarnings: string[] = []
     if (submissionId) {
+      const scheduled = await supabase.rpc('schedule_website_contact_response', {
+        p_submission_id: submissionId,
+        p_template_id: Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID') ?? null,
+      })
+      if (scheduled.error) {
+        console.error('Website conversation scheduling failed after the request was stored:', scheduled.error)
+        communicationWarnings.push('website_conversation_schedule_failed')
+      }
+
       try {
         await queueEmailOnce(supabase, {
           to: 'contact@monkeytrucking.llc',
@@ -347,7 +357,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, submissionId, idempotent: !submissionCreated, emailWarnings }),
+      JSON.stringify({ success: true, submissionId, idempotent: !submissionCreated, emailWarnings, communicationWarnings }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

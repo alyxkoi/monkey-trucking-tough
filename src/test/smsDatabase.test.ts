@@ -33,13 +33,14 @@ beforeAll(async () => {
     await db.exec(ddl)
   }
   await db.exec(`alter table customers add sms_consent_at timestamptz,add sms_consent_source text,add sms_opted_out_at timestamptz;
-    create table contact_submissions(id uuid,customer_id uuid,sms_consent boolean,sms_consent_at timestamptz,submitted_at timestamptz,consent_source text);
+    create table contact_submissions(id uuid primary key,customer_id uuid,lead_id uuid,phone text,project_type text,message text,sms_consent boolean,sms_consent_at timestamptz,submitted_at timestamptz,consent_source text);
     insert into control_center_settings(id) values(1);
     insert into user_roles values('${actor}','admin');`)
   await db.exec(base.match(/insert into public\.automation_rules[\s\S]*?on conflict \(id\) do nothing;/)![0])
   for (const file of ['20260913090000_sent_dm_sms_transport', '20260913170000_durable_sms_pipeline', '20260913171000_sms_consent_and_inbox', '20260913172000_communication_worker', '20260913180000_worker_vault_auth']) await db.exec(read(file))
   await db.exec("update control_center_settings set sms_status='TESTING'")
   await db.exec(read('20260914154000_failed_consent_retry'))
+  await db.exec(read('20260914190000_initial_response_and_reschedule_intake'))
 }, 30_000)
 afterAll(async () => { await db?.close() })
 
@@ -57,7 +58,37 @@ describe.sequential('executed PostgreSQL SMS transactions', () => {
     expect(r.ai_sending_enabled).toBe(false)
     expect(r.scheduled_sending_enabled).toBe(false)
     expect(r.marketing_approved).toBe(false)
-    expect((await query('select ai_english,ai_spanish from control_center_settings'))[0]).toMatchObject({ ai_english: true, ai_spanish: true })
+    expect((await query('select ai_english,ai_spanish,initial_response_target_seconds from control_center_settings'))[0]).toMatchObject({ ai_english: true, ai_spanish: true, initial_response_target_seconds: 60 })
+  })
+
+  it('records website requests in the conversation and schedules the compliant first response once', async () => {
+    const c = await customer('+12145550031')
+    const submissionId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+    await db.exec("update communication_runtime set ai_sending_enabled=true,test_numbers=array['+12145550031']")
+    await query("insert into contact_submissions(id,customer_id,lead_id,phone,project_type,message,sms_consent,sms_consent_at,submitted_at,consent_source) values($1,$2,$3,'2145550031','material-delivery','Need gravel',true,now(),now(),'website_contact_form')", [submissionId, c.customerId, c.leadId])
+    expect(await rpc('schedule_website_contact_response', [submissionId, 'approved-template'])).toMatchObject({ scheduled: true, kind: 'OPT_IN' })
+    expect(await rpc('schedule_website_contact_response', [submissionId, 'approved-template'])).toMatchObject({ scheduled: true, kind: 'OPT_IN' })
+    expect((await query("select count(*)::int n from lead_messages where lead_id=$1 and sender_type='CUSTOMER' and message_kind='INBOUND'", [c.leadId]))[0].n).toBe(1)
+    expect((await query("select count(*)::int n from sms_outbox where origin='OPT_IN'", []))[0].n).toBe(1)
+    expect((await query("select sender_type from lead_messages where idempotency_key=$1", [`website-opt-in:${submissionId}`]))[0].sender_type).toBe('SYSTEM')
+    await db.exec('update communication_runtime set ai_sending_enabled=false')
+  })
+
+  it('queues an already opted-in website lead and a first direct text within the one-minute target', async () => {
+    const website = await customer('+12145550032')
+    const submissionId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+    await query('update customers set sms_double_opt_in_at=now() where id=$1', [website.customerId])
+    await db.exec("update communication_runtime set ai_sending_enabled=true,test_numbers=array['+12145550032','+12145550030']")
+    await query("insert into contact_submissions(id,customer_id,lead_id,phone,project_type,message,sms_consent,sms_consent_at,submitted_at,consent_source) values($1,$2,$3,'2145550032','driveway','Need an estimate',true,now(),now(),'website_contact_form')", [submissionId, website.customerId, website.leadId])
+    expect(await rpc('schedule_website_contact_response', [submissionId, 'approved-template'])).toMatchObject({ scheduled: true, kind: 'AI_REPLY' })
+    expect((await query("select (due_at <= now()+interval '2 seconds') as due,context->>'initial_response' as initial from communication_jobs where lead_id=$1", [website.leadId]))[0]).toEqual({ due: true, initial: 'true' })
+
+    const direct = await customer('+12145550030')
+    await query('update customers set sms_double_opt_in_at=now() where id=$1', [direct.customerId])
+    await rpc('record_inbound_sms', ['first-direct', '+12145550030', 'Can you help me?'])
+    expect((await query("select (due_at <= now()+interval '2 seconds') as due,context->>'initial_response' as initial from communication_jobs where lead_id=$1", [direct.leadId]))[0]).toEqual({ due: true, initial: 'true' })
+    await query("update communication_jobs set state='CANCELLED' where lead_id in ($1,$2)", [website.leadId, direct.leadId])
+    await db.exec('update communication_runtime set ai_sending_enabled=false')
   })
 
   it('restricts TESTING to the allowlist and denies opt-out', async () => {

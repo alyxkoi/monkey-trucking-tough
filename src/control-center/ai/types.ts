@@ -2,6 +2,7 @@ export type AiLanguage = 'ENGLISH' | 'SPANISH' | 'SPANGLISH'
 export type AiConfidence = 'HIGH' | 'MEDIUM' | 'LOW'
 export type AiRecommendedAction =
   | 'ASK_NEXT_MISSING_FACT'
+  | 'COLLECT_RESCHEDULE_PREFERENCE'
   | 'PROVIDE_STANDARD_PRICE'
   | 'HOLD_FOR_SALVADOR'
   | 'VERIFY_PAYMENT'

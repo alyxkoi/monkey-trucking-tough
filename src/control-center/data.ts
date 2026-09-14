@@ -254,6 +254,7 @@ export type ControlSettings = {
   ai_english: boolean;
   ai_spanish: boolean;
   human_takeover_on_reply: boolean;
+  initial_response_target_seconds: number;
   updated_at: string;
 };
 

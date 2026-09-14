@@ -4,7 +4,7 @@ import { createHmac } from 'node:crypto'
 import { dispatchSms } from '../../supabase/functions/_shared/sms-dispatch'
 import { verifySignature } from '../../supabase/functions/_shared/sms-signature'
 import { autonomousReply, jobReminderText } from '../../supabase/functions/_shared/communication-worker'
-import { generateAiDraft, materialTool } from '../../supabase/functions/_shared/ai-engine'
+import { forcedEscalation, generateAiDraft, materialTool } from '../../supabase/functions/_shared/ai-engine'
 
 afterEach(()=>vi.unstubAllGlobals())
 const messageId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
@@ -127,8 +127,17 @@ describe('shared production AI safety',()=>{
     expect(prompt).toContain('Ordinary unanswered intake questions belong in missing_facts')
     expect(prompt).toContain('Never assume a truckload equals a particular yard quantity')
     expect(prompt).toContain('Conflicting facts or uncertainty about a claim you would make belong in uncertain_facts')
+    expect(prompt).toContain('COLLECT_RESCHEDULE_PREFERENCE')
+    expect(prompt).toContain('use the earliest stated time as the preference')
     expect(autonomousReply({...decision,missing_facts:['specific gravel type','yard quantity','delivery address']},{})).toBe(decision.draft_reply)
     expect(()=>autonomousReply({...decision,uncertain_facts:['Conflicting delivery addresses.']},{})).toThrow('human review')
+  })
+  it('collects reschedule date and time without claiming the appointment changed',()=>{
+    expect(forcedEscalation('Can I reschedule?',false)).toBeNull()
+    const reschedule={...decision,customer_intent:'RESCHEDULE',recommended_action:'COLLECT_RESCHEDULE_PREFERENCE',draft_reply:'what date would work better for you.',known_facts:[],missing_facts:['reschedule_date','reschedule_time']}
+    expect(autonomousReply(reschedule,{})).toBe('what date would work better for you.')
+    expect(autonomousReply({...reschedule,draft_reply:'got it, I have Tuesday at 6 as your preferred new time. our team will confirm it.',known_facts:[{key:'reschedule_date',value:'Tuesday'},{key:'reschedule_time',value:'6:00 PM'}],missing_facts:[]},{})).toContain('preferred new time')
+    expect(()=>autonomousReply({...reschedule,draft_reply:'your appointment is rescheduled for Tuesday at 6.'},{})).toThrow('confirmed change')
   })
   it('loads the latest 80 messages and fails closed when payment or settings context is missing',async()=>{
     const fetcher=vi.fn(async()=>new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)})))
