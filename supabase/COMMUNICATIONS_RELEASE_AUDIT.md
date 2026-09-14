@@ -262,3 +262,40 @@ Do not mark SMS or Calling READY solely because this source audit passed.
 - Independent empty, unauthenticated POST checks after deployment returned
   HTTP 401 for both ai-draft and process-communications. Spanish/context and
   subsequent staff-takeover handset checks are next; broad sending stays off.
+
+## September 14: Spanish, latest context and manual takeover
+
+- Owner sent two real Spanish texts specifying 50 yards of flexbase, then
+  delivery to Kaufman. Local inbound IDs `b16539fe-3f22-4720-a604-32881998e5ae`
+  and `00eb0918-96fa-4136-85f6-c8ff8d06d6a4`; provider IDs
+  `42ab7493-f0bd-4c97-bb99-1342b1cf9151` and
+  `d9979d0d-bce2-43cf-8d61-2171aaf3a56d`.
+- The second inbound cancelled older queued job
+  `1b474ca3-238f-4c83-be49-eb530aea2a64` before any attempt. Latest-context
+  job `fb087184-956b-4f1a-93a3-d93b447850d8` completed once. Audit
+  `e3e0a252-4f6d-48fe-acdb-f0a94cf264c1` shows SPANISH, 50 yards, flexbase,
+  Kaufman, HIGH confidence and empty uncertain_facts. The reply asks only for
+  the exact address, without repeating supplied quantity or material.
+- Spanish AI message `7cc41f04-d1a9-409d-b360-7d3c93f70a49`, provider
+  `8e28f005-07f0-4ee9-9f63-585ed5541570`, was DELIVERED with one send attempt:
+  "claro. ¿Me comparte la dirección exacta de entrega?"
+- After the owner supplied an address, the AI asked about 1-inch versus
+  3-inch flexbase. Message `716dafa5-f307-4712-ae4a-7f767cb01027`, provider
+  `3f9656ab-b433-4442-9721-3706d2b853e0`, was reserved at 16:16:06 UTC,
+  before manual takeover, and delivered once. This is not a cancelled
+  in-flight-send test; previously submitted carrier messages cannot be recalled.
+- The authenticated dashboard then sent a labeled manual takeover test at
+  16:16:09 UTC: local `38efb914-07a6-48cc-8ff3-d4354b78c742`, provider
+  `4d47fb62-9c57-4b10-b84c-e97d99ad7115`, DELIVERED, one attempt. The
+  composer cleared, human_takeover became true and the dashboard disabled
+  Generate AI Draft, displayed AI PAUSED, and offered explicit future resume.
+- Real post-takeover text "1 pulgada" arrived at 16:16:49 UTC, local
+  `0fa742dc-4211-48cf-8017-c76fb6f4a859`, provider
+  `258bdaf9-b6c3-4147-a3f7-6478b469c0ae`. It appeared in the conversation
+  while takeover remained true. Runtime still permits only the owner test
+  handset; scheduled sending and marketing remain false.
+- At 16:17:44 UTC, SQL verified takeover true, zero jobs for the paused
+  inbound, zero AI messages after the manual response and zero active jobs.
+  After explicit dashboard resume, a 16:19:35 UTC recheck showed takeover
+  false with all three counts still zero. Resume did not backfill the paused
+  text. A fresh material-price inquiry was requested to test pricing next.
