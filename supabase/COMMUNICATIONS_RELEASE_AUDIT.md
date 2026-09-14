@@ -232,4 +232,17 @@ Do not mark SMS or Calling READY solely because this source audit passed.
   truckload yardage or a catalog material. The uncertainty guard is unchanged.
   A prompt-contract regression failed before the edit; 34 focused AI/SMS tests
   pass afterward, including continued rejection of conflicting facts. Mocked
-  model tests are not live model behavior proof; deployment/retest pending.
+  model tests are not live model behavior proof. Targeted lint also passed.
+- `dd316bc` was pushed to main and Lovable deployed only ai-draft and
+  process-communications with their shared modules. It reported HTTP 401 for
+  unauthenticated requests to both, unchanged runtime gates and no frontend
+  publish. Its description of ACCEPTED outbox rows as awaiting delivery is
+  not authoritative: these submission states persist after terminal delivery;
+  the previously verified linked message delivery statuses remain the evidence.
+- An authenticated dashboard draft-only recheck completed at 16:08:57 UTC,
+  audit `e5b8608e-ddc6-441d-8ffa-d993373948f3`. Independent SQL verified
+  prompt mt-ai-draft-v3, model gpt-5.6-terra, SUCCESS, HIGH confidence and empty
+  uncertain_facts. The displayed draft asks which gravel type the customer
+  wants; missing_facts includes specific type, yard quantity and exact address.
+  This confirms live revised draft behavior, not automatic SMS delivery.
+  A fresh handset inquiry was requested for that next end-to-end test.
