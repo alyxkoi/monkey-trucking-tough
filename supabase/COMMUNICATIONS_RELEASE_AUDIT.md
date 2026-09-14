@@ -320,3 +320,27 @@ Do not mark SMS or Calling READY solely because this source audit passed.
   model-supplied amounts cannot replace calculated amounts, mismatched material
   or quantity and unavailable official prices still block, and current takeover
   still skips the model. Live v4 deployment and pricing retest are pending.
+- Commit `f1375ee` was pushed and deployed through Lovable to ai-draft and
+  process-communications only. Independent unauthenticated empty POST checks
+  returned 401 for both after deployment. Model, secrets, crons, frontend,
+  schema and sending gates were unchanged.
+- Independent SQL read of the active material confirms 20 yards per full
+  load at 720, and 38 per remainder yard: 2 x 720 + 10 x 38 = 1820 for
+  50 yards. No delivery/tax/grand-total value was invented. Draft-only audit
+  `a7abbe52-7ada-4461-8962-3bc12773ec65` at 16:26:45 UTC verified prompt v4,
+  HIGH confidence, no uncertainty, requires_human false and canonical
+  confirmed material/quantity facts after the explicit resume.
+- Real repeated price inquiry arrived at 16:27:17 UTC, local
+  `5420c164-041d-4153-bcd6-a905a8bf523c`, provider
+  `801a19c8-9aae-4e83-9940-29c0df70a0db`. Job
+  `2485028d-6333-4700-a66a-dcf3a88215c0` completed DONE with one attempt and
+  no error. Audit `a465c03e-3688-4c0c-ac3c-8e604a022a82` used prompt v4 and
+  PROVIDE_STANDARD_PRICE with the verified 1820 material calculation.
+- Automatic price SMS `99e43203-27f1-4173-883f-c44aca018728`, provider
+  `32e76f3c-6a82-47ce-9e89-a2c0ea76f74b`, was created at 16:28:09 UTC and
+  DELIVERED with one send attempt. Its immutable payload exactly matches the
+  deterministic renderer: material price $1820.00; delivery and taxes confirmed
+  separately. Dashboard displayed delivered. The renderer uses the catalog's
+  literal bilingual name (including both 1-inch/3-inch options); it did not
+  invent a variant-specific price or a booking. Human-request escalation is
+  the next controlled conversational test; SMS remains TESTING.
