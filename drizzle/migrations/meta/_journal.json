@@ -57,6 +57,13 @@
       "when": 1789400552341,
       "tag": "0007_failed_consent_retry",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789423568396,
+      "tag": "0008_immediate_sms_processing",
+      "breakpoints": true
     }
   ]
 }
