@@ -15,7 +15,9 @@
 - Existing Edge secrets: SENT_DM_API_KEY, SENT_DM_WEBHOOK_SECRET,
   SENT_DM_FIRST_CONTACT_TEMPLATE_ID. SENT_DM_PROFILE_ID is intentionally absent
   because no separate sender profile was established. Never print their values.
-- SMS is TESTING, Calling SETUP_REQUIRED. AI READY describes drafting only.
+- SMS is READY as of the completed September 14 production release audit.
+  Calling remains SETUP_REQUIRED. AI READY describes drafting only; autonomous
+  sending is governed separately by consent, takeover and runtime controls.
 
 The original foundation migration `20260913090000_sent_dm_sms_transport.sql`
 was applied previously. Do not rerun historical broad UI/schema migrations.
@@ -121,8 +123,10 @@ AND explicit `sms_marketing_consent_at`, in addition to normal double opt-in.
 Calling remains SETUP_REQUIRED until the exact number's supported voice API and
 missed-call events are documented and exercised.
 
-Only after applicable live evidence passes should SMS become READY. Enable AI,
-scheduled sending and individual rules separately; do not conflate their gates.
+The applicable live SMS evidence passed on September 14 and SMS is READY. AI is
+enabled for consented inbound conversations. Scheduled sending, marketing and
+all individual outbound automation rules remain disabled; do not conflate their
+gates. Calling remains SETUP_REQUIRED.
 
 ## Recovery
 
@@ -135,7 +139,7 @@ checking the new database contracts. Existing email scheduling stays untouched.
 
 ## Local verification before deployment
 
-- 264 tests across 41 files passed, including 16 executed PostgreSQL behavior
+- 271 tests across 41 files passed, including executed PostgreSQL behavior
   cases and transport, AI, composer and realtime tests.
 - Production Vite build and application TypeScript check passed.
 - Deno native checks passed for all four Edge Function entrypoints.

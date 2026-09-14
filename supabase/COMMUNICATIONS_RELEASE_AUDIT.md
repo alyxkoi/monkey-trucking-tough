@@ -460,5 +460,30 @@ Do not mark SMS or Calling READY solely because this source audit passed.
   four processed lifecycle events: queued, routed, sent and delivered. The new
   regression failed on the old behavior; all 49 focused SMS tests and all 271
   repository tests pass after the fix, targeted lint is clean and the production
-  build succeeds. Deployment and one final carrier-confirmed retest remain
-  required before enabling scheduling.
+  build succeeds.
+- GitHub main commit `b5281ce` was verified and deployed to production at about
+  17:17 UTC. Only `process-communications` and its shared worker module were
+  deployed. An unauthenticated POST returned 401; no source, schema, secret,
+  frontend, runtime-gate or message changes occurred during deployment. The
+  minute cron remained active and healthy.
+- The controlled post-deployment retest used synthetic job
+  `e8e08c54-b9cb-4ea8-9dc7-7af0a2a1c2f2`. Inline assertions rechecked consent,
+  double opt-in, no opt-out, no takeover, the single owner test number, no active
+  business/communication work and no other enabled sending rule before the
+  temporary job-reminder gate was opened.
+- The real minute cron created communication job
+  `9048f666-2c4d-4cbc-8cc1-ea9454ff5d8e`, which completed DONE in one attempt.
+  Local message `94f0ad77-400c-48d3-b741-072980a127a1` and provider message
+  `eb4eb262-5420-4109-9b39-9e0bb9516e6a` reached DELIVERED with no error. The
+  exact body was `Recordatorio: su trabajo es el martes 15, 12:26 p.m.`.
+  sent.DM Activity independently showed Delivered and one SMS segment, replacing
+  the first test's three segments.
+- Cleanup immediately restored scheduled sending to false, cleared
+  `activated_at`, returned `job-reminder` to SETUP_REQUIRED and marked the
+  synthetic job CANCELLED. Final database assertions showed zero active business
+  jobs, zero queued/working communication jobs and zero active/review outbox.
+- The applicable production SMS release matrix is complete. SMS was promoted
+  from TESTING to READY after the final assertions passed. AI inbound handling
+  remains enabled, while scheduled sending and marketing remain disabled.
+  Calling remains SETUP_REQUIRED because voice/missed-call support for this
+  sent.DM number has not been documented or exercised.
