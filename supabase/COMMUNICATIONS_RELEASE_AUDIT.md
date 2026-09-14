@@ -246,3 +246,19 @@ Do not mark SMS or Calling READY solely because this source audit passed.
   wants; missing_facts includes specific type, yard quantity and exact address.
   This confirms live revised draft behavior, not automatic SMS delivery.
   A fresh handset inquiry was requested for that next end-to-end test.
+- The fresh inquiry arrived at 16:10:51 UTC, local
+  `b72135ff-a7c1-46af-868f-ab0ea0540812`, provider
+  `0f809328-b090-428c-a2ae-9e7e9fd6a514`. AI job
+  `bc188d4b-dcf9-4d6d-a298-38e23838fb66` completed DONE with one attempt and
+  no error. Prompt-v3 audit `e59d0f3e-9a69-4601-9ecf-8c14d651a2c5` is SUCCESS
+  with empty uncertain_facts.
+- Automatic reply: "hi Alexander, what type of gravel and how many yards do
+  you need?" Local `d1f76336-0210-4f9d-af0d-4eece913bb43`, provider
+  `5c99f251-3ee6-4d4b-8137-f63a874be282`. SQL verified DELIVERED, one send
+  attempt, one provider-linked message row, four processed status events and
+  exact free-form payload text without template branding/footer. The terminal
+  row update was 16:11:50 UTC. The live dashboard changed queued to delivered
+  automatically. This is a real autonomous English SMS delivery test.
+- Independent empty, unauthenticated POST checks after deployment returned
+  HTTP 401 for both ai-draft and process-communications. Spanish/context and
+  subsequent staff-takeover handset checks are next; broad sending stays off.
