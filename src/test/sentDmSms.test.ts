@@ -85,9 +85,9 @@ describe('sent.DM transport contracts', () => {
     expect(webhook).toContain("businessNumber !== '+19453750877'")
     expect(webhook).toContain("reason: timestampSkewSeconds === null || timestampSkewSeconds > 300 ? 'stale_timestamp' : 'invalid_signature'")
     expect(webhook).toContain("signatureVersion: req.headers.get('X-Webhook-Signature')?.split(',')[0] ?? null")
-    expect(webhook).toContain('runtimeCredentialLength')
-    expect(webhook).toContain('runtimeCredentialFingerprint')
-    expect(webhook).toContain('alternativeSignatureMatches')
+    expect(webhook).not.toContain('runtimeCredentialLength')
+    expect(webhook).not.toContain('runtimeCredentialFingerprint')
+    expect(webhook).not.toContain('alternativeSignatureMatches')
     const diagnostic = webhook.slice(
       webhook.indexOf("console.warn('sent.DM webhook rejected'"),
       webhook.indexOf("return json({ error: 'Invalid webhook signature'"),

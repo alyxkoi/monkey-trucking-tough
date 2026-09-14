@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createHmac } from 'node:crypto'
 import { dispatchSms } from '../../supabase/functions/_shared/sms-dispatch'
-import { diagnoseSignatureVariants, verifySignature } from '../../supabase/functions/_shared/sms-signature'
+import { verifySignature } from '../../supabase/functions/_shared/sms-signature'
 import { autonomousReply, jobReminderText } from '../../supabase/functions/_shared/communication-worker'
 import { forcedEscalation, generateAiDraft, materialTool } from '../../supabase/functions/_shared/ai-engine'
 
@@ -64,17 +64,6 @@ describe('SMS transport behavior',()=>{
     expect(await verifySignature(request,body+' ',secret)).toBe(false)
     request.headers.set('X-Webhook-Timestamp',String(Number(timestamp)-301))
     expect(await verifySignature(request,body,secret)).toBe(false)
-  })
-  it('identifies alternative signer formats without accepting them',async()=>{
-    const suffix=Buffer.from('test-signing-key').toString('base64')
-    const secret=`whsec_${suffix}`
-    const timestamp=String(Math.floor(Date.now()/1000))
-    const body='{"field":"message"}'
-    const payload=`hook.${timestamp}.${body}`
-    const signature=createHmac('sha256',Buffer.from(secret)).update(payload).digest('base64')
-    const request=new Request('https://example.test',{method:'POST',headers:{'X-Webhook-ID':'hook','X-Webhook-Timestamp':timestamp,'X-Webhook-Signature':`v1,${signature}`},body})
-    expect(await verifySignature(request,body,secret)).toBe(false)
-    expect(await diagnoseSignatureVariants(request,body,secret)).toEqual(['utf8_full_secret_documented_payload'])
   })
 })
 

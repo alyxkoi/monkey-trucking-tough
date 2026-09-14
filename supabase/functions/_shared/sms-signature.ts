@@ -40,30 +40,3 @@ export async function verifySignature(req: Request, rawBody: string, secret: str
   if (!keyBytes) return false
   return hmacMatches(keyBytes, `${webhookId}.${timestamp}.${rawBody}`, signatureCandidates(signatureHeader))
 }
-
-export async function diagnoseSignatureVariants(req: Request, rawBody: string, secret: string): Promise<string[]> {
-  const webhookId = req.headers.get('X-Webhook-ID')
-  const timestamp = req.headers.get('X-Webhook-Timestamp')
-  const signatureHeader = req.headers.get('X-Webhook-Signature')
-  if (!webhookId || !timestamp || !signatureHeader) return []
-
-  const suffix = secret.replace(/^whsec_/, '')
-  const decodedSecret = base64Bytes(suffix)
-  if (!decodedSecret) return []
-  const encoder = new TextEncoder()
-  const candidates = signatureCandidates(signatureHeader)
-  const documentedPayload = `${webhookId}.${timestamp}.${rawBody}`
-  const variants: Array<[string, Uint8Array, string]> = [
-    ['utf8_full_secret_documented_payload', encoder.encode(secret), documentedPayload],
-    ['utf8_secret_suffix_documented_payload', encoder.encode(suffix), documentedPayload],
-    ['decoded_secret_timestamp_body', decodedSecret, `${timestamp}.${rawBody}`],
-    ['decoded_secret_raw_body', decodedSecret, rawBody],
-    ['utf8_full_secret_raw_body', encoder.encode(secret), rawBody],
-    ['utf8_secret_suffix_raw_body', encoder.encode(suffix), rawBody],
-  ]
-  const matches: string[] = []
-  for (const [label, keyBytes, payload] of variants) {
-    if (await hmacMatches(keyBytes, payload, candidates)) matches.push(label)
-  }
-  return matches
-}
