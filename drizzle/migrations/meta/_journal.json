@@ -71,6 +71,13 @@
       "when": 1789427280338,
       "tag": "0009_fix_create_quote_draft_ambiguous_id",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789432826658,
+      "tag": "0010_ai_material_and_route_intelligence",
+      "breakpoints": true
     }
   ]
 }

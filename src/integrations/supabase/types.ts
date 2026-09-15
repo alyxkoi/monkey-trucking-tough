@@ -1574,8 +1574,8 @@ export type Database = {
           created_at: string
           description: string
           id: string
-          is_full_load: boolean
           intake_source: string | null
+          is_full_load: boolean
           kind: string
           line_total: number
           loads: number | null
@@ -1588,8 +1588,8 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
-          is_full_load?: boolean
           intake_source?: string | null
+          is_full_load?: boolean
           kind: string
           line_total?: number
           loads?: number | null
@@ -1602,8 +1602,8 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
-          is_full_load?: boolean
           intake_source?: string | null
+          is_full_load?: boolean
           kind?: string
           line_total?: number
           loads?: number | null
@@ -2652,6 +2652,26 @@ export type Database = {
         }
         Returns: undefined
       }
+      apply_ai_material_to_quote: {
+        Args: {
+          p_expected_revision: number
+          p_lead_id: string
+          p_material_id: string
+          p_yards: number
+        }
+        Returns: Json
+      }
+      apply_ai_route_to_quote: {
+        Args: {
+          p_address: string
+          p_destination_place_id?: string
+          p_distance_miles: number
+          p_expected_revision: number
+          p_lead_id: string
+          p_origin: string
+        }
+        Returns: Json
+      }
       apply_sms_delivery_status: {
         Args: {
           p_error_message?: string
@@ -3186,6 +3206,10 @@ export type Database = {
       update_customer_contact: {
         Args: { p_customer_id: string; p_email: string; p_phone: string }
         Returns: Json
+      }
+      update_quote_draft_atomic: {
+        Args: { p_items: Json; p_quote: Json; p_quote_id: string }
+        Returns: undefined
       }
       verify_communications_worker: {
         Args: { p_token_hash: string }
