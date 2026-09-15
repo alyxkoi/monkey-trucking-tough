@@ -239,7 +239,7 @@ export function deriveAttention(input: {
         invoiceStatus(invoice, at) === 'OVERDUE' &&
         !invoice.disputed &&
         !invoice.claimedPaid &&
-        invoice.followUps.length >= 3 || invoice.followUps.some((followUp) => followUp.final),
+        (invoice.followUps.length >= 3 || invoice.followUps.some((followUp) => followUp.final)),
     )
     .forEach((invoice) => {
       items.push({

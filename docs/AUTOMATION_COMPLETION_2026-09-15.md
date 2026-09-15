@@ -24,7 +24,7 @@ The [sent.DM registration guide](https://docs.sent.dm/start/advanced/10dlc-regis
 
 ## Verification
 
-- 398 tests across 52 files passed, including 16 new tests (9 composition cases, 4 PostgreSQL integration scenarios with multiple assertions, and 3 receipt reconciliation cases).
+- 403 tests across 52 files passed, including 21 new tests (9 composition cases, 4 PostgreSQL integration scenarios with multiple assertions, 3 receipt reconciliation cases, and 5 invoice attention state cases).
 - Database tests execute the production migration, scheduler, worker, outbox and delivery reconciliation. The carrier HTTP response is simulated in these local tests.
 - Tests cover due/one/three day scheduling, weekend collisions, exact-subject/time-limited verification, non-allowlisted denial, payment cancellation after reservation, changed due dates, customer replies, paid/completed ledger evidence, marketing/review URL blocks, one-time duplicate guards, missed-call fail-closed behavior, and the three previously ON rules.
 - TypeScript, changed-file lint, production build and diff checks pass. Existing chunk-size/Browserslist/React Router warnings remain.
@@ -38,4 +38,23 @@ The [sent.DM registration guide](https://docs.sent.dm/start/advanced/10dlc-regis
 - The test invoice was voided through the normal authenticated history-writing dashboard workflow at 14:53 CDT. The record/history are retained; no payment was requested or collected.
 - This exposed a real receipt gap: no outbound status callbacks were recorded today. The existing ten-second reconciliation only ingested inbound messages, so it could not repair stale outbound QUEUED states. The follow-up migration adds bounded GET-only receipt claims to the same worker: two records per run, each at most once per minute, seven-day lookback, no new timer, and no resubmission. Terminal delivered/failed messages are not polled. Unchanged background checks do not spam activity history; lookup failures remain visible without preventing inbound processing.
 
-Final deployment/status promotion verification follows below. Blocked marketing/review/calling paths have regression-tested denial, not claimed live sending success.
+## Deployment and final readiness
+
+- Receipt reconciliation deployed from 32af034, with managed migration 0017 matching the source function (the managed runner omits the outer transaction wrapper). Live checks found ten receipt records checked, the test message DELIVERED with one attempt, a fresh successful sync and no sync error. Both existing cron entries remain active at ten seconds; no duplicate cron was added.
+- Invoice follow-up was promoted to ON only after those assertions and the live payment-stop check passed. enabled_at prevents historical reminder catch-up. The exact-invoice verification fields were cleared. A VERIFIED_AND_ENABLED event records the test message and verification results.
+- Job reminder, new-lead follow-up, quote follow-up and human takeover remain ON.
+- 60-day reactivation remains SETUP_REQUIRED: current campaign evidence is Customer Care, not approved promotional traffic. Existing marketing approval and recipient marketing consent must be verified before enabling.
+- Review request remains SETUP_REQUIRED: no verified business review URL, and campaign coverage has not been verified. Its actual completed/paid trigger, safeguards and one-time scheduling are implemented but no live review request was sent.
+- Missed-call recovery remains SETUP_REQUIRED: no inbound/missed-call event source or configured voice credentials. Connected SMS/WhatsApp is not evidence of a calling integration. No fake call events/readiness were added.
+- The controlled invoice is VOID with audit history preserved and no persisted payments. Blocked marketing/review/calling paths have regression-tested denial, not claimed live sending success.
+
+## Publication security review
+
+The first frontend publish attempt was blocked by auto-review. The refreshed Lovable scan displayed three warnings. These were investigated without ignoring findings or weakening policies:
+
+- The contact form deliberately invokes send-contact-email; only that server function writes contact_submissions with its service credential. Anonymous direct INSERT remains forbidden, as documented in the existing consent migration. This release does not alter that path.
+- Live pg_proc checks confirm every added automation helper, trigger, guard and receipt claim uses a fixed public, pg_temp search_path and is not executable by anon/authenticated roles. Existing authenticated business RPCs are not newly exposed by this release.
+- The only public mutable-search-path function is protect_material_catalog_key, an invoker-security trigger already present in published baseline dd1bebc. This release does not change it.
+- Frontend diff against dd1bebc is limited to automation setup explanations and final-reminder attention/data mapping, plus generated types/tests. A precedence issue found during final review was corrected and covered for SENT, PAID, VOID, disputed and claimed-paid invoices.
+
+Frontend publication confirmation is recorded after the final release check.

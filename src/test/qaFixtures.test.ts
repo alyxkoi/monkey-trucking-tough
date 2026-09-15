@@ -25,6 +25,16 @@ const at = fixtureReferenceDate(reference)
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8')
 
 describe('Phase 06 deterministic QA fixture layer', () => {
+  it.each(['SENT','PAID','VOID','DISPUTED','CLAIMED'] as const)('respects %s when a final reminder is recorded',state=>{
+    const data=createQaFixtureData(reference)
+    const invoice=mapInvoices(data).find(row=>row.id==='qa-invoice-overdue')!
+    invoice.followUps=[{at,label:'Final invoice reminder sent',final:true}]
+    invoice.status=state==='DISPUTED'||state==='CLAIMED'?'SENT':state
+    invoice.disputed=state==='DISPUTED'
+    invoice.claimedPaid=state==='CLAIMED'?{at,method:'OTHER',note:'Verify payment'}:undefined
+    const items=deriveAttention({leads:[],quotes:[],jobs:[],invoices:[invoice],customers:mapCustomers(data),today:dateKey(new Date(at)),at})
+    expect(items.some(item=>item.id===`overdue:${invoice.id}`)).toBe(state==='SENT')
+  })
   it('restores the exact same baseline for the same QA day', () => {
     const first = createQaFixtureData(reference)
     const second = createQaFixtureData(reference)
