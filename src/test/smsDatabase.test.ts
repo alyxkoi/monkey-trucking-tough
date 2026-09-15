@@ -43,10 +43,24 @@ beforeAll(async () => {
   await db.exec(read('20260914190000_initial_response_and_reschedule_intake'))
   await db.exec(read('20260914223000_immediate_sms_processing'))
   await db.exec(read('20260915021000_transactional_followup_alignment'))
+  await db.exec(read('20260915030000_fast_message_reconciliation'))
 }, 30_000)
 afterAll(async () => { await db?.close() })
 
 describe.sequential('executed PostgreSQL SMS transactions', () => {
+  it('leases provider reconciliation without allowing overlapping runs', async () => {
+    const first = await rpc('claim_sent_dm_reconciliation')
+    expect(first).toMatch(/^[0-9a-f-]{36}$/)
+    expect(await rpc('claim_sent_dm_reconciliation')).toBeNull()
+    await rpc('finish_sent_dm_reconciliation', ['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null])
+    expect(await rpc('claim_sent_dm_reconciliation')).toBeNull()
+    await rpc('finish_sent_dm_reconciliation', [first, null])
+    const second = await rpc('claim_sent_dm_reconciliation')
+    expect(second).toMatch(/^[0-9a-f-]{36}$/)
+    await rpc('finish_sent_dm_reconciliation', [second, null])
+    expect((await query("select has_function_privilege('authenticated','public.claim_sent_dm_reconciliation()','EXECUTE') as allowed"))[0].allowed).toBe(false)
+  })
+
   it('verifies a private Vault credential by digest without exposing it to callers', async () => {
     expect(await rpc('verify_communications_worker', ['0'.repeat(64)])).toBe(false)
     await db.exec("insert into vault.decrypted_secrets values('communications_worker_secret','fixture-only-token')")

@@ -487,3 +487,37 @@ Do not mark SMS or Calling READY solely because this source audit passed.
   remains enabled, while scheduled sending and marketing remain disabled.
   Calling remains SETUP_REQUIRED because voice/missed-call support for this
   sent.DM number has not been documented or exercised.
+
+## September 14: inbound latency audit and resilient reconciliation
+
+- Production timestamps isolated the intermittent delay before making changes.
+  The latest delayed sample was created by sent.DM at 02:04:55 UTC but did not
+  reach the webhook until 02:06:43.713 UTC, a 108.7-second provider-to-webhook
+  gap. Once received, Monkey Trucking created the AI message at 02:06:46.740 UTC
+  and began its send at 02:06:47.015 UTC. Other current samples completed the
+  same internal path in roughly three to nine seconds. The multi-minute symptom
+  was therefore not caused by AI generation or the database worker.
+- Existing signed webhooks and Supabase Realtime remain the primary paths. A
+  service-only `reconcile-sent-conversations` function now reads sent.DM's
+  conversation history every ten seconds, considers only received inbound SMS,
+  skips known provider IDs and commits missing messages through the existing
+  `ingest_sms_event` transaction. The existing provider-message and event-key
+  constraints retain exactly-once behavior if the delayed webhook later arrives.
+- A twenty-second database lease prevents overlapping provider reconciliation.
+  Both the reconciliation and communications worker jobs use one named cron
+  schedule apiece at ten-second intervals; rerunning installation updates those
+  schedules instead of adding duplicates. Immediate webhook-triggered processing
+  is unchanged, so the cron jobs are resilience paths rather than intentional
+  message delays.
+- The open dashboard still receives instant row events through its existing
+  Realtime subscription. It now also performs one indexed, message-only catch-up
+  query every five seconds while visible and online, with an overlap cursor and
+  an in-flight guard. Full dashboard refreshes remain at three minutes and are
+  not duplicated. Visibility and online recovery perform immediate catch-up;
+  all timers, listeners and the Realtime channel are cleaned up on unmount.
+- Regression coverage verifies provider-feed filtering/normalization, leased
+  idempotent ingestion, ten-second named schedules, five-second non-overlapping
+  dashboard catch-up, reconnect behavior and cleanup. The complete suite passes
+  325 tests across 48 files; TypeScript checking, changed-file lint, whitespace
+  validation and the production Vite build also pass. Repository-wide lint still
+  reports only unrelated pre-existing errors outside the changed files.

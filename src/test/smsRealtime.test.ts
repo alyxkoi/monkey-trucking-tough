@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   applyCommunicationRealtimeChange,
+  COMMUNICATION_MESSAGE_FALLBACK_MS,
   COMMUNICATION_REALTIME_RECONCILE_MS,
   subscribeToCommunicationChanges,
   type CommunicationRealtimeChange,
@@ -109,7 +110,7 @@ describe('communications realtime lifecycle', () => {
     expect(mocks.remove).toHaveBeenCalledTimes(1)
   })
 
-  it('avoids a duplicate initial load and reconciles after reconnecting', async () => {
+  it('avoids duplicating the initial load and reconciles after reconnecting', async () => {
     const refresh = vi.fn(async () => undefined)
     const stop = subscribeToCommunicationChanges({ refresh })
 
@@ -119,6 +120,47 @@ describe('communications realtime lifecycle', () => {
     mocks.statusCallback?.('SUBSCRIBED')
     await vi.advanceTimersByTimeAsync(COMMUNICATION_REALTIME_RECONCILE_MS)
 
+    expect(refresh).toHaveBeenCalledTimes(1)
+    stop()
+  })
+
+  it('polls only recent messages as a five-second fallback without overlapping', async () => {
+    let finish!: (rows: Record<string, unknown>[]) => void
+    const first = new Promise<Record<string, unknown>[]>((resolve) => { finish = resolve })
+    const pollMessages = vi.fn().mockReturnValueOnce(first).mockResolvedValue([])
+    const applyChange = vi.fn()
+    const stop = subscribeToCommunicationChanges({
+      refresh: vi.fn(async () => undefined),
+      applyChange,
+      pollMessages,
+    })
+
+    await vi.advanceTimersByTimeAsync(COMMUNICATION_MESSAGE_FALLBACK_MS * 2)
+    expect(pollMessages).toHaveBeenCalledTimes(1)
+    finish([{ id: 'm-fallback', created_at: '2026-09-14T10:00:00Z' }])
+    await Promise.resolve()
+    expect(applyChange).toHaveBeenCalledWith(expect.objectContaining({
+      table: 'lead_messages', eventType: 'UPDATE', new: expect.objectContaining({ id: 'm-fallback' }),
+    }))
+
+    await vi.advanceTimersByTimeAsync(COMMUNICATION_MESSAGE_FALLBACK_MS)
+    expect(pollMessages).toHaveBeenCalledTimes(2)
+    stop()
+  })
+
+  it('reconciles and catches up immediately after connectivity returns', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false })
+    const refresh = vi.fn(async () => undefined)
+    const pollMessages = vi.fn(async () => [])
+    const stop = subscribeToCommunicationChanges({ refresh, pollMessages })
+
+    await vi.advanceTimersByTimeAsync(COMMUNICATION_MESSAGE_FALLBACK_MS)
+    expect(pollMessages).not.toHaveBeenCalled()
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true })
+    window.dispatchEvent(new Event('online'))
+    await vi.advanceTimersByTimeAsync(COMMUNICATION_REALTIME_RECONCILE_MS)
+
+    expect(pollMessages).toHaveBeenCalledTimes(1)
     expect(refresh).toHaveBeenCalledTimes(1)
     stop()
   })

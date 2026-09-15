@@ -2,6 +2,9 @@ import { supabase } from '@/integrations/supabase/client'
 import type { ControlData, Customer, Lead, LeadMessage } from './data'
 
 export const COMMUNICATION_REALTIME_RECONCILE_MS = 75
+export const COMMUNICATION_MESSAGE_FALLBACK_MS = 5_000
+const COMMUNICATION_MESSAGE_LOOKBACK_MS = 60_000
+const COMMUNICATION_MESSAGE_OVERLAP_MS = 1_000
 
 type RealtimeRow = Record<string, unknown>
 
@@ -15,6 +18,17 @@ export type CommunicationRealtimeChange = {
 type CommunicationRealtimeOptions = {
   refresh: () => Promise<void>
   applyChange?: (change: CommunicationRealtimeChange) => void
+  pollMessages?: (updatedSince: string) => Promise<RealtimeRow[]>
+}
+
+async function loadRecentlyUpdatedMessages(updatedSince: string): Promise<RealtimeRow[]> {
+  const result = await supabase
+    .from('lead_messages')
+    .select('*')
+    .gte('updated_at', updatedSince)
+    .order('updated_at', { ascending: true })
+  if (result.error) throw result.error
+  return (result.data ?? []) as unknown as RealtimeRow[]
 }
 
 function compareDate(left: string | undefined, right: string | undefined, ascending: boolean) {
@@ -65,12 +79,18 @@ export function applyCommunicationRealtimeChange(data: ControlData, change: Comm
   return data
 }
 
-/** One subscription, instant row delivery, burst coalescing and a trailing reconciliation refresh. */
-export function subscribeToCommunicationChanges({ refresh, applyChange }: CommunicationRealtimeOptions) {
+/** Realtime is primary; a small message-only poll closes missed-event and connection gaps. */
+export function subscribeToCommunicationChanges({
+  refresh,
+  applyChange,
+  pollMessages = loadRecentlyUpdatedMessages,
+}: CommunicationRealtimeOptions) {
   let disposed = false
   let dirty = false
   let running = false
+  let polling = false
   let subscribedOnce = false
+  let pollCursor = Date.now() - COMMUNICATION_MESSAGE_LOOKBACK_MS
   let timer: ReturnType<typeof setTimeout> | undefined
   const drain = async () => {
     timer = undefined
@@ -89,29 +109,56 @@ export function subscribeToCommunicationChanges({ refresh, applyChange }: Commun
     dirty = true
     schedule()
   }
+  const poll = async () => {
+    if (disposed || polling || !navigator.onLine || document.visibilityState !== 'visible') return
+    polling = true
+    const startedAt = Date.now()
+    try {
+      const messages = await pollMessages(new Date(pollCursor).toISOString())
+      if (disposed) return
+      for (const message of messages) {
+        applyChange?.({ table: 'lead_messages', eventType: 'UPDATE', new: message, old: {} })
+      }
+      // Keep a small overlap so writes committed on the cursor boundary cannot be skipped.
+      pollCursor = Math.max(pollCursor, startedAt - COMMUNICATION_MESSAGE_OVERLAP_MS)
+    } catch {
+      // Realtime and the normal dashboard refresh remain active; retry on the next tick.
+    } finally {
+      polling = false
+    }
+  }
   const channel = supabase.channel('control-center-communications')
   for (const table of ['lead_messages', 'leads', 'customers', 'communication_jobs', 'sms_outbox']) {
     channel.on('postgres_changes', { event: '*', schema: 'public', table }, changed)
   }
   channel.subscribe((status) => {
-    if (status !== 'SUBSCRIBED' || disposed) return
-    // The initial query is already loading when the first subscription connects.
-    if (!subscribedOnce) {
-      subscribedOnce = true
+    if (disposed) return
+    if (status !== 'SUBSCRIBED') {
+      if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) void poll()
       return
     }
-    // Reconcile every reconnect in case an event occurred while offline.
+    if (!subscribedOnce) {
+      subscribedOnce = true
+      // The initial query is already loading; the five-second poll closes this one connection race.
+      return
+    }
+    // Reconcile every reconnect in case a non-message row changed while disconnected.
     dirty = true
     schedule()
   })
   const resume = () => {
-    if (dirty) schedule()
+    if (document.visibilityState !== 'visible' || !navigator.onLine) return
+    dirty = true
+    schedule()
+    void poll()
   }
   document.addEventListener('visibilitychange', resume)
   window.addEventListener('online', resume)
+  const pollTimer = setInterval(() => void poll(), COMMUNICATION_MESSAGE_FALLBACK_MS)
   return () => {
     disposed = true
     clearTimeout(timer)
+    clearInterval(pollTimer)
     document.removeEventListener('visibilitychange', resume)
     window.removeEventListener('online', resume)
     void supabase.removeChannel(channel)

@@ -10,6 +10,7 @@ import {
   sentDmEventKey,
   sentDmIdempotencyKey,
 } from '../../supabase/functions/_shared/sent-dm-domain'
+import { sentDmInboundMessages } from '../../supabase/functions/_shared/sent-dm-conversations'
 
 const root = resolve(process.cwd())
 const source = (path: string) => readFileSync(resolve(root, path), 'utf8')
@@ -36,6 +37,28 @@ describe('sent.DM SMS domain', () => {
     expect(sentDmIdempotencyKey('5ba79d03-12f5-4c1a-8a16-e091708196a1')).toBe('sms_5ba79d03_12f5_4c1a_8a16_e091708196a1')
     expect(isTerminalFailure('BLOCKED')).toBe(true)
     expect(isTerminalFailure('SENT')).toBe(false)
+  })
+
+  it('normalizes only received inbound SMS from the conversation feed', () => {
+    const result = sentDmInboundMessages({ data: { messages: [
+      {
+        id: 'newer', direction: 'INBOUND', channel: 'sms', status: 'RECEIVED',
+        phone_international: '+1 (214) 356-8256', created_at: '2026-09-14T10:01:00Z',
+        message_body: { content: '  Need two loads  ' },
+      },
+      {
+        id: 'older', direction: 'inbound', channel: 'SMS', status: 'received',
+        phone: '2143568256', created_at: '2026-09-14T10:00:00Z',
+        message_body: { content: '75204' },
+      },
+      { id: 'outbound', direction: 'OUTBOUND', channel: 'sms', status: 'DELIVERED' },
+      { id: 'whatsapp', direction: 'INBOUND', channel: 'whatsapp', status: 'RECEIVED' },
+    ] } })
+
+    expect(result).toEqual([
+      { messageId: 'older', phone: '+12143568256', body: '75204', occurredAt: '2026-09-14T10:00:00Z' },
+      { messageId: 'newer', phone: '+12143568256', body: 'Need two loads', occurredAt: '2026-09-14T10:01:00Z' },
+    ])
   })
 })
 
@@ -102,7 +125,7 @@ describe('sent.DM transport contracts', () => {
     expect(sql).toContain('public.apply_sms_delivery_status(')
   })
 
-  it('targets immediate processing while keeping the minute worker as fallback', () => {
+  it('targets immediate processing while keeping the scheduled worker as fallback', () => {
     const processor = source('supabase/functions/process-communications/index.ts')
     const worker = source('supabase/functions/_shared/communication-worker.ts')
     const kick = source('supabase/functions/_shared/communication-kick.ts')
@@ -110,6 +133,21 @@ describe('sent.DM transport contracts', () => {
     expect(worker).toContain("service.rpc('claim_communication_job_by_id'")
     expect(kick).toContain('EdgeRuntime.waitUntil(task)')
     expect(kick).toContain('/functions/v1/process-communications')
+  })
+
+  it('reconciles late inbound provider messages with a lease and the normal idempotent ingest path', () => {
+    const reconciler = source('supabase/functions/reconcile-sent-conversations/index.ts')
+    const migration = source('supabase/migrations/20260915030000_fast_message_reconciliation.sql')
+    const cron = source('supabase/install_communications_cron.sql')
+    expect(reconciler).toContain("https://api.sent.dm/v3/conversations?page=1&page_size=100")
+    expect(reconciler).toContain("service.rpc('claim_sent_dm_reconciliation')")
+    expect(reconciler).toContain("service.rpc('ingest_sms_event'")
+    expect(reconciler).toContain('kickCommunications(url, key, { jobId })')
+    expect(reconciler).toContain("service.rpc('finish_sent_dm_reconciliation'")
+    expect(migration).toContain('lead_messages_updated_at_idx')
+    expect(migration).toContain("lease_until=now()+interval '20 seconds'")
+    expect(cron).toContain("'process-communications-minute','10 seconds'")
+    expect(cron).toContain("'reconcile-sent-conversations','10 seconds'")
   })
 
   it('routes dashboard replies through the provider instead of inserting fake pending messages', () => {

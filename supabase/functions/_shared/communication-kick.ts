@@ -9,7 +9,7 @@ declare const EdgeRuntime: {
 
 /**
  * Starts the durable communications worker without holding open the public
- * request or provider webhook. The minute cron remains the retry fallback.
+ * request or provider webhook. The fast cron remains the retry fallback.
  */
 export function kickCommunications(url: string, serviceKey: string, input: CommunicationKick) {
   const task = fetch(`${url.replace(/\/$/, '')}/functions/v1/process-communications`, {
