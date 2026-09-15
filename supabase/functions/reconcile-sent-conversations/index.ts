@@ -3,6 +3,7 @@ import { kickCommunications } from '../_shared/communication-kick.ts'
 import { sentDmInboundMessages } from '../_shared/sent-dm-conversations.ts'
 import { complianceKeyword } from '../_shared/sent-dm-domain.ts'
 import { workerAuthorized } from '../_shared/worker-auth.ts'
+import { reconcileAcceptedSms } from '../_shared/sms-reconcile.ts'
 
 const BUSINESS_NUMBER = '+19453750877'
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -37,14 +38,13 @@ Deno.serve(async (req) => {
     })
     if (!response.ok) throw new Error(`sent.DM conversation reconciliation returned HTTP ${response.status}`)
     const messages = sentDmInboundMessages(await response.json())
-    if (messages.length === 0) return json({ inspected: 0, ingested: 0, queued: 0 })
 
     const ids = messages.map((message) => message.messageId)
-    const existing = await service
+    const existing = ids.length ? await service
       .from('lead_messages')
       .select('provider_message_id')
       .eq('provider', 'SENT_DM')
-      .in('provider_message_id', ids)
+      .in('provider_message_id', ids) : {data:[],error:null}
     if (existing.error) throw new Error('Existing provider messages could not be reconciled')
     const known = new Set((existing.data ?? []).map((row) => row.provider_message_id))
 
@@ -72,7 +72,9 @@ Deno.serve(async (req) => {
         kickCommunications(url, key, { jobId })
       }
     }
-    return json({ inspected: messages.length, ingested, queued })
+    const receipts=await reconcileAcceptedSms(service,{apiKey,profileId})
+    if (receipts.errors.length) failure=`Outbound receipt check: ${receipts.errors.join('; ').slice(0,400)}`
+    return json({ inspected: messages.length, ingested, queued, receipts })
   } catch (error) {
     failure = error instanceof Error ? error.message.slice(0, 500) : 'Conversation reconciliation failed'
     return json({ error: failure }, 503)

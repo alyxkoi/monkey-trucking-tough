@@ -73,6 +73,7 @@ beforeAll(async () => {
     create table ai_audit_logs(id uuid primary key default gen_random_uuid(),created_at timestamptz default now(),status text);`)
   await db.exec(read('20260915120000_ai_control_audit'))
   await db.exec(read('20260915193000_followup_completion'))
+  await db.exec(read('20260915201500_outbound_receipt_reconciliation'))
 }, 30_000)
 afterAll(async () => { await db?.close() })
 
@@ -102,7 +103,12 @@ describe.sequential('executed PostgreSQL SMS transactions', () => {
       let calls=0
       const carrier=async()=>{calls++;return new Response(JSON.stringify({data:{recipients:[{message_id:'fixture-invoice-delivery',status:'SENT'}]}}),{status:202})}
       expect(await dispatchSms(workerService,{apiKey:'test-only'},result.messageId!,carrier)).toMatchObject({accepted:true})
+      await query("update sms_outbox set next_receipt_check_at=now()-interval '1 second' where message_id=$1",[result.messageId])
+      expect(await rpc('claim_sms_receipt_checks')).toEqual([{message_id:result.messageId,lead_id:c.leadId}])
+      expect(await rpc('claim_sms_receipt_checks')).toEqual([])
       await rpc('apply_sms_delivery_status',['fixture-invoice-delivery','DELIVERED'])
+      await query("update sms_outbox set next_receipt_check_at=now()-interval '1 second' where message_id=$1",[result.messageId])
+      expect(await rpc('claim_sms_receipt_checks')).toEqual([])
       expect(await dispatchSms(workerService,{apiKey:'test-only'},result.messageId!,carrier)).toMatchObject({dispatched:false})
       expect(calls).toBe(1)
       expect((await query("select status from automation_rules where id='invoice-follow-up'"))[0].status).toBe('SETUP_REQUIRED')

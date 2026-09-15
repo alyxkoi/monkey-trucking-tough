@@ -1,19 +1,19 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
-import { reconcileSms } from '../../supabase/functions/_shared/sms-reconcile'
+import { reconcileSms, reconcileAcceptedSms } from '../../supabase/functions/_shared/sms-reconcile'
 
 const providerId = '7e335b98-0651-4188-a31d-b18a31a11b63'
-function fixture() {
+function fixture(status?:string) {
   const filters: Array<[string, unknown]> = []
   const audit = vi.fn(async () => ({ error: null }))
   const row = {
     select: () => row,
     eq: (key: string, value: unknown) => { filters.push([key, value]); return row },
-    single: async () => ({ data: { provider_message_id: providerId, customer_id: 'customer' }, error: null }),
+    single: async () => ({ data: { provider_message_id: providerId, customer_id: 'customer',delivery_status:status }, error: null }),
   }
   const service = {
     from: (table: string) => table === 'lead_messages' ? row : { insert: audit },
-    rpc: vi.fn(async () => ({ data: { delivery_status: 'FAILED' }, error: null })),
+    rpc: vi.fn<(name:string,args?:Record<string,unknown>)=>Promise<{data:unknown,error:null}>>(async () => ({ data: { delivery_status: 'FAILED' }, error: null })),
   }
   return { service, filters, audit }
 }
@@ -24,6 +24,26 @@ const response = (overrides: Record<string, unknown> = {}) => new Response(JSON.
 } }))
 
 describe('operator SMS reconciliation', () => {
+  it('does not fill the timeline with unchanged background checks',async()=>{
+    const {service,audit}=fixture('FAILED')
+    await reconcileSms(service,{apiKey:'fixture'},'local','lead',async()=>response(),true)
+    expect(audit).not.toHaveBeenCalled()
+  })
+  it('checks only claimed receipts and never submits messages',async()=>{
+    const {service}=fixture()
+    service.rpc.mockImplementation(async(name:string)=>({data:name==='claim_sms_receipt_checks'?[{message_id:'local',lead_id:'lead'}]:{delivery_status:'FAILED'},error:null}))
+    const fetcher=vi.fn<typeof fetch>(async()=>response())
+    expect(await reconcileAcceptedSms(service,{apiKey:'fixture'},fetcher)).toEqual({checked:1,errors:[]})
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(fetcher.mock.calls[0][0]).toContain('/messages/')
+    expect(service.rpc.mock.calls.map(call=>call[0])).toEqual(['claim_sms_receipt_checks','apply_sms_delivery_status'])
+  })
+  it('reports receipt lookup failures without breaking incoming-message processing',async()=>{
+    const {service}=fixture()
+    service.rpc.mockImplementation(async()=>({data:[{message_id:'local',lead_id:'lead'}],error:null}))
+    expect(await reconcileAcceptedSms(service,{apiKey:'fixture'},async()=>new Response('{}',{status:503})))
+      .toEqual({checked:1,errors:['Provider status lookup failed (503)']})
+  })
   it('reads the linked provider ID and updates the same local message without sending again', async () => {
     const { service, filters, audit } = fixture()
     const fetcher = vi.fn(async () => response())
