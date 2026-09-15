@@ -174,10 +174,13 @@ export function deriveSettingsReadiness(data: ControlData | null): SettingsReadi
 
   const requiredRules = ['new-lead', 'missed-call', 'quote-follow-up', 'job-reminder', 'invoice-follow-up', 'review-request', 'reactivation']
   const rulesPresent = requiredRules.every((id) => data.automations.some((rule) => rule.id === id))
+  const enabledRuleCount = data.automations.filter((rule) => requiredRules.includes(rule.id) && rule.status === 'ON').length
   const automations = !rulesPresent
     ? item('ERROR', 'Error', 'One or more approved automation rules is missing.', ['Restore all seven approved automation definitions.'])
     : data.aiIntegration.status === 'READY'
-      ? item('READY', 'Dry run ready', 'Eligibility, stop conditions and previews are available. Customer sending remains off.', [])
+      ? data.communicationRuntime?.scheduled_sending_enabled
+        ? item('READY', 'Enabled', `${enabledRuleCount} automation rule${enabledRuleCount === 1 ? '' : 's'} enabled. Eligibility and stop conditions remain enforced.`, [])
+        : item('READY', 'Dry run ready', 'Eligibility, stop conditions and previews are available. Scheduled customer sending remains off.', [])
       : item('WAITING', 'Waiting on AI', 'Deterministic eligibility exists, but contextual draft generation needs the AI schema.', ['Deploy and verify AI drafts.'])
 
   const payments = data.stripeIntegration.status === 'ERROR'

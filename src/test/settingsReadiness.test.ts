@@ -98,4 +98,22 @@ describe('Settings readiness is derived from managed configuration', () => {
     expect(readiness.capabilities.payments.status).toBe('READY')
     expect(readiness.blockers).toHaveLength(0)
   })
+
+  it('reports enabled customer automation from the live runtime gate', () => {
+    const data = fixture()
+    data.communicationRuntime = {
+      ...data.communicationRuntime!,
+      scheduled_sending_enabled: true,
+    }
+    data.automations = data.automations.map((rule) => ({
+      ...rule,
+      status: ['new-lead', 'quote-follow-up', 'job-reminder'].includes(rule.id) ? 'ON' : rule.status,
+    }))
+    const readiness = deriveSettingsReadiness(data)
+    expect(readiness.capabilities.automations).toMatchObject({
+      status: 'READY',
+      label: 'Enabled',
+      reason: '3 automation rules enabled. Eligibility and stop conditions remain enforced.',
+    })
+  })
 })
