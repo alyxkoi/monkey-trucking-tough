@@ -436,6 +436,12 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       throw new Error('AI attempted to state pricing without an approved deterministic result.')
     }
     decision.missing_facts = (decision.missing_facts ?? []).filter((missing: string) => !(decision.known_facts ?? []).some((known: any) => known.key === missing || known.key === missing.replaceAll(' ', '_')))
+    // Presentation is not a business-rule failure. Normalize the approved
+    // opening style instead of discarding an otherwise valid bilingual reply.
+    if (typeof decision.draft_reply === 'string') {
+      decision.draft_reply = decision.draft_reply.trim()
+      decision.draft_reply = decision.draft_reply.charAt(0).toLowerCase() + decision.draft_reply.slice(1)
+    }
     const validationError = validateDecision(decision)
     if (validationError) throw new Error(validationError)
     if ((decision.detected_language !== 'SPANISH' && !controlResult.data.ai_english)

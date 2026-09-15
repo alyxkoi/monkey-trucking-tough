@@ -20,6 +20,14 @@ function service() {
 }
 afterEach(()=>vi.unstubAllGlobals())
 describe('production engine sandbox isolation',()=>{
+  it('normalizes a capitalized Spanish reply instead of failing the conversation',async()=>{
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({status:'completed',model:'actual-test-model',output_text:JSON.stringify({
+      detected_language:'SPANISH',customer_intent:'DELIVERY',known_facts:[],missing_facts:['material'],uncertain_facts:[],ai_may_continue:true,requires_human:false,escalation_reason:null,recommended_action:'ASK_NEXT_MISSING_FACT',draft_reply:'Claro, qué material necesita?',confidence:'HIGH',deterministic_pricing_required:false,payment_claim_detected:false,
+    })}))))
+    const result=await simulateConversation(service().db,{messages:[{sender_type:'CUSTOMER',body:'hola, necesito material'}]},config)
+    expect(result.reply).toContain('claro, qué material necesita?')
+    expect(result.blocked).toBeNull()
+  })
   it('stops an unresolved address clarification loop instead of sending it again',async()=>{
     const fetcher=vi.fn(async()=>new Response(JSON.stringify({geocodingResults:{destination:{geocoderStatus:{code:5}}}})))
     vi.stubGlobal('fetch',fetcher)
