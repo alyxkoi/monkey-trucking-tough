@@ -1943,6 +1943,7 @@ export type Database = {
           lease_until: string | null
           message_id: string
           next_attempt_at: string
+          next_receipt_check_at: string | null
           operation_key: string
           origin: string
           payload: Json
@@ -1962,6 +1963,7 @@ export type Database = {
           lease_until?: string | null
           message_id: string
           next_attempt_at?: string
+          next_receipt_check_at?: string | null
           operation_key: string
           origin: string
           payload: Json
@@ -1981,6 +1983,7 @@ export type Database = {
           lease_until?: string | null
           message_id?: string
           next_attempt_at?: string
+          next_receipt_check_at?: string | null
           operation_key?: string
           origin?: string
           payload?: Json
@@ -2835,6 +2838,7 @@ export type Database = {
       }
       claim_sent_dm_reconciliation: { Args: never; Returns: string }
       claim_sms: { Args: { p_message_id?: string }; Returns: Json }
+      claim_sms_receipt_checks: { Args: never; Returns: Json }
       communication_candidates: {
         Args: { p_now?: string }
         Returns: {
