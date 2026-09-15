@@ -18,7 +18,7 @@ export const responsePlanSchema = {
 const money=(n:number)=>`$${n.toFixed(2)}`
 const clean=(value:unknown)=>String(value??'').replace(/[—–-]/g,' ').replace(/\s+/g,' ').trim()
 const amount=(n:number)=>Number(n).toLocaleString('en-US',{maximumFractionDigits:1})
-const productLabel=(m:any)=>({'mat-1':'commercial clean','mat-3':'3x4 crushed concrete','mat-4':'flexbase'}[m.catalog_key]??clean(m.name))
+const productLabel=(m:any)=>({'mat-1':'commercial clean','mat-3':'3x4 crushed concrete','mat-4':'flexbase'} as Record<string,string>)[m.catalog_key]??clean(m.name)
 
 export function validateResponsePlan(plan:any, references:string[]=[]) {
   if(!plan||!['ANSWER','EXPLAIN','COMPARE','SUMMARY','COLLECT'].includes(plan.objective)
