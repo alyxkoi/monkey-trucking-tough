@@ -21,17 +21,33 @@ function addressFromText(text: string) {
   return candidate.replace(/[.,\s]+$/, '').slice(0, 180)
 }
 
+function postalCodeFromText(text: string) {
+  const explicit = text.match(/\b(?:zip(?:\s+code)?|postal(?:\s+code)?)\s*(?:is|:)?\s*(\d{5}(?:-\d{4})?)\b/i)?.[1]
+  return explicit ?? text.match(/(?:^|[\s,])(\d{5}(?:-\d{4})?)\s*[.!?]?\s*$/)?.[1] ?? null
+}
+
+function withPostalCode(address: string, postalCode: string | null) {
+  if (!postalCode || postalCodeFromText(address)) return address
+  return `${address} ${postalCode}`
+}
+
 export function resolveDeliveryAddress(messages: any[], state: any, quotes: any[]) {
+  let latestPostalCode: string | null = null
   for (const message of [...messages].reverse()) {
     if (message.sender_type !== 'CUSTOMER') continue
-    const address = addressFromText(String(message.body ?? ''))
-    if (address) return address
+    const body = String(message.body ?? '')
+    latestPostalCode ??= postalCodeFromText(body)
+    const address = addressFromText(body)
+    if (address) return withPostalCode(address, latestPostalCode)
   }
   const known = Array.isArray(state?.known_facts) ? state.known_facts : []
-  const stateAddress = known.find((fact: any) => ['delivery_address', 'address'].includes(fact?.key))?.value
-  if (typeof stateAddress === 'string' && stateAddress.trim()) return stateAddress.trim()
+  const stateAddress = [...known].reverse().find((fact: any) => ['delivery_address', 'address'].includes(fact?.key))?.value
+  const statePostalCode = [...known].reverse().find((fact: any) => ['delivery_zip', 'postal_code', 'zip'].includes(fact?.key))?.value
+  if (typeof stateAddress === 'string' && stateAddress.trim()) {
+    return withPostalCode(stateAddress.trim(), typeof statePostalCode === 'string' ? statePostalCode.trim() : latestPostalCode)
+  }
   const draftAddress = quotes.find((quote) => quote.status === 'DRAFT' && String(quote.address ?? '').trim())?.address
-  return typeof draftAddress === 'string' ? draftAddress.trim() : null
+  return typeof draftAddress === 'string' ? withPostalCode(draftAddress.trim(), latestPostalCode) : null
 }
 
 export function deliveryForMiles(miles: number, settings: any) {

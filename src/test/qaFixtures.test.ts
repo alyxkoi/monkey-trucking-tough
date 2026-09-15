@@ -65,6 +65,25 @@ describe('Phase 06 deterministic QA fixture layer', () => {
     expect(attention[0]?.id).toBe('blocked:qa-job-ortiz')
   })
 
+  it('does not flag a lead for Salvador after the AI successfully replies to the latest customer message', () => {
+    const data = createQaFixtureData(reference)
+    const lead = data.leads.find((row) => !row.human_takeover)!
+    data.leads = [lead]
+    data.quotes = []
+    data.aiAuditLogs = []
+    data.messages = [
+      { id: 'customer-message', lead_id: lead.id, customer_id: lead.customer_id, sender_type: 'CUSTOMER', body: 'what is the total?', delivery_status: 'RECEIVED', provider_message_id: 'inbound', created_by: null, created_at: '2026-08-26T17:00:00.000Z' },
+      { id: 'ai-message', lead_id: lead.id, customer_id: lead.customer_id, sender_type: 'AI', body: 'the estimated total is ready.', delivery_status: 'DELIVERED', provider_message_id: 'outbound', created_by: null, created_at: '2026-08-26T17:00:01.000Z' },
+    ]
+    expect(mapLeads(data)[0].needsSalvador).toBe(false)
+
+    data.messages[1] = { ...data.messages[1], delivery_status: 'FAILED' }
+    expect(mapLeads(data)[0].needsSalvador).toBe(true)
+
+    data.messages = data.messages.slice(0,1)
+    expect(mapLeads(data)[0].needsSalvador).toBe(true)
+  })
+
   it('reconciles the Collected hero with the sum of daily payment values', () => {
     const data = createQaFixtureData(reference)
     const payments = mapPayments(data)

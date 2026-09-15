@@ -4,7 +4,7 @@ import { createHmac } from 'node:crypto'
 import { dispatchSms } from '../../supabase/functions/_shared/sms-dispatch'
 import { verifySignature } from '../../supabase/functions/_shared/sms-signature'
 import { autonomousReply, jobReminderText } from '../../supabase/functions/_shared/communication-worker'
-import { forcedEscalation, generateAiDraft, materialTool } from '../../supabase/functions/_shared/ai-engine'
+import { forcedEscalation, generateAiDraft, materialTool, validateDecision } from '../../supabase/functions/_shared/ai-engine'
 
 afterEach(()=>vi.unstubAllGlobals())
 const messageId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
@@ -68,7 +68,7 @@ describe('SMS transport behavior',()=>{
 })
 
 const decision={detected_language:'ENGLISH',customer_intent:'MATERIAL_DELIVERY',extracted_facts:[],known_facts:[],missing_facts:['address'],uncertain_facts:[],ai_may_continue:true,requires_human:false,escalation_reason:null,recommended_action:'ASK_NEXT_MISSING_FACT',draft_reply:'what is the exact delivery address.',confidence:'HIGH',deterministic_pricing_required:false,payment_claim_detected:false,automation_state:{mode:'CONVERSATION',rule_id:null,transport:'SETUP_REQUIRED',send_allowed:false}}
-function aiService(failingTable?:string,takeoverOnRecheck=false,initialTakeover=false) {
+function aiService(failingTable?:string,takeoverOnRecheck=false,initialTakeover=false,dataOverrides:Record<string,unknown>={}) {
   let leadReads=0
   const calls:Array<{table:string;order?:string;options?:unknown;limit?:number}>=[]
   const from=vi.fn((table:string)=>{
@@ -77,7 +77,7 @@ function aiService(failingTable?:string,takeoverOnRecheck=false,initialTakeover=
       order:(order:string,options:unknown)=>{calls.push({table,order,options});return chain},maybeSingle:()=>chain,single:()=>chain,
       insert:(value:unknown)=>{insert=value;return chain},upsert:()=>chain,
       then:(resolve:(value:unknown)=>unknown)=>{
-        const data={
+        const data=dataOverrides[table]??{
           leads:{id:'lead',customer_id:'customer',human_takeover:initialTakeover||(takeoverOnRecheck&&++leadReads>1),conversation_revision:1},
           customers:{id:'customer',sms_consent_at:'2026-09-01',sms_double_opt_in_at:'2026-09-02'},
           lead_messages:[{id:'new',sender_type:'CUSTOMER',body:'I need gravel delivered',created_at:'2026-09-13'},{id:'old',sender_type:'HUMAN',body:'How can we help?',created_at:'2026-09-12'}],
@@ -88,7 +88,7 @@ function aiService(failingTable?:string,takeoverOnRecheck=false,initialTakeover=
       }}
     return chain
   })
-  return {from,calls}
+  return {from,calls,rpc:vi.fn(async()=>({data:{applied:true},error:null}))}
 }
 describe('shared production AI safety',()=>{
   it('supplies authoritative current takeover state and separates material-only pricing from unapproved delivery',async()=>{
@@ -117,6 +117,23 @@ describe('shared production AI safety',()=>{
     expect(()=>autonomousReply({...priced,known_facts:[{key:'material',value:'Other Material'},{key:'quantity_yards',value:'50'}]},pricing)).toThrow('Pricing facts require confirmation')
     expect(()=>autonomousReply(priced,{...pricing,yards:15})).toThrow('Pricing facts require confirmation')
     expect(()=>autonomousReply(priced,{...pricing,status:'UNAVAILABLE'})).toThrow('Verified material pricing unavailable')
+  })
+  it('separates the physical ton conversion from the conservative order recommendation',()=>{
+    const pricing=materialTool(
+      [{id:'message',sender_type:'CUSTOMER',body:'10 tons of limestone'}],
+      [{id:'limestone',name:'Limestone',full_load_yards:20,full_load_price:1700,price_per_yard:95,tons_per_cubic_yard:1.4}],
+      {tax_enabled:false},
+    )
+    const priced={
+      ...decision,
+      recommended_action:'PROVIDE_STANDARD_PRICE',
+      draft_reply:'the estimate is ready.',
+      known_facts:[{key:'material',value:'Limestone'},{key:'quantity_yards',value:'8.5'}],
+    }
+    const reply=autonomousReply(priced,pricing)
+    expect(reply).toContain('10 tons is about 7.1 cubic yards')
+    expect(reply).toContain('recommend 8.5 yards including one extra yard')
+    expect(reply).toContain('material for 8.5 yards')
   })
   it('distinguishes missing intake details from conflicting facts without weakening uncertainty guards',async()=>{
     const fetcher=vi.fn(async()=>new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)})))
@@ -165,6 +182,76 @@ describe('shared production AI safety',()=>{
     for(const changed of [{confidence:'LOW'},{requires_human:true,ai_may_continue:false},{payment_claim_detected:true},{draft_reply:'your invoice is paid.'},{recommended_action:'MANUAL_REPLY'}]) {
       expect(()=>autonomousReply({...decision,...changed},{})).toThrow()
     }
+  })
+  it('does not accept a staff-only action as an autonomous AI decision',()=>{
+    expect(validateDecision({...decision,recommended_action:'MANUAL_REPLY'})).toMatch(/MANUAL_REPLY.*human required/i)
+    expect(validateDecision({...decision,ai_may_continue:false,recommended_action:'MANUAL_REPLY'})).toMatch(/human required/i)
+  })
+  it('uses one deterministic clarification when Google cannot resolve the supplied address exactly',async()=>{
+    const fetcher=vi.fn(async(url:string)=>url.includes('routes.googleapis.com')
+      ? new Response(JSON.stringify({routes:[{distanceMeters:16093.44,duration:'900s'}],geocodingResults:{destination:{placeId:'place',geocoderStatus:'OK',partialMatch:true}}}))
+      : new Response('{}',{status:500}))
+    vi.stubGlobal('fetch',fetcher)
+    const service=aiService(undefined,false,false,{
+      lead_messages:[
+        {id:'address',sender_type:'CUSTOMER',body:'deliver to 123 Oak Road, Texas',created_at:'2026-09-13T02:00:00Z'},
+        {id:'quantity',sender_type:'CUSTOMER',body:'10 yards of limestone',created_at:'2026-09-13T01:00:00Z'},
+      ],
+      materials:[{id:'limestone',name:'Limestone 1"-1 1/2"',full_load_yards:20,full_load_price:1700,price_per_yard:95,tons_per_cubic_yard:1.4}],
+      app_settings:{company_address:'7653 S FM 148',company_city_state_zip:'Kaufman, TX 75142',tax_enabled:false},
+      control_center_settings:{ai_english:true,ai_spanish:true,route_intelligence_enabled:true,route_status:'READY'},
+    })
+    const result=await generateAiDraft(service,{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model',googleMapsApiKey:'maps-key'})
+    expect(result.decision).toMatchObject({ai_may_continue:true,requires_human:false,recommended_action:'ASK_NEXT_MISSING_FACT',confidence:'HIGH'})
+    expect(result.decision.draft_reply).toBe('i need the complete delivery address with street, city, state, and ZIP code so i can verify the route.')
+    expect(result.decision.missing_facts).toContain('complete delivery address with street, city, state, and ZIP code')
+    expect(autonomousReply(result.decision,result.tool_results.pricing)).toBe(result.decision.draft_reply)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+  it.each([
+    ['provider 5xx',()=>Promise.resolve(new Response('{}',{status:503}))],
+    ['empty draft',()=>Promise.resolve(new Response(JSON.stringify({status:'completed',output_text:JSON.stringify({...decision,draft_reply:''})})))],
+    ['timeout',()=>Promise.reject(Object.assign(new Error('timed out'),{name:'TimeoutError'}))],
+  ])('retries a transient AI %s once',async(_label,firstAttempt)=>{
+    const fetcher=vi.fn()
+      .mockImplementationOnce(firstAttempt)
+      .mockResolvedValueOnce(new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)})))
+    vi.stubGlobal('fetch',fetcher)
+    await generateAiDraft(aiService(),{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model'})
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+  it('does not retry a valid business-rule escalation',async()=>{
+    const escalation={...decision,ai_may_continue:false,requires_human:true,recommended_action:'MANUAL_REPLY',draft_reply:'',escalation_reason:'customer requested a human'}
+    const fetcher=vi.fn(async()=>new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(escalation)})))
+    vi.stubGlobal('fetch',fetcher)
+    const result=await generateAiDraft(aiService(),{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model'})
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(()=>autonomousReply(result.decision,result.tool_results.pricing)).toThrow('customer requested a human')
+  })
+  it('continues safely when a ZIP-only reply completes a verified delivery route',async()=>{
+    const modelDecision={...decision,ai_may_continue:true,requires_human:false,recommended_action:'MANUAL_REPLY',draft_reply:'',uncertain_facts:['delivery ZIP code is missing']}
+    vi.stubGlobal('fetch',vi.fn(async(url:string)=>url.includes('routes.googleapis.com')
+      ? new Response(JSON.stringify({routes:[{distanceMeters:16093.44,duration:'900s'}],geocodingResults:{destination:{placeId:'place',geocoderStatus:'OK',partialMatch:false}}}))
+      : new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(modelDecision)}))))
+    const service=aiService(undefined,false,false,{
+      lead_messages:[
+        {id:'zip',sender_type:'CUSTOMER',body:'75204',created_at:'2026-09-13T03:00:00Z'},
+        {id:'address',sender_type:'CUSTOMER',body:'My address is 4625 Virginia Ave, Dallas, TX',created_at:'2026-09-13T02:00:00Z'},
+        {id:'quantity',sender_type:'CUSTOMER',body:'10 tons of limestone',created_at:'2026-09-13T01:00:00Z'},
+      ],
+      materials:[{id:'limestone',name:'Limestone 1"-1 1/2"',full_load_yards:20,full_load_price:1700,price_per_yard:95,tons_per_cubic_yard:1.4}],
+      app_settings:{company_address:'7653 S FM 148',company_city_state_zip:'Kaufman, TX 75142',delivery_tier_1_fee:100,delivery_tier_1_max_miles:5,delivery_tier_2_fee:150,delivery_tier_2_max_miles:10,delivery_tier_3_fee:200,delivery_tier_3_max_miles:20,delivery_overage_base_fee:200,delivery_overage_per_mile:5,tax_enabled:false,tax_rate:0,tax_applies_to_delivery:false},
+      control_center_settings:{ai_english:true,ai_spanish:true,route_intelligence_enabled:true,route_status:'READY'},
+    })
+    const result=await generateAiDraft(service,{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model',googleMapsApiKey:'maps-key'})
+    expect(result.decision).toMatchObject({ai_may_continue:true,requires_human:false,recommended_action:'PROVIDE_STANDARD_PRICE',deterministic_pricing_required:true})
+    expect(result.decision.known_facts).toContainEqual(expect.objectContaining({key:'delivery_address',value:'4625 Virginia Ave, Dallas, TX 75204'}))
+    expect(result.decision.uncertain_facts).toEqual([])
+    expect(result.tool_results).toMatchObject({quantity:{estimated_yards:7.1,recommended_yards:8.5},route:{status:'ROUTE_CALCULATED',distance_miles:10}})
+    expect(service.rpc).toHaveBeenCalledTimes(2)
+    expect(service.rpc).toHaveBeenCalledWith('apply_ai_material_to_quote',expect.objectContaining({p_material_id:'limestone',p_yards:8.5}))
+    expect(service.rpc).toHaveBeenCalledWith('apply_ai_route_to_quote',expect.objectContaining({p_address:'4625 Virginia Ave, Dallas, TX 75204',p_distance_miles:10}))
+    expect(autonomousReply(result.decision,result.tool_results.pricing)).toContain('the estimated total with tax is')
   })
   it('uses corrected quantities and never treats customer mileage as approved delivery pricing',()=>{
     const pricing=materialTool([{sender_type:'CUSTOMER',body:'10 yards of flexbase 20 miles away'},{sender_type:'CUSTOMER',body:'make that 15 yards'}],

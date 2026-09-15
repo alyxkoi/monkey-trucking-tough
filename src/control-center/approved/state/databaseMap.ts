@@ -105,7 +105,10 @@ export function mapLeads(data: ControlData): Lead[] {
       : []
     const latestMessageAt = messages.reduce((latest, message) => Math.max(latest, message.at), 0)
     const lastCustomer = [...messages].reverse().find((message) => message.actor === 'customer')
-    const lastHuman = [...messages].reverse().find((message) => message.actor === 'salvador')
+    const lastResponder = [...messages].reverse().find((message) =>
+      (message.actor === 'salvador' || message.actor === 'ai')
+      && !['FAILED', 'FILTERED', 'BLOCKED'].includes(message.deliveryStatus ?? ''),
+    )
     return {
       id: row.id,
       customerId: row.customer_id,
@@ -117,8 +120,9 @@ export function mapLeads(data: ControlData): Lead[] {
       lastActivityAt: Math.max(requiredAt(row.updated_at), latestMessageAt),
       needsSalvador: Boolean(
         messages.some((message) => message.sendError && message.actor !== 'customer') ||
+        messages.some((message) => message.escalation) ||
         (!row.human_takeover && (latestAiAudit?.status === 'FAILED' || aiDecision?.requires_human === true)) ||
-        (lastCustomer && (!lastHuman || lastCustomer.at > lastHuman.at)),
+        (lastCustomer && (!lastResponder || lastCustomer.at > lastResponder.at)),
       ),
       aiPaused: row.human_takeover,
       notes: row.notes ?? '',

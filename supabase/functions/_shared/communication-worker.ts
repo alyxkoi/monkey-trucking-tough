@@ -16,19 +16,23 @@ export function autonomousReply(decision: any, pricing: any): string {
     const material = String(pricing.material_name).toLowerCase().replace(/[—–-]/g, ' ')
     const addressKnown=decision.known_facts.some((fact:any)=>['address','delivery_address'].includes(fact.key)&&fact.value)
     const converted = pricing.quantity?.input_unit === 'TONS'
-      ? { tons: Number(pricing.quantity.input_value).toLocaleString('en-US',{maximumFractionDigits:2}), yards: Number(pricing.yards).toLocaleString('en-US',{maximumFractionDigits:1}) }
+      ? {
+          tons: Number(pricing.quantity.input_value).toLocaleString('en-US',{maximumFractionDigits:2}),
+          estimatedYards: Number(pricing.quantity.estimated_yards ?? pricing.quantity.raw_yards).toLocaleString('en-US',{maximumFractionDigits:1}),
+          recommendedYards: Number(pricing.quantity.recommended_yards ?? pricing.yards).toLocaleString('en-US',{maximumFractionDigits:1}),
+        }
       : null
     const routeReady = Number.isFinite(pricing.delivery_total) && Number.isFinite(pricing.grand_total)
     if (routeReady) {
       const delivery = Number(pricing.delivery_total).toFixed(2)
       const total = Number(pricing.grand_total).toFixed(2)
       return decision.detected_language === 'SPANISH'
-        ? `${converted ? `${converted.tons} toneladas son aproximadamente ${converted.yards} yardas. ` : ''}el material cuesta $${amount}. la entrega para ${pricing.delivery_loads} ${pricing.delivery_loads===1?'carga':'cargas'} cuesta $${delivery}. el total estimado con impuestos es $${total}.`
-        : `${converted ? `${converted.tons} tons is about ${converted.yards} yards. ` : ''}the material is $${amount}. delivery for ${pricing.delivery_loads} ${pricing.delivery_loads===1?'load':'loads'} is $${delivery}. the estimated total with tax is $${total}.`
+        ? `${converted ? `${converted.tons} toneladas son aproximadamente ${converted.estimatedYards} yardas cúbicas. para no quedar cortos, recomiendo ${converted.recommendedYards} yardas incluyendo una yarda adicional. ` : ''}el material cuesta $${amount}. la entrega para ${pricing.delivery_loads} ${pricing.delivery_loads===1?'carga':'cargas'} cuesta $${delivery}. el total estimado con impuestos es $${total}.`
+        : `${converted ? `${converted.tons} tons is about ${converted.estimatedYards} cubic yards. to avoid running short, i recommend ${converted.recommendedYards} yards including one extra yard. ` : ''}the material is $${amount}. delivery for ${pricing.delivery_loads} ${pricing.delivery_loads===1?'load':'loads'} is $${delivery}. the estimated total with tax is $${total}.`
     }
     return decision.detected_language === 'SPANISH'
-      ? `${converted ? `${converted.tons} toneladas son aproximadamente ${converted.yards} yardas. ` : ''}el material para ${pricing.yards} yardas de ${material} cuesta $${amount}. la entrega y los impuestos se confirman por separado.${addressKnown?'':' cuál es la dirección exacta de entrega.'}`
-      : `${converted ? `${converted.tons} tons is about ${converted.yards} yards. ` : ''}the material for ${pricing.yards} yards of ${material} is $${amount}. delivery and tax are confirmed separately.${addressKnown?'':' what is the exact delivery address.'}`
+      ? `${converted ? `${converted.tons} toneladas son aproximadamente ${converted.estimatedYards} yardas cúbicas. para no quedar cortos, recomiendo ${converted.recommendedYards} yardas incluyendo una yarda adicional. ` : ''}el material para ${pricing.yards} yardas de ${material} cuesta $${amount}. la entrega y los impuestos se confirman por separado.${addressKnown?'':' cuál es la dirección exacta de entrega.'}`
+      : `${converted ? `${converted.tons} tons is about ${converted.estimatedYards} cubic yards. to avoid running short, i recommend ${converted.recommendedYards} yards including one extra yard. ` : ''}the material for ${pricing.yards} yards of ${material} is $${amount}. delivery and tax are confirmed separately.${addressKnown?'':' what is the exact delivery address.'}`
   }
   if (!['ASK_NEXT_MISSING_FACT','COLLECT_RESCHEDULE_PREFERENCE'].includes(decision.recommended_action)) throw new Error('This AI action requires staff review')
   if (decision.recommended_action === 'COLLECT_RESCHEDULE_PREFERENCE'

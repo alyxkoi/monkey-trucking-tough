@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
 import { isSimpleAcceptance, resolveConversationQuantity } from '../../supabase/functions/_shared/material-intelligence'
-import { calculateDeliveryRoute, deliveryForMiles } from '../../supabase/functions/_shared/route-intelligence'
+import { calculateDeliveryRoute, deliveryForMiles, resolveDeliveryAddress } from '../../supabase/functions/_shared/route-intelligence'
 
 const material = {
   id: 'flexbase', name: 'Flexbase First Class 1" or 3"', full_load_yards: 20,
@@ -23,7 +23,12 @@ describe('material and route intelligence', () => {
       { id: '1', sender_type: 'CUSTOMER', body: 'I need about 45 yards of flexbase' },
       { id: '2', sender_type: 'CUSTOMER', body: 'actually it is 10 tons, not sure how many yards' },
     ], [material])
-    expect(result).toMatchObject({ status: 'RESOLVED', input_unit: 'TONS', input_value: 10, yards: 7, tons_per_cubic_yard: 1.4 })
+    expect(result).toMatchObject({
+      status: 'RESOLVED', input_unit: 'TONS', input_value: 10,
+      raw_yards: 10 / 1.4, estimated_yards: 7.1,
+      coverage_buffer_yards: 1, recommended_yards: 8.5, yards: 8.5,
+      tons_per_cubic_yard: 1.4,
+    })
   })
 
   it('keeps the deterministic conversion when the customer accepts after a conflicting human estimate', () => {
@@ -32,8 +37,33 @@ describe('material and route intelligence', () => {
       { id: '2', sender_type: 'HUMAN', body: 'that is about 20 yards' },
       { id: '3', sender_type: 'CUSTOMER', body: "okay let's do that" },
     ], [material])
-    expect(result).toMatchObject({ status: 'RESOLVED', yards: 7, source_message_id: '1' })
+    expect(result).toMatchObject({ status: 'RESOLVED', estimated_yards: 7.1, recommended_yards: 8.5, yards: 8.5, source_message_id: '1' })
     expect(isSimpleAcceptance("okay let's do that")).toBe(true)
+  })
+
+  it('does not add a reserve when the customer already gives a yard quantity', () => {
+    const result = resolveConversationQuantity([
+      { id: '1', sender_type: 'CUSTOMER', body: 'I need 10 yards of flexbase' },
+    ], [material])
+    expect(result).toMatchObject({
+      status: 'RESOLVED', input_unit: 'YARDS', input_value: 10,
+      estimated_yards: 10, recommended_yards: 10, coverage_buffer_yards: 0, yards: 10,
+    })
+  })
+
+  it('joins a ZIP-only follow-up to the latest customer street address', () => {
+    expect(resolveDeliveryAddress([
+      { sender_type: 'CUSTOMER', body: 'My address is 4625 Virginia Ave, Dallas, TX' },
+      { sender_type: 'AI', body: 'What is the ZIP code?' },
+      { sender_type: 'CUSTOMER', body: '75204' },
+    ], null, [])).toBe('4625 Virginia Ave, Dallas, TX 75204')
+  })
+
+  it('does not mistake a five-digit street number for a ZIP code', () => {
+    expect(resolveDeliveryAddress([
+      { sender_type: 'CUSTOMER', body: 'My address is 12345 Main St, Dallas, TX' },
+      { sender_type: 'CUSTOMER', body: 'ZIP is 75204' },
+    ], null, [])).toBe('12345 Main St, Dallas, TX 75204')
   })
 
   it('fails closed when a material has no configured density', () => {

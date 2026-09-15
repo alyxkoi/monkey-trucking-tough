@@ -8,6 +8,9 @@ export type QuantityResolution = {
   input_value?: number
   yards?: number
   raw_yards?: number
+  estimated_yards?: number
+  recommended_yards?: number
+  coverage_buffer_yards?: number
   tons_per_cubic_yard?: number
   conversion_basis?: string
   conversion_verified?: boolean
@@ -57,7 +60,9 @@ function lastQuantity(text: string) {
   return matches.sort((a, b) => a.index - b.index).at(-1) ?? null
 }
 
-const roundToHalfYard = (value: number) => Math.round(value * 2) / 2
+const COVERAGE_BUFFER_YARDS = 1
+const roundToTenthYard = (value: number) => Math.round(value * 10) / 10
+const roundUpToHalfYard = (value: number) => Math.ceil(value * 2) / 2
 
 export function resolveConversationQuantity(messages: any[], materials: any[]): QuantityResolution {
   let currentMaterial: any = null
@@ -84,6 +89,7 @@ export function resolveConversationQuantity(messages: any[], materials: any[]): 
     return {
       status: 'RESOLVED', material_id: currentMaterial.id, material_name: currentMaterial.name,
       input_unit: 'YARDS', input_value: quantity.value, yards: quantity.value, raw_yards: quantity.value,
+      estimated_yards: quantity.value, recommended_yards: quantity.value, coverage_buffer_yards: 0,
       source_message_id: sourceMessageId,
     }
   }
@@ -97,9 +103,13 @@ export function resolveConversationQuantity(messages: any[], materials: any[]): 
     }
   }
   const rawYards = quantity.value / factor
+  const estimatedYards = roundToTenthYard(rawYards)
+  const recommendedYards = roundUpToHalfYard(rawYards + COVERAGE_BUFFER_YARDS)
   return {
     status: 'RESOLVED', material_id: currentMaterial.id, material_name: currentMaterial.name,
-    input_unit: 'TONS', input_value: quantity.value, raw_yards: rawYards, yards: roundToHalfYard(rawYards),
+    input_unit: 'TONS', input_value: quantity.value, raw_yards: rawYards,
+    estimated_yards: estimatedYards, recommended_yards: recommendedYards,
+    coverage_buffer_yards: COVERAGE_BUFFER_YARDS, yards: recommendedYards,
     tons_per_cubic_yard: factor,
     conversion_basis: currentMaterial.tons_conversion_basis ?? 'OPERATIONAL_ESTIMATE',
     conversion_verified: Boolean(currentMaterial.tons_conversion_verified),
