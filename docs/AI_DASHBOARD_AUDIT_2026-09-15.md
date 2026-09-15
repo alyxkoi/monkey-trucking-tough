@@ -21,6 +21,8 @@
 6. Form facts were available to the model but omitted from deterministic routing/quantity tools. Added them as older context, with newer conversation corrections taking precedence.
 7. Material readiness and aliases depended on mutable display names. Added immutable `catalog_key` identities to existing rows. The current already-renamed asphalt row is mapped without changing its UUID, rates, density or history. Existing material edits no longer reset load capacity.
 8. Material editing now expands within its own card. Worker names wrap above status badges. Mobile New opens a spring speed dial with four existing creation flows, Escape/outside dismissal and reduced-motion support. Record Payment now opens the actual payment flow. Desktop Enter sends, Shift+Enter inserts a newline, and mobile/IME entry is preserved.
+9. Live bilingual testing exposed an older lowercase-only formatting check rejecting valid Spanish drafts. Opening capitalization is now normalized before validation. Business-rule validation is unchanged. Sandbox errors now display the actual failure instead of a generic non-2xx message.
+10. Street-only input now asks for one locality hint before Google can select a similarly named street elsewhere. A corrected ZIP replaces the earlier ZIP. If Google still cannot resolve the same location after the same clarification was answered, an explicit `ADDRESS_RESOLUTION_LOOP` stops repetition and requests staff review.
 
 ## Controls and review scope
 
@@ -44,6 +46,23 @@ Verified through Cloud SQL and signed-in production settings: business number +1
 
 ## Verification record
 
-Local production build and app TypeScript check passed. The full suite passed 336 tests with two workers; additional focused route/city coverage is being included in the final run. The database tests execute migration, authorization, version conflict, review cadence, material rename and protected SMS guards in PostgreSQL (PGlite). The sandbox tests verify no real business-table writes or sent.DM calls.
+Local production build, app TypeScript check, changed-file lint and diff checks passed. Final full suite: **341 tests in 49 files passed**, two workers, September 15 at 09:57 CDT. The database tests execute migration, authorization, version conflict, review cadence, material rename and protected SMS guards in PostgreSQL (PGlite). Sandbox tests exercise the production engine and verify no real business-table writes or sent.DM calls, including takeover and unresolved-address loop handling.
 
-Live publication and post-deployment checks are pending until recorded below. Do not claim carrier delivery or overall production completion based only on build results.
+Published frontend: `33b294c4f47734e7de6e5bfb867a71d542e84572`, including mobile/diagnostic polish `d00ac06`. Backend `ai-draft`, `process-communications`, and `ai-control` subsequently deployed from `b718f5b38bd9ab13f5b0c4a2931e559bd3d2c71d` for the isolated capitalization fix. Migration applied once through the existing Cloud workflow, recorded as `drizzle/migrations/0015_ai_control_audit.sql`. Deployment regenerated material types; the test fixture was updated and typecheck rerun successfully.
+
+### Live results
+
+- Signed-in controls report **gpt-5.6-terra**, both configured and last observed, through **api.openai.com**, prompt v8. Provider model inventory was fetched successfully; no more expensive model was selected.
+- Ten tons of flexbase produced approximately **8.5 recommended yards** using the existing 1.4 factor and internal reserve. Customer text did not expose the reserve. First reply identified Monkey Trucking once.
+- Exact multiline Google address `839 S Good Latimer Expy / Dallas, TX 75226 / United States` resolved to **51,334 meters / 31.8975 miles**, with the saved origin and delivery formula. Sandbox material $323 plus delivery $318.97 yielded $641.97 under the current tax configuration. No real quote was changed.
+- The next **Yes** asked for the preferred delivery date, without repeating the introduction, conversion or address question.
+- **Street only → specific city/ZIP question → 75226** resolved the route and reused the form's 20 yards of flexbase. No full-address loop.
+- Spanish/Spanglish `sí, cuánto cuesta con delivery?` reused all form facts and returned Spanish pricing after the capitalization correction. It did not restart qualification or add a reserve to a yard-based order.
+- Pond pricing correctly returned **Custom work pricing requires Salvador**, without inventing a price or sending a message.
+- Model inventory, diagnostic status and review cadence were exercised through the authenticated production UI. Deployment checks also verified no-token and invalid-token requests return 401. The first recommendation review ran; a second due-review request correctly said it was not due.
+- At **09:59 CDT**, SQL verified **zero new lead messages and zero new SMS outbox records during the sandbox test window** beginning 09:40. All ten catalog identities exist. Exactly one active worker cron and one provider recovery cron remain at ten seconds, plus one daily review cron. Provider reconciliation last succeeded at 14:59:37 UTC with no error.
+- Signed-in production browser reported no console errors and no remaining alert after the tests. Mobile demo checks at 375×812 and landscape 667×375 verified inline material edit/save, worker layout, speed dial layering and the existing Record Payment flow. No payment was recorded. UI/UX skill guidance informed touch targets, focus, safe areas and reduced motion.
+
+### Boundaries
+
+This pass used live OpenAI/Google sandbox requests and automated database/transport regressions, **not a new carrier SMS round trip or a real invoice/payment transaction**. Existing real communications and business data were preserved. Calling/missed-call events remain unverified; promotional and other setup-required rules were not activated. The improvement review is a conservative rules-based recommendation system, not a semantic LLM review of every conversation and not autonomous prompt rewriting. Pricing, delivery, consent and automation eligibility never self-modify.
