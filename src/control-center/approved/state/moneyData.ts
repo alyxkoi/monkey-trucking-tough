@@ -65,7 +65,7 @@ export type Invoice = {
    */
   claimedPaid?: { at: number; method: PaymentMethod; note: string }
   /** Automated reminders that already went out. */
-  followUps: { at: number; label: string }[]
+  followUps: { at: number; label: string; final?: boolean }[]
   /** Every void or correction, with who and when. Financial records never vanish. */
   history: FinancialChange[]
   voidedBy?: string

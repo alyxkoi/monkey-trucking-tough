@@ -288,6 +288,7 @@ export type FinancialHistory = {
 };
 
 export type AutomationRule = {
+  setup_reason?: string | null;
   id: string;
   name: string;
   trigger_description: string;

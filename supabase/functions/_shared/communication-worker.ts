@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { generateAiDraft, validateDecision, type AiConfig } from './ai-engine.ts'
 import { composeConversationResponse } from './conversation-response.ts'
+import { scheduledResponse } from './scheduled-response.ts'
 
 export function autonomousReply(decision: any, pricing: any): string {
   const reply = renderAutonomousReply(decision, pricing)
@@ -79,23 +80,13 @@ async function scheduledText(service: any, job: any, config: AiConfig) {
     }).format(new Date(job.context.anchor))
     return jobReminderText(when, es)
   }
-  const invoice = await service.from('invoices').select('amount,invoice_number').eq('id',job.context.subject_id).eq('customer_id',lead.data.customer_id).single()
+  const invoice = await service.from('invoices').select('amount,invoice_number,due_at,status,job_id').eq('id',job.context.subject_id).eq('customer_id',lead.data.customer_id).single()
   if (invoice.error || !Number.isFinite(Number(invoice.data.amount))) throw new Error('Invoice context unavailable')
-  if (job.rule_id === 'invoice-follow-up') {
-    const amount = Number(invoice.data.amount).toFixed(2)
-    return es ? `un recordatorio de monkey trucking. la factura ${invoice.data.invoice_number} por $${amount} sigue pendiente. si ya envió el pago, avísenos para que salvador lo revise.`
-      : `a reminder from monkey trucking. invoice ${invoice.data.invoice_number} for $${amount} is still open. if you already sent payment, please let us know so salvador can check it.`
-  }
-  if (job.rule_id === 'review-request') {
-    const url = settings.data.review_url
-    if (typeof url !== 'string' || !url.startsWith('https://')) throw new Error('Approved review URL is missing')
-    return es ? `gracias por confiar en monkey trucking. si desea compartir cómo le fue con nuestro trabajo, puede dejar su reseña aquí: ${url}`
-      : `thank you for trusting monkey trucking. if you would like to share your experience with our work, you can leave a review here: ${url}`
-  }
-  if (job.rule_id === 'reactivation') return es
-    ? 'hola, somos monkey trucking. esperamos que todo siga bien. si necesita más material o tiene otro trabajo en mente, aquí estamos a su servicio. responda STOP para dejar de recibir mensajes.'
-    : 'hi, this is monkey trucking. we hope everything is going well. if you need more material or have another project in mind, we are here to help. reply STOP to opt out.'
-  throw new Error('This scheduled rule has no verified provider integration')
+  const work = job.rule_id === 'invoice-follow-up' ? null
+    : await service.from('jobs').select('category,status').eq('id',invoice.data.job_id).eq('customer_id',lead.data.customer_id).single()
+  if (work?.error) throw new Error('Completed work context unavailable')
+  return scheduledResponse({rule:job.rule_id,step:Number(job.context.step),spanish:es,timezone:runtime.data.timezone,
+    invoice:invoice.data,job:work?.data,reviewUrl:settings.data.review_url})
 }
 
 export async function runCommunicationJob(service: any, config: AiConfig, templateId?: string, jobId?: string) {

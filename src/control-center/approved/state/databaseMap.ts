@@ -310,7 +310,7 @@ export function mapInvoices(data: ControlData): Invoice[] {
     } : undefined,
     followUps: data.activities
       .filter((entry) => entry.entity_type === 'INVOICE' && entry.entity_id === row.id && /follow.?up/i.test(entry.event_type))
-      .map((entry) => ({ at: requiredAt(entry.created_at), label: entry.summary })),
+      .map((entry) => ({ at: requiredAt(entry.created_at), label: entry.summary, final: Boolean(entry.metadata && typeof entry.metadata === 'object' && !Array.isArray(entry.metadata) && entry.metadata.final === true) })),
     history: financialHistory(data, 'INVOICE', row.id),
     voidedBy: row.voided_by ?? undefined,
   }))

@@ -1062,6 +1062,9 @@ export function SettingsCommunication() {
                     <span className="mt-0.5 block text-[14px] leading-snug text-cc-muted">
                       {rule.delay_description}
                     </span>
+                    {rule.status === 'SETUP_REQUIRED' && rule.setup_reason && (
+                      <span className="mt-1 block text-[13px] leading-snug text-cc-muted">{rule.setup_reason}</span>
+                    )}
                   </span>
                   <StatusPill tone={rule.status === 'ON' ? 'ok' : rule.status === 'OFF' ? 'idle' : 'warn'} size="sm" className="shrink-0">
                     {rule.status === 'ON' ? 'On' : rule.status === 'OFF' ? 'Off' : 'Setup required'}

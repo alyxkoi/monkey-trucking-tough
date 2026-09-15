@@ -2,6 +2,8 @@
 import { PGlite } from '@electric-sql/pglite'
 import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { runCommunicationJob } from '../../supabase/functions/_shared/communication-worker'
+import { dispatchSms } from '../../supabase/functions/_shared/sms-dispatch'
 
 const read = (name: string) => readFileSync(`supabase/migrations/${name}.sql`, 'utf8')
 const base = read('20260826233501_36b91b63-9c99-426a-9ad4-fd55280d9c6b')
@@ -11,6 +13,29 @@ let db: PGlite
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const query = async (sql: string, args: unknown[] = []) => (await db.query<Record<string, any>>(sql, args)).rows
 const rpc = async (name: string, args: unknown[] = []) => (await query(`select public.${name}(${args.map((_, i) => `$${i + 1}`).join(',')}) as result`, args))[0].result
+// Exercise the real worker/transport against PostgreSQL; only the carrier is stubbed.
+const workerService = {
+  async rpc(name: string, args: Record<string, unknown> = {}) {
+    try { return { data: (await query(`select public.${name}(${Object.keys(args).map((key,i)=>`${key} => $${i+1}`).join(',')}) result`,Object.values(args)))[0].result,error:null } }
+    catch (error) { return {data:null,error} }
+  },
+  from(table: string) {
+    let columns='*',order='',limit='',single=false
+    const values:unknown[]=[],where:string[]=[]
+    const chain = {
+      select(value:string) {columns=value;return chain},
+      eq(key:string,value:unknown) {values.push(value);where.push(`${key}=$${values.length}`);return chain},
+      order(key:string,options:{ascending:boolean}) {order=` order by ${key} ${options.ascending?'asc':'desc'}`;return chain},
+      limit(n:number) {limit=` limit ${n}`;return chain},
+      single() {single=true;return chain},
+      then(resolve:(value:unknown)=>unknown,reject:(error:unknown)=>unknown) {
+        return query(`select ${columns} from ${table}${where.length?' where '+where.join(' and '):''}${order}${limit}`,values)
+          .then(rows=>resolve({data:single?rows[0]:rows,error:single&&!rows.length?'Missing row':null}),reject)
+      },
+    }
+    return chain
+  },
+}
 async function customer(phone = '+12143568256', consent = true) {
   const [c] = await query("insert into customers(name,phone,normalized_phone,sms_consent_at) values('Fixture',$1,$2,case when $3 then now()-interval '2 days' end) returning id", [phone, phone.slice(-10), consent])
   const [l] = await query("insert into leads(customer_id,source,need) values($1,'Website','Test request') returning id", [c.id])
@@ -47,10 +72,110 @@ beforeAll(async () => {
   await db.exec(`create table materials(id uuid primary key default gen_random_uuid(),name text,price_per_yard numeric);
     create table ai_audit_logs(id uuid primary key default gen_random_uuid(),created_at timestamptz default now(),status text);`)
   await db.exec(read('20260915120000_ai_control_audit'))
+  await db.exec(read('20260915193000_followup_completion'))
 }, 30_000)
 afterAll(async () => { await db?.close() })
 
 describe.sequential('executed PostgreSQL SMS transactions', () => {
+  it('runs invoice trigger through scheduler, worker, outbox, carrier receipt and duplicate prevention',async()=>{
+    await db.exec('begin')
+    try {
+      const c=await customer('+12145550081')
+      await db.exec("update communication_runtime set scheduled_sending_enabled=true,activated_at=now()-interval '2 days',business_days=array[1,2,3,4,5,6,7],business_start_hour=0,business_end_hour=23,timezone='America/Chicago'; update control_center_settings set sms_status='READY',business_number='+19453750877'; update automation_rules set status='OFF'; update automation_rules set status='ON' where id='invoice-follow-up'")
+      await query('update customers set sms_double_opt_in_at=now() where id=$1',[c.customerId])
+      const [invoice]=await query("insert into invoices(invoice_number,customer_id,amount_source,description,amount,status,issued_at,due_at) values('FLOW-I1',$1,'JOB','Fixture only',321.45,'SENT',now()-interval '1 day',now()-interval '1 minute') returning id",[c.customerId])
+      await query("update automation_rules set status='SETUP_REQUIRED',verification_subject_id=$1,verification_until=now()+interval '10 minutes' where id='invoice-follow-up'",[invoice.id])
+      expect(await rpc('plan_communication_jobs')).toBe(0) // no test-number match
+      await db.exec("update communication_runtime set test_numbers=array['+12145550081']")
+      expect(await rpc('automation_rule_enabled',['invoice-follow-up',c.leadId,{subject_id:actor}])).toBe(false)
+      await db.exec("update automation_rules set verification_until=now()-interval '1 minute' where id='invoice-follow-up'")
+      expect(await rpc('plan_communication_jobs')).toBe(0)
+      await db.exec("update automation_rules set verification_until=now()+interval '10 minutes' where id='invoice-follow-up'")
+      expect(await rpc('plan_communication_jobs')).toBe(1)
+      expect(await rpc('plan_communication_jobs')).toBe(0)
+      const [job]=await query('select id from communication_jobs where lead_id=$1',[c.leadId])
+      const result=await runCommunicationJob(workerService,{apiKey:'unused',baseUrl:'unused',model:'unused'},'fixture-template',job.id)
+      expect(result.reserved).toBe(true)
+      const [message]=await query('select body from lead_messages where id=$1',[result.messageId])
+      expect(message.body).toContain('$321.45')
+      expect(message.body).toContain('FLOW-I1')
+      let calls=0
+      const carrier=async()=>{calls++;return new Response(JSON.stringify({data:{recipients:[{message_id:'fixture-invoice-delivery',status:'SENT'}]}}),{status:202})}
+      expect(await dispatchSms(workerService,{apiKey:'test-only'},result.messageId!,carrier)).toMatchObject({accepted:true})
+      await rpc('apply_sms_delivery_status',['fixture-invoice-delivery','DELIVERED'])
+      expect(await dispatchSms(workerService,{apiKey:'test-only'},result.messageId!,carrier)).toMatchObject({dispatched:false})
+      expect(calls).toBe(1)
+      expect((await query("select status from automation_rules where id='invoice-follow-up'"))[0].status).toBe('SETUP_REQUIRED')
+      expect((await query('select delivery_status from lead_messages where id=$1',[result.messageId]))[0].delivery_status).toBe('DELIVERED')
+      expect((await query("select count(*)::int n from activity_history where customer_id=$1 and event_type='AUTOMATION_DONE'",[c.customerId]))[0].n).toBe(1)
+      expect((await query("select count(*)::int n from activity_history where customer_id=$1 and event_type='INVOICE_FOLLOW_UP_SENT'",[c.customerId]))[0].n).toBe(1)
+    } finally {await db.exec('rollback')}
+  })
+
+  it('cancels queued invoice reminders immediately on confirmed payment, including reserved SMS',async()=>{
+    await db.exec('begin')
+    try {
+      const c=await customer('+12145550082')
+      await db.exec("update communication_runtime set scheduled_sending_enabled=true,activated_at=now()-interval '2 days'; update control_center_settings set sms_status='READY'; update automation_rules set status='ON' where id='invoice-follow-up'")
+      await query('update customers set sms_double_opt_in_at=now() where id=$1',[c.customerId])
+      const [i]=await query("insert into invoices(invoice_number,customer_id,amount_source,description,amount,status,issued_at,due_at) values('FLOW-I2',$1,'JOB','Fixture',100,'SENT',now()-interval '1 day',now()) returning *",[c.customerId])
+      const guard={subject_type:'INVOICE',subject_id:i.id,anchor:i.due_at,version:i.updated_at,step:0}
+      await query("insert into communication_jobs(operation_key,kind,lead_id,rule_id,context,due_at,expires_at) values('payment-race','AUTOMATION',$1,'invoice-follow-up',$2,now(),now()+interval '1 hour')",[c.leadId,guard])
+      const m=await rpc('enqueue_sms',[c.leadId,'Invoice fixture','payment-outbox','AUTOMATION',actor,'fixture',null,'invoice-follow-up',guard])
+      await query("insert into payments(invoice_id,customer_id,amount,method,confirmed_by,received_at) values($1,$2,100,'ACH','HUMAN',now())",[i.id,c.customerId])
+      expect((await query("select state from communication_jobs where operation_key='payment-race'"))[0].state).toBe('CANCELLED')
+      expect((await query('select state from sms_outbox where message_id=$1',[m.id]))[0].state).toBe('CANCELLED')
+      expect(await rpc('sms_automation_guard',['invoice-follow-up',c.leadId,guard])).toBe(false)
+    } finally {await db.exec('rollback')}
+  })
+
+  it('preserves due/one/three day timing, merges weekend collisions, and rejects stale due dates and replies',async()=>{
+    await db.exec('begin')
+    try {
+      const c=await customer('+12145550083')
+      await db.exec("update communication_runtime set scheduled_sending_enabled=true,activated_at='2026-09-01'; update automation_rules set status='ON' where id='invoice-follow-up'")
+      await query('update customers set sms_double_opt_in_at=now() where id=$1',[c.customerId])
+      const [i]=await query("insert into invoices(invoice_number,customer_id,amount_source,description,amount,status,issued_at,due_at) values('FLOW-I3',$1,'JOB','Fixture',100,'SENT','2026-09-10T10:00:00-05','2026-09-11T10:00:00-05') returning *",[c.customerId])
+      for(const [at,steps] of [['2026-09-11T10:05:00-05',[0]],['2026-09-14T09:05:00-05',[1]],['2026-09-14T10:05:00-05',[2]]] as const) {
+        expect((await query('select step from communication_candidates($1) where subject_id=$2',[at,i.id])).map(r=>r.step)).toEqual(steps)
+      }
+      await query("update invoices set due_at='2026-09-12T08:00:00-05' where id=$1",[i.id])
+      expect((await query("select step from communication_candidates('2026-09-14T09:05:00-05') where subject_id=$1",[i.id])).map(r=>r.step)).toEqual([1])
+      expect(await rpc('sms_automation_guard',['invoice-follow-up',c.leadId,{subject_id:i.id,anchor:i.due_at,version:i.updated_at,step:0},'2026-09-11T10:05:00-05'])).toBe(false)
+      await query("insert into lead_messages(lead_id,customer_id,sender_type,body,created_at) values($1,$2,'CUSTOMER','I have a question','2026-09-13')",[c.leadId,c.customerId])
+      expect(await query("select * from communication_candidates('2026-09-14T09:05:00-05') where subject_id=$1",[i.id])).toEqual([])
+    } finally {await db.exec('rollback')}
+  })
+
+  it('requires real paid/completed records and approval for one-time reviews and reactivation; never invents missed calls',async()=>{
+    await db.exec('begin')
+    try {
+      const c=await customer('+12145550084')
+      await db.exec("update communication_runtime set scheduled_sending_enabled=true,activated_at='2026-01-01',marketing_approved=false; update automation_rules set status='ON'; update control_center_settings set review_url='https://example.com/review'")
+      await query("update customers set sms_double_opt_in_at=now(),sms_marketing_consent_at=now() where id=$1",[c.customerId])
+      await query("update leads set status='WON',created_at='2026-06-01' where id=$1",[c.leadId])
+      const [j]=await query("insert into jobs(customer_id,category,status,scheduled_date,address,description,completed_at) values($1,'DRIVEWAY','COMPLETED','2026-07-16','Fixture','Fixture','2026-07-17T10:00:00-05') returning id",[c.customerId])
+      const [i]=await query("insert into invoices(invoice_number,customer_id,job_id,amount_source,description,amount,status,paid_at) values('FLOW-I4',$1,$2,'JOB','Fixture',100,'PAID','2026-07-16T10:00:00-05') returning *",[c.customerId,j.id])
+      const guard={subject_type:'INVOICE',subject_id:i.id,anchor:i.paid_at,version:i.updated_at,step:0}
+      expect(await rpc('sms_automation_guard',['missed-call',c.leadId,guard])).toBe(false)
+      expect(await rpc('sms_automation_guard',['reactivation',c.leadId,guard,'2026-09-15T10:05:00-05'])).toBe(false)
+      await db.exec('update communication_runtime set marketing_approved=true')
+      expect(await rpc('sms_automation_guard',['reactivation',c.leadId,guard,'2026-09-15T10:05:00-05'])).toBe(false)
+      await query("insert into payments(invoice_id,customer_id,amount,method,confirmed_by,received_at) values($1,$2,100,'ACH','HUMAN','2026-07-16')",[i.id,c.customerId])
+      expect(await rpc('sms_automation_guard',['reactivation',c.leadId,guard,'2026-09-15T10:05:00-05'])).toBe(true)
+      expect(await rpc('sms_automation_guard',['review-request',c.leadId,guard,'2026-07-20T09:05:00-05'])).toBe(true)
+      expect((await query("select rule_id from communication_candidates('2026-07-20T09:05:00-05') where subject_id=$1",[i.id])).map(r=>r.rule_id)).toEqual(['review-request'])
+      await db.exec("update control_center_settings set sms_status='READY'")
+      await rpc('enqueue_sms',[c.leadId,'Fixture review','already-reviewed','AUTOMATION',actor,'fixture',null,'review-request',guard])
+      expect(await rpc('sms_automation_guard',['review-request',c.leadId,guard,'2026-07-20T09:05:00-05'])).toBe(false)
+      await rpc('enqueue_sms',[c.leadId,'Fixture reactivation','already-reactivated','AUTOMATION',actor,'fixture',null,'reactivation',guard])
+      expect(await rpc('sms_automation_guard',['reactivation',c.leadId,guard,'2026-09-15T10:05:00-05'])).toBe(false)
+      await db.exec('update control_center_settings set review_url=null')
+      expect(await rpc('sms_automation_guard',['review-request',c.leadId,guard,'2026-07-20T09:05:00-05'])).toBe(false)
+      await query("insert into lead_messages(lead_id,customer_id,sender_type,body,created_at) values($1,$2,'CUSTOMER','Need more gravel','2026-08-01')",[c.leadId,c.customerId])
+      expect(await rpc('sms_automation_guard',['reactivation',c.leadId,guard,'2026-09-15T10:05:00-05'])).toBe(false)
+    } finally {await db.exec('rollback')}
+  })
   it('audits settings versions, rejects stale edits and runs a review at most every three days', async () => {
     const saved=await rpc('save_ai_operation_settings',[actor,1,null,'DIRECT',true,true,null])
     expect(saved.version).toBe(2)
@@ -338,9 +463,9 @@ describe.sequential('executed PostgreSQL SMS transactions', () => {
       expect(await rpc('sms_automation_guard',['job-reminder',c.leadId,guard,'2026-09-15T10:05:00-05:00'])).toBe(false)
       const [i]=await query("insert into invoices(invoice_number,customer_id,job_id,amount_source,description,amount,status,due_at) values('FIX-I1',$1,$2,'JOB','Fixture',100,'SENT','2026-09-16T10:00:00Z') returning *",[c.customerId,j.id])
       const invoiceGuard={subject_id:i.id,anchor:i.due_at,version:i.updated_at,step:0}
-      expect(await rpc('sms_automation_guard',['invoice-follow-up',c.leadId,invoiceGuard])).toBe(true)
+      expect(await rpc('sms_automation_guard',['invoice-follow-up',c.leadId,invoiceGuard,'2026-09-16T09:05:00-05:00'])).toBe(true)
       await query('update invoices set payment_claimed_at=now() where id=$1',[i.id])
-      expect(await rpc('sms_automation_guard',['invoice-follow-up',c.leadId,invoiceGuard])).toBe(false)
+      expect(await rpc('sms_automation_guard',['invoice-follow-up',c.leadId,invoiceGuard,'2026-09-16T09:05:00-05:00'])).toBe(false)
     } finally {await db.exec('rollback')}
   })
 })

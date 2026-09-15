@@ -485,7 +485,7 @@ export function InvoiceDetail() {
                     </div>
                   </div>
                 ))}
-                {status === 'OVERDUE' && invoice.followUps.length >= 3 && (
+                {status === 'OVERDUE' && (invoice.followUps.length >= 3 || invoice.followUps.some((followUp) => followUp.final)) && (
                   <p className="px-5 py-3 text-[13px] leading-snug text-cc-muted">
                     The automated reminders are finished. It is a human job from here.
                   </p>
