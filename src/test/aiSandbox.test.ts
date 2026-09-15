@@ -20,6 +20,19 @@ function service() {
 }
 afterEach(()=>vi.unstubAllGlobals())
 describe('production engine sandbox isolation',()=>{
+  it('stops an unresolved address clarification loop instead of sending it again',async()=>{
+    const fetcher=vi.fn(async()=>new Response(JSON.stringify({geocodingResults:{destination:{geocoderStatus:{code:5}}}})))
+    vi.stubGlobal('fetch',fetcher)
+    const result=await simulateConversation(service().db,{messages:[
+      {sender_type:'CUSTOMER',body:'999 Impossible Road, Dallas, TX 75226'},
+      {sender_type:'AI',body:"i couldn't verify 999 Impossible Road, Dallas, TX 75226. could you check the street number and name?"},
+      {sender_type:'CUSTOMER',body:'999 Impossible Road, Dallas, TX 75226'},
+    ]},config)
+    expect(result.decision).toMatchObject({recommended_action:'MANUAL_REPLY',requires_human:true,ai_may_continue:false})
+    expect(result.reply).toBeNull()
+    expect(result.blocked).toContain('ADDRESS_RESOLUTION_LOOP')
+    expect(fetcher).toHaveBeenCalledOnce()
+  })
   it('uses real calculation code for the exact address without SMS or database mutations',async()=>{
     const {db,reads}=service()
     const decision={detected_language:'ENGLISH',customer_intent:'DELIVERY',known_facts:[],missing_facts:[],uncertain_facts:[],ai_may_continue:true,requires_human:false,escalation_reason:null,recommended_action:'PROVIDE_STANDARD_PRICE',draft_reply:'the estimate is ready.',confidence:'HIGH',deterministic_pricing_required:true,payment_claim_detected:false}

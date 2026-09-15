@@ -12,7 +12,11 @@ type Simulation = { reply: string | null; blocked: string | null; model: string;
 
 async function call<T>(body: unknown): Promise<T> {
   const { data, error } = await supabase.functions.invoke('ai-control',{body})
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'AI request failed')
+  if (error || data?.error) {
+    const detail = error && 'context' in error && error.context instanceof Response
+      ? await error.context.json().catch(()=>null) : null
+    throw new Error(data?.error || detail?.error || error?.message || 'AI request failed')
+  }
   return data as T
 }
 

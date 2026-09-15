@@ -33,6 +33,7 @@ const material = (
   pricePerYard = fullLoadPrice / fullLoadYards,
 ): Material => ({
   id,
+  catalog_key: null,
   name,
   full_load_price: fullLoadPrice,
   full_load_yards: fullLoadYards,

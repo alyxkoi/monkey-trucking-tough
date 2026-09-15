@@ -29,7 +29,9 @@ function postalCodeFromText(text: string) {
 }
 
 function withPostalCode(address: string, postalCode: string | null) {
-  if (!postalCode || postalCodeFromText(address)) return address
+  if (!postalCode) return address
+  const existing = postalCodeFromText(address)
+  if (existing) return address.replace(new RegExp(`\\b${existing}\\b`), postalCode)
   return `${address} ${postalCode}`
 }
 
@@ -93,6 +95,11 @@ export async function calculateDeliveryRoute(input: {
   const destination = resolveDeliveryAddress(input.messages, input.state, input.quotes)
   if (!origin) return { status: 'UNAVAILABLE', reason: 'The business origin address is missing.' }
   if (!destination) return { status: 'NOT_READY', origin, reason: 'An exact delivery address is required.' }
+  // A street alone can geocode to a different city without partialMatch.
+  // Obtain one locality hint before allowing Google to select a destination.
+  if (/\b(?:road|rd|street|st|avenue|ave|lane|ln|drive|dr|highway|hwy|expressway|expy|parkway|pkwy|boulevard|blvd|court|ct|circle|cir|trail|trl|way|fm|cr)\.?\s*(?:\d{1,4})?$/i.test(destination)) {
+    return { status: 'NEEDS_CLARIFICATION', origin, destination, reason: 'A city or ZIP is needed to distinguish the street.' }
+  }
   const cached = input.quotes.find((quote) => quote.status === 'DRAFT'
     && quote.delivery_distance_source === 'GOOGLE_ROUTES'
     && String(quote.address ?? '').trim().toLowerCase() === destination.toLowerCase()

@@ -18,6 +18,19 @@ const settings = {
 }
 
 describe('material and route intelligence', () => {
+  it('uses a corrected ZIP instead of retaining the ZIP on the earlier address', () => {
+    expect(resolveDeliveryAddress([
+      {sender_type:'CUSTOMER',body:'839 S Good Latimer Expy, Dallas, TX 75204'},
+      {sender_type:'AI',body:'could you check the ZIP?'},
+      {sender_type:'CUSTOMER',body:'ZIP is 75226'},
+    ],null,[])).toBe('839 S Good Latimer Expy, Dallas, TX 75226')
+  })
+  it('asks only for locality before routing a street-only address', async () => {
+    const fetcher=vi.fn()
+    const result=await calculateDeliveryRoute({messages:[{sender_type:'CUSTOMER',body:'839 S Good Latimer Expy'}],state:null,quotes:[],settings,enabled:true,apiKey:'fixture',fetcher})
+    expect(result).toMatchObject({status:'NEEDS_CLARIFICATION',reason:'A city or ZIP is needed to distinguish the street.'})
+    expect(fetcher).not.toHaveBeenCalled()
+  })
   it('preserves a multiline Expy address with country and accepts the real Google RPC status', async () => {
     const messages = [{sender_type:'CUSTOMER',body:'839 S Good Latimer Expy\nDallas, TX 75226\nUnited States'}]
     expect(resolveDeliveryAddress(messages,null,[])).toBe('839 S Good Latimer Expy, Dallas, TX 75226, United States')

@@ -363,6 +363,9 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     if (route.status === 'NEEDS_CLARIFICATION' && !forced) {
       const completeAddress = 'Verify delivery location'
       const language = stateResult.data?.detected_language ?? clarificationLanguage(messages.filter((m: any) => m.sender_type === 'CUSTOMER').map((m: any) => m.body).join(' '))
+      const clarification = addressClarification(route.destination, language)
+      const lastAi = [...messages].reverse().find((m: any) => m.sender_type === 'AI')
+      const repeatingClarification = String(lastAi?.body ?? '').toLowerCase().includes(clarification.toLowerCase())
       decision = {
         detected_language: language, customer_intent: 'DELIVERY_ADDRESS_CLARIFICATION', extracted_facts: [],
         known_facts: stateResult.data?.known_facts ?? [],
@@ -370,9 +373,10 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
           ...(stateResult.data?.missing_facts ?? []).filter((value: string) => !/\b(address|zip|postal)\b/i.test(value)),
           completeAddress,
         ])],
-        uncertain_facts: [], ai_may_continue: true, requires_human: false, escalation_reason: null,
-        recommended_action: 'ASK_NEXT_MISSING_FACT',
-        draft_reply: addressClarification(route.destination, language),
+        uncertain_facts: [], ai_may_continue: !repeatingClarification, requires_human: repeatingClarification,
+        escalation_reason: repeatingClarification ? `ADDRESS_RESOLUTION_LOOP: Google still cannot uniquely verify ${route.destination}; customer already answered the clarification.` : null,
+        recommended_action: repeatingClarification ? 'MANUAL_REPLY' : 'ASK_NEXT_MISSING_FACT',
+        draft_reply: repeatingClarification ? '' : clarification,
         confidence: 'HIGH', deterministic_pricing_required: false, payment_claim_detected: false,
       }
     } else {
