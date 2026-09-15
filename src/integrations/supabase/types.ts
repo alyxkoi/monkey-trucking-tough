@@ -433,42 +433,62 @@ export type Database = {
           action_description: string
           conditions: Json
           delay_description: string
+          enabled_at: string | null
           fallback_description: string
           id: string
           log_description: string
           name: string
+          setup_reason: string | null
           status: string
           stop_conditions: Json
           trigger_description: string
           updated_at: string
+          verification_subject_id: string | null
+          verification_until: string | null
         }
         Insert: {
           action_description: string
           conditions?: Json
           delay_description: string
+          enabled_at?: string | null
           fallback_description: string
           id: string
           log_description: string
           name: string
+          setup_reason?: string | null
           status?: string
           stop_conditions?: Json
           trigger_description: string
           updated_at?: string
+          verification_subject_id?: string | null
+          verification_until?: string | null
         }
         Update: {
           action_description?: string
           conditions?: Json
           delay_description?: string
+          enabled_at?: string | null
           fallback_description?: string
           id?: string
           log_description?: string
           name?: string
+          setup_reason?: string | null
           status?: string
           stop_conditions?: Json
           trigger_description?: string
           updated_at?: string
+          verification_subject_id?: string | null
+          verification_until?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "automation_rules_verification_subject_id_fkey"
+            columns: ["verification_subject_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       communication_jobs: {
         Row: {
@@ -2804,6 +2824,10 @@ export type Database = {
         Args: { p_lease_token: string; p_message_id: string }
         Returns: Json
       }
+      automation_rule_enabled: {
+        Args: { p_guard: Json; p_lead: string; p_rule: string }
+        Returns: boolean
+      }
       claim_communication_job: { Args: never; Returns: Json }
       claim_communication_job_by_id: {
         Args: { p_job_id: string }
@@ -2812,6 +2836,18 @@ export type Database = {
       claim_sent_dm_reconciliation: { Args: never; Returns: string }
       claim_sms: { Args: { p_message_id?: string }; Returns: Json }
       communication_candidates: {
+        Args: { p_now?: string }
+        Returns: {
+          due_at: string
+          guard: Json
+          lead_id: string
+          rule_id: string
+          step: number
+          subject_id: string
+          subject_type: string
+        }[]
+      }
+      communication_candidates_baseline: {
         Args: { p_now?: string }
         Returns: {
           due_at: string
@@ -3330,6 +3366,15 @@ export type Database = {
         Returns: undefined
       }
       sms_automation_guard: {
+        Args: {
+          p_guard: Json
+          p_lead_id: string
+          p_now?: string
+          p_rule: string
+        }
+        Returns: boolean
+      }
+      sms_automation_guard_baseline: {
         Args: {
           p_guard: Json
           p_lead_id: string
