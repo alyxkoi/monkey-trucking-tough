@@ -259,4 +259,22 @@ describe('shared production AI safety',()=>{
       [{id:'material',name:'Flexbase',full_load_yards:15,full_load_price:300,price_per_yard:25}],{tax_enabled:false})
     expect(pricing).toMatchObject({yards:15,material_total:300,grand_total:null,delivery_miles:null})
   })
+  it('applies corrected standard quote facts through the protected RPCs while custom work stays a subtask',async()=>{
+    const modelDecision={...decision,recommended_action:'ANSWER_CUSTOMER',response_plan:{objective:'ANSWER',answers:['PRICE'],comparison_keys:[],recommendation_key:'',acknowledgement:'',next_question:'',required_tools:['MATERIAL','ROUTE'],escalation_scope:'SUBTASK',escalation_category:'CUSTOM_WORK'}}
+    vi.stubGlobal('fetch',vi.fn(async(url:string)=>url.includes('routes.googleapis.com')
+      ?new Response(JSON.stringify({routes:[{distanceMeters:16093.44,duration:'900s'}],geocodingResults:{destination:{placeId:'place',geocoderStatus:{}}}}))
+      :new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(modelDecision)}))))
+    const service=aiService(undefined,false,false,{
+      lead_messages:[{id:'zip',sender_type:'CUSTOMER',body:'75204'},{id:'ask',sender_type:'AI',body:'what ZIP?'},{id:'address',sender_type:'CUSTOMER',body:'4625 Virginia Ave, Dallas, TX'},{id:'quantity',sender_type:'CUSTOMER',body:'actually make that 28'},{id:'initial',sender_type:'CUSTOMER',body:'20 yards flexbase and redo my driveway'}],
+      materials:[{id:'base',catalog_key:'mat-4',name:'Flexbase',full_load_yards:20,full_load_price:720,price_per_yard:38,tons_per_cubic_yard:1.4}],
+      app_settings:{company_address:'7653 S FM 148',company_city_state_zip:'Kaufman, TX 75142',delivery_tier_1_fee:100,delivery_tier_1_max_miles:10,tax_enabled:false},
+      control_center_settings:{ai_english:true,ai_spanish:true,route_intelligence_enabled:true,route_status:'READY'},
+    })
+    const result=await generateAiDraft(service,{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model',googleMapsApiKey:'maps-key'})
+    expect(result.decision).toMatchObject({requires_human:false,ai_may_continue:true,recommended_action:'ANSWER_CUSTOMER'})
+    expect(result.decision.subtask_escalations).toHaveLength(1)
+    expect(service.rpc).toHaveBeenCalledWith('apply_ai_material_to_quote',{p_lead_id:'lead',p_expected_revision:1,p_material_id:'base',p_yards:28})
+    expect(service.rpc).toHaveBeenCalledWith('apply_ai_route_to_quote',expect.objectContaining({p_expected_revision:1,p_address:'4625 Virginia Ave, Dallas, TX 75204',p_distance_miles:10}))
+    expect(autonomousReply(result.decision,result.tool_results.pricing)).toContain('$1224.00')
+  })
 })

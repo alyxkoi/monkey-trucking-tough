@@ -104,12 +104,13 @@ export function resolveConversationQuantity(messages: any[], materials: any[], s
     let found = lastQuantity(body)
     // A bare correction inherits the most recent confirmed quantity unit,
     // never the unitless digits of a ZIP, address, price or product grade.
-    const correction=body.trim().match(/^(?:(?:actually|sorry|no|perd[oó]n|mejor)[,\s]*)?(?:make (?:it|that)|change (?:it|that) to|c[aá]mbialo a|que sean)\s+(\d{1,4}(?:\.\d+)?)[.!\s]*$/i)
+    const correction=[...body.matchAll(/\b(?:make (?:it|that)|change (?:it|that) to|c[aá]mbialo a|que sean)\s+(\d{1,4}(?:\.\d+)?)(?=\s*(?:[.!?,]|$|\b(?:and|y|for|para)\b))/gi)].at(-1)
     const previous=messages[index-1]
     const askedUnit=/\b(yards?|yardas?)\b/i.test(previous?.body??'')?'YARDS':/\b(tons?|toneladas?)\b/i.test(previous?.body??'')?'TONS':quantity?.unit
     const directAnswer=askedUnit && previous?.sender_type==='AI' && /\b(how many|cu[aá]ntas|quantity|cantidad)\b/i.test(previous.body??'')
       ? body.trim().match(/^(\d{1,4}(?:\.\d+)?)[.!\s]*$/):null
-    if(!found&&correction&&quantity)found={index:0,unit:quantity.unit,value:Number(correction[1])}
+    const proposedUnit=previous?.sender_type==='AI'?lastQuantity(previous.body??'')?.unit:null
+    if(correction&&quantity&&(!found||correction.index!>found.index))found={index:correction.index!,unit:proposedUnit??quantity.unit,value:Number(correction[1])}
     if(!found&&directAnswer&&askedUnit)found={index:0,unit:askedUnit,value:Number(directAnswer[1])}
     // An acceptance applies to the preceding single yard proposal, not an
     // older ton estimate. Multiple yard options still require clarification.

@@ -80,6 +80,15 @@ describe('canonical corrections before business tools',()=>{
   it('resolves material and quantity corrections independently within one message',()=>{
     expect(resolveConversationQuantity([customer('18 yards crushed concrete'),customer('commercial instead, actually make it 30 yards')],materials)).toMatchObject({material_id:'uuid-commercial',yards:30})
   })
+  it('resolves a unitless correction before a second question/address in the same message',async()=>{
+    const result=await run([customer('30 yards commercial'),customer("sorry make that 28. what's the price for that delivered to 424 kent dr 75149?")],{answers:['PRICE'],objective:'ANSWER',next_question:''})
+    expect(result.tool_results.quantity.yards).toBe(28)
+    expect(result.tool_results.pricing).toMatchObject({yards:28,delivery_loads:2,material_total:1070})
+    expect(result.tool_results.route.destination).toBe('424 kent dr 75149')
+  })
+  it('keeps a correction in conversational yards after the AI proposed a ton conversion',()=>{
+    expect(resolveConversationQuantity([customer('10 tons flexbase'),ai('I recommend approximately 8.5 yards. What address?'),customer('make that 10, please')],materials)).toMatchObject({yards:10,input_unit:'YARDS',coverage_buffer_yards:0})
+  })
 })
 
 describe('shared production conversation orchestration',()=>{
