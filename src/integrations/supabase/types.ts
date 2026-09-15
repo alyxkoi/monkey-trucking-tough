@@ -636,6 +636,8 @@ export type Database = {
           processing_fee_enabled: boolean
           processing_fee_rate: number
           review_url: string | null
+          route_intelligence_enabled: boolean
+          route_status: string
           sms_status: string
           updated_at: string
         }
@@ -657,6 +659,8 @@ export type Database = {
           processing_fee_enabled?: boolean
           processing_fee_rate?: number
           review_url?: string | null
+          route_intelligence_enabled?: boolean
+          route_status?: string
           sms_status?: string
           updated_at?: string
         }
@@ -678,6 +682,8 @@ export type Database = {
           processing_fee_enabled?: boolean
           processing_fee_rate?: number
           review_url?: string | null
+          route_intelligence_enabled?: boolean
+          route_status?: string
           sms_status?: string
           updated_at?: string
         }
@@ -1447,6 +1453,10 @@ export type Database = {
           name: string
           price_per_yard: number
           sort_order: number
+          tons_conversion_basis: string
+          tons_conversion_note: string | null
+          tons_conversion_verified: boolean
+          tons_per_cubic_yard: number | null
           updated_at: string
         }
         Insert: {
@@ -1458,6 +1468,10 @@ export type Database = {
           name: string
           price_per_yard?: number
           sort_order?: number
+          tons_conversion_basis?: string
+          tons_conversion_note?: string | null
+          tons_conversion_verified?: boolean
+          tons_per_cubic_yard?: number | null
           updated_at?: string
         }
         Update: {
@@ -1469,6 +1483,10 @@ export type Database = {
           name?: string
           price_per_yard?: number
           sort_order?: number
+          tons_conversion_basis?: string
+          tons_conversion_note?: string | null
+          tons_conversion_verified?: boolean
+          tons_per_cubic_yard?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -1556,6 +1574,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          intake_source: string | null
           is_full_load: boolean
           kind: string
           line_total: number
@@ -1569,6 +1588,7 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
+          intake_source?: string | null
           is_full_load?: boolean
           kind: string
           line_total?: number
@@ -1582,6 +1602,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          intake_source?: string | null
           is_full_load?: boolean
           kind?: string
           line_total?: number
@@ -1618,9 +1639,13 @@ export type Database = {
           custom_work_tax_rule: string
           customer_id: string
           declined_at: string | null
+          delivery_destination_place_id: string | null
+          delivery_distance_calculated_at: string | null
+          delivery_distance_source: string | null
           delivery_fee_per_load: number
           delivery_load_count: number
           delivery_miles: number | null
+          delivery_origin: string | null
           delivery_total: number
           delivery_type: string | null
           description: string
@@ -1648,9 +1673,13 @@ export type Database = {
           custom_work_tax_rule?: string
           customer_id: string
           declined_at?: string | null
+          delivery_destination_place_id?: string | null
+          delivery_distance_calculated_at?: string | null
+          delivery_distance_source?: string | null
           delivery_fee_per_load?: number
           delivery_load_count?: number
           delivery_miles?: number | null
+          delivery_origin?: string | null
           delivery_total?: number
           delivery_type?: string | null
           description?: string
@@ -1678,9 +1707,13 @@ export type Database = {
           custom_work_tax_rule?: string
           customer_id?: string
           declined_at?: string | null
+          delivery_destination_place_id?: string | null
+          delivery_distance_calculated_at?: string | null
+          delivery_distance_source?: string | null
           delivery_fee_per_load?: number
           delivery_load_count?: number
           delivery_miles?: number | null
+          delivery_origin?: string | null
           delivery_total?: number
           delivery_type?: string | null
           description?: string
@@ -2619,6 +2652,26 @@ export type Database = {
         }
         Returns: undefined
       }
+      apply_ai_material_to_quote: {
+        Args: {
+          p_expected_revision: number
+          p_lead_id: string
+          p_material_id: string
+          p_yards: number
+        }
+        Returns: Json
+      }
+      apply_ai_route_to_quote: {
+        Args: {
+          p_address: string
+          p_destination_place_id?: string
+          p_distance_miles: number
+          p_expected_revision: number
+          p_lead_id: string
+          p_origin: string
+        }
+        Returns: Json
+      }
       apply_sms_delivery_status: {
         Args: {
           p_error_message?: string
@@ -3153,6 +3206,10 @@ export type Database = {
       update_customer_contact: {
         Args: { p_customer_id: string; p_email: string; p_phone: string }
         Returns: Json
+      }
+      update_quote_draft_atomic: {
+        Args: { p_items: Json; p_quote: Json; p_quote_id: string }
+        Returns: undefined
       }
       verify_communications_worker: {
         Args: { p_token_hash: string }
