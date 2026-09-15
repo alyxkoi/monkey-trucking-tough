@@ -266,6 +266,72 @@ export type Database = {
           },
         ]
       }
+      ai_operation_history: {
+        Row: {
+          actor_id: string | null
+          after_settings: Json | null
+          before_settings: Json | null
+          created_at: string
+          findings: Json
+          id: string
+          kind: string
+          summary: string
+        }
+        Insert: {
+          actor_id?: string | null
+          after_settings?: Json | null
+          before_settings?: Json | null
+          created_at?: string
+          findings?: Json
+          id?: string
+          kind: string
+          summary: string
+        }
+        Update: {
+          actor_id?: string | null
+          after_settings?: Json | null
+          before_settings?: Json | null
+          created_at?: string
+          findings?: Json
+          id?: string
+          kind?: string
+          summary?: string
+        }
+        Relationships: []
+      }
+      ai_operation_settings: {
+        Row: {
+          concise: boolean
+          id: number
+          last_review_at: string | null
+          model: string | null
+          review_enabled: boolean
+          tone: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          concise?: boolean
+          id?: number
+          last_review_at?: string | null
+          model?: string | null
+          review_enabled?: boolean
+          tone?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          concise?: boolean
+          id?: number
+          last_review_at?: string | null
+          model?: string | null
+          review_enabled?: boolean
+          tone?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           company_address: string
@@ -1496,6 +1562,7 @@ export type Database = {
       }
       materials: {
         Row: {
+          catalog_key: string | null
           created_at: string
           full_load_price: number
           full_load_yards: number
@@ -1511,6 +1578,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          catalog_key?: string | null
           created_at?: string
           full_load_price?: number
           full_load_yards?: number
@@ -1526,6 +1594,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          catalog_key?: string | null
           created_at?: string
           full_load_price?: number
           full_load_yards?: number
@@ -3223,6 +3292,7 @@ export type Database = {
         Args: { p_actor_id: string; p_lead_id: string }
         Returns: undefined
       }
+      review_ai_operations: { Args: never; Returns: Json }
       revise_draft_invoice: {
         Args: {
           p_amount: number
@@ -3231,6 +3301,18 @@ export type Database = {
           p_reason: string
         }
         Returns: undefined
+      }
+      save_ai_operation_settings: {
+        Args: {
+          p_actor: string
+          p_concise: boolean
+          p_expected_version: number
+          p_model: string
+          p_review_enabled: boolean
+          p_rollback_id?: string
+          p_tone: string
+        }
+        Returns: Json
       }
       save_quote_atomic: {
         Args: { p_items: Json; p_quote: Json }
