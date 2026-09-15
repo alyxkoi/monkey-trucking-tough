@@ -571,6 +571,18 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       if (current.error || current.data?.human_takeover || current.data?.conversation_revision !== lead?.conversation_revision) {
         throw new Error('Conversation changed while the AI was drafting. Nothing will be sent.')
       }
+      // A true conversation-wide handoff must survive the next inbound text.
+      // Reuse the existing takeover flag/resume flow and revision guard. Do not
+      // latch missing information, tool-refresh issues or custom-work subtasks.
+      const globalHandoff = decision.requires_human && !decision.ai_may_continue
+        && ((forced && !/Compliance keyword/.test(forced))
+          || plan?.escalation_scope==='CONVERSATION' && ['HUMAN_REQUEST','COMPLAINT','FINANCIAL','SAFETY'].includes(plan.escalation_category))
+      if(mode==='CONVERSATION'&&globalHandoff) {
+        const paused=await service.from('leads').update({human_takeover:true,conversation_revision:lead.conversation_revision+1,updated_at:new Date().toISOString()})
+          .eq('id',leadId).eq('conversation_revision',lead.conversation_revision).eq('human_takeover',false).select('id').maybeSingle()
+        if(paused.error||!paused.data)throw new Error('Conversation changed before the human handoff could be recorded. Nothing will be sent.')
+        decision.global_pause_applied=true
+      }
     }
 
     decision.explain_conversion = /\b\d+(?:\.\d+)?\s*(?:tons?|toneladas?)\b/i.test(latestCustomer?.body ?? '')

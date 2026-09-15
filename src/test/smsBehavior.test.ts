@@ -71,11 +71,13 @@ const decision={detected_language:'ENGLISH',customer_intent:'MATERIAL_DELIVERY',
 function aiService(failingTable?:string,takeoverOnRecheck=false,initialTakeover=false,dataOverrides:Record<string,unknown>={}) {
   let leadReads=0
   const calls:Array<{table:string;order?:string;options?:unknown;limit?:number}>=[]
+  const updates:Array<{table:string;value:unknown}>=[]
   const from=vi.fn((table:string)=>{
     let insert:unknown
     const chain={select:()=>chain,eq:()=>chain,limit:(limit:number)=>{calls.push({table,limit});return chain},
       order:(order:string,options:unknown)=>{calls.push({table,order,options});return chain},maybeSingle:()=>chain,single:()=>chain,
       insert:(value:unknown)=>{insert=value;return chain},upsert:()=>chain,
+      update:(value:unknown)=>{updates.push({table,value});return chain},
       then:(resolve:(value:unknown)=>unknown)=>{
         const data=dataOverrides[table]??{
           leads:{id:'lead',customer_id:'customer',human_takeover:initialTakeover||(takeoverOnRecheck&&++leadReads>1),conversation_revision:1},
@@ -88,7 +90,7 @@ function aiService(failingTable?:string,takeoverOnRecheck=false,initialTakeover=
       }}
     return chain
   })
-  return {from,calls,rpc:vi.fn(async()=>({data:{applied:true},error:null}))}
+  return {from,calls,updates,rpc:vi.fn(async()=>({data:{applied:true},error:null}))}
 }
 describe('shared production AI safety',()=>{
   it('supplies authoritative current takeover state and separates material-only pricing from unapproved delivery',async()=>{
@@ -273,8 +275,29 @@ describe('shared production AI safety',()=>{
     const result=await generateAiDraft(service,{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model',googleMapsApiKey:'maps-key'})
     expect(result.decision).toMatchObject({requires_human:false,ai_may_continue:true,recommended_action:'ANSWER_CUSTOMER'})
     expect(result.decision.subtask_escalations).toHaveLength(1)
+    expect(service.updates).toEqual([])
     expect(service.rpc).toHaveBeenCalledWith('apply_ai_material_to_quote',{p_lead_id:'lead',p_expected_revision:1,p_material_id:'base',p_yards:28})
     expect(service.rpc).toHaveBeenCalledWith('apply_ai_route_to_quote',expect.objectContaining({p_expected_revision:1,p_address:'4625 Virginia Ave, Dallas, TX 75204',p_distance_miles:10}))
     expect(autonomousReply(result.decision,result.tool_results.pricing)).toContain('$1224.00')
+  })
+  it('latches explicit global handoffs in the existing revision-guarded takeover state',async()=>{
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)}))))
+    const service=aiService(undefined,false,false,{lead_messages:[{id:'request',sender_type:'CUSTOMER',body:'I want to speak to Salvador'}]})
+    const result=await generateAiDraft(service,{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model'})
+    expect(result.decision).toMatchObject({requires_human:true,ai_may_continue:false,global_pause_applied:true})
+    expect(service.updates).toEqual([{table:'leads',value:expect.objectContaining({human_takeover:true,conversation_revision:2})}])
+    expect(service.rpc).not.toHaveBeenCalled()
+  })
+  it('fails closed if a concurrent change wins the handoff update',async()=>{
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)}))))
+    const service=aiService(undefined,false,false,{lead_messages:[{id:'request',sender_type:'CUSTOMER',body:'I want to speak to Salvador'}]})
+    const original=service.from
+    service.from=vi.fn((table:string)=>{
+      const chain=original(table)
+      if(table==='leads')chain.update=()=>{chain.maybeSingle=()=>Promise.resolve({data:null,error:null}) as unknown as typeof chain;return chain}
+      return chain
+    })
+    await expect(generateAiDraft(service,{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model'})).rejects.toThrow('Conversation changed before the human handoff')
+    expect(service.rpc).not.toHaveBeenCalled()
   })
 })
