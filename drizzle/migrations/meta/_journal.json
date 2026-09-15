@@ -85,6 +85,20 @@
       "when": 1789435262239,
       "tag": "0011_role_probe_helper_security_invoker",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789440188676,
+      "tag": "0012_website_promotional_sms_consent",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789440241791,
+      "tag": "0013_transactional_followup_alignment",
+      "breakpoints": true
     }
   ]
 }
