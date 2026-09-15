@@ -3317,6 +3317,7 @@ export type Database = {
         }
       }
       wake_communication_worker: { Args: never; Returns: number }
+      wake_sent_dm_reconciliation: { Args: never; Returns: number }
     }
     Enums: {
       app_role: "admin" | "staff"
