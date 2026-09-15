@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { generateAiDraft, validateDecision, type AiConfig } from './ai-engine.ts'
+import { composeConversationResponse } from './conversation-response.ts'
 
 export function autonomousReply(decision: any, pricing: any): string {
   const reply = renderAutonomousReply(decision, pricing)
@@ -12,6 +13,7 @@ function renderAutonomousReply(decision: any, pricing: any): string {
   if (invalid) throw new Error(invalid)
   if (decision.requires_human || !decision.ai_may_continue || decision.payment_claim_detected || decision.confidence !== 'HIGH'
     || decision.uncertain_facts.length) throw new Error(decision.escalation_reason || 'AI decision needs human review')
+  if(decision.recommended_action==='ANSWER_CUSTOMER')return composeConversationResponse(decision,pricing)
   if (decision.recommended_action === 'PROVIDE_STANDARD_PRICE') {
     if (pricing?.status !== 'MATERIAL_CALCULATED' || !Number.isFinite(pricing.material_total) || pricing.material_total < 0) throw new Error('Verified material pricing unavailable')
     const quantity=decision.known_facts.find((fact:any)=>fact.key==='quantity_yards')?.value
@@ -33,8 +35,8 @@ function renderAutonomousReply(decision: any, pricing: any): string {
       const delivery = Number(pricing.delivery_total).toFixed(2)
       const total = Number(pricing.grand_total).toFixed(2)
       return decision.detected_language === 'SPANISH'
-        ? `${converted ? `recomiendo aproximadamente ${converted.recommendedYards} yardas. ` : ''}el material cuesta $${amount}. la entrega para ${pricing.delivery_loads} ${pricing.delivery_loads===1?'carga':'cargas'} cuesta $${delivery}. el total estimado con impuestos es $${total}.`
-        : `${converted ? `i recommend approximately ${converted.recommendedYards} yards. ` : ''}the material is $${amount}. delivery for ${pricing.delivery_loads} ${pricing.delivery_loads===1?'load':'loads'} is $${delivery}. the estimated total with tax is $${total}.`
+        ? `${converted ? `recomiendo aproximadamente ${converted.recommendedYards} yardas. ` : ''}el material cuesta $${amount}. la entrega para ${pricing.delivery_loads} ${pricing.delivery_loads===1?'carga':'cargas'} cuesta $${delivery}. el total estimado${pricing.tax_total>0?' con impuestos':''} es $${total}.`
+        : `${converted ? `i recommend approximately ${converted.recommendedYards} yards. ` : ''}the material is $${amount}. delivery for ${pricing.delivery_loads} ${pricing.delivery_loads===1?'load':'loads'} is $${delivery}. the estimated total${pricing.tax_total>0?' with tax':''} is $${total}.`
     }
     return decision.detected_language === 'SPANISH'
       ? `${converted ? `recomiendo aproximadamente ${converted.recommendedYards} yardas. ` : ''}el material para ${pricing.yards} yardas de ${material} cuesta $${amount}. la entrega y los impuestos se confirman por separado.${addressKnown?'':' cuál es la dirección exacta de entrega.'}`

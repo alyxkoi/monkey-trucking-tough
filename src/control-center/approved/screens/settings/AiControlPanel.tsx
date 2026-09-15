@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { Panel } from '../../components/ui/Panel'
 import { PrimaryButton, SecondaryButton } from '../../components/ui/Button'
@@ -8,7 +8,7 @@ type Profile = { model: string | null; tone: string; concise: boolean; review_en
 type Entry = { id: string; created_at: string; kind: string; summary: string; before_settings: Profile | null; findings: { code: string; count: number; recommendation: string }[] }
 type Message = { sender_type: 'CUSTOMER' | 'AI'; body: string }
 type Status = { settings: Profile; history: Entry[]; configured_model: string; provider: string; prompt_version: string; context_message_limit: number; maps_key_configured: boolean; immutable_rules: string[]; recent_runs: { model_id: string | null; status: string; latency_ms: number; created_at: string }[] }
-type Simulation = { reply: string | null; blocked: string | null; model: string; decision: { known_facts: {key:string;value:string}[];missing_facts:string[];recommended_action:string }; tool_results: unknown }
+type Simulation = { reply: string | null; blocked: string | null; model: string; session_id:string; decision: { known_facts: {key:string;value:string}[];missing_facts:string[];recommended_action:string;subtask_escalations?:{topic:string;reason:string}[] }; tool_results: unknown }
 
 async function call<T>(body: unknown): Promise<T> {
   const { data, error } = await supabase.functions.invoke('ai-control',{body})
@@ -31,14 +31,22 @@ export function AiControlPanel() {
   const [text,setText]=useState('')
   const [messages,setMessages]=useState<Message[]>([])
   const [simulation,setSimulation]=useState<Simulation|null>(null)
+  const [sessionId,setSessionId]=useState(()=>crypto.randomUUID())
+  const [sandboxError,setSandboxError]=useState('')
+  const requestBusy=useRef(false)
+  const disabledReason=busy?'A request is running.':!status?'Load the live configuration above to test.':messages.length>=79?'This test reached the context limit. Reset to start a new session.':!text.trim()?'Enter a customer message to test.':''
   const load=async()=>{const data=await call<Status>({action:'status'});setStatus(data);setProfile(data.settings)}
   useEffect(()=>{let cancelled=false;call<Status>({action:'status'}).then(data=>{if(!cancelled){setStatus(data);setProfile(data.settings)}}).catch(e=>{if(!cancelled)setError(e.message)});return()=>{cancelled=true}},[])
-  const run=async(action:()=>Promise<void>)=>{if(busy)return;setBusy(true);setError('');setNotice('');try{await action()}catch(e){setError(e instanceof Error?e.message:'Request failed')}finally{setBusy(false)}}
+  const run=async(action:()=>Promise<void>)=>{if(requestBusy.current)return;requestBusy.current=true;setBusy(true);setError('');setNotice('');try{await action()}catch(e){setError(e instanceof Error?e.message:'Request failed')}finally{requestBusy.current=false;setBusy(false)}}
   const simulate=()=>run(async()=>{
+    if(!text.trim()||!status||messages.length>=79)return
+    setSandboxError('')
     const next:Message[]=[...messages,{sender_type:'CUSTOMER',body:text.trim()}]
-    const result=await call<Simulation>({action:'simulate',messages:next,form})
-    setMessages(result.reply?[...next,{sender_type:'AI',body:result.reply}]:next)
-    setText('');setSimulation(result)
+    try {
+      const result=await call<Simulation>({action:'simulate',messages:next,form,session_id:sessionId})
+      setMessages(result.reply?[...next,{sender_type:'AI',body:result.reply}]:next)
+      setText('');setSimulation(result)
+    }catch(e){setSandboxError(e instanceof Error?e.message:'Test failed');setSimulation(null)}
   })
   return <>
     <Panel title="AI control center">
@@ -67,11 +75,17 @@ export function AiControlPanel() {
     </Panel>
     <Panel title="Conversation sandbox · no SMS">
       <p className="mb-4 text-sm text-cc-muted">Uses the production AI engine, current prices and Google routing. No messages, quotes or customer records are changed. AI and Maps API usage may apply.</p>
-      <TextArea label="Optional form information" value={form} onChange={setForm} rows={2}/>
+      <p className="mb-3 text-xs text-cc-muted">Isolated session {sessionId.slice(0,8)} · Messages stay in this test until Reset. Names never select a real customer.</p>
+      <fieldset disabled={busy||messages.length>0}><TextArea label="Optional form information" value={form} onChange={setForm} rows={2}/></fieldset>
+      {messages.length>0&&<p className="mt-2 text-xs text-cc-muted">Reset to change the starting form or test a different customer.</p>}
       <div className="my-4 flex flex-wrap gap-2">{['I need 10 tons of flexbase','839 S Good Latimer Expy\nDallas, TX 75226\nUnited States','Yes','How much to build a pond?'].map(example=><SecondaryButton key={example} size="sm" disabled={busy} onClick={()=>setText(example)}>{example.startsWith('839')?'Full address':example}</SecondaryButton>)}</div>
       <div aria-live="polite" className="max-h-80 space-y-3 overflow-y-auto">{messages.map((m,i)=><div key={i} className={`rounded-xl border border-line p-3 text-sm ${m.sender_type==='AI'?'bg-ice/10':'bg-raised'}`}><span className="font-semibold">{m.sender_type==='AI'?'AI':'Test customer'}: </span>{m.body}</div>)}</div>
-      <div className="mt-4"><TextArea label="Test message" value={text} onChange={setText} rows={2}/></div>
-      <div className="mt-3 flex gap-2"><PrimaryButton disabled={busy||!text.trim()||!status||messages.length>=79} onClick={()=>void simulate()}>{busy?'Testing…':'Test response'}</PrimaryButton><SecondaryButton disabled={busy} onClick={()=>{setMessages([]);setSimulation(null);setForm('');setText('')}}>Reset test</SecondaryButton></div>
+      <fieldset disabled={busy} className="mt-4"><TextArea label="Test message" value={text} onChange={setText} rows={2}/></fieldset>
+      {sandboxError&&<p role="alert" className="mt-3 text-sm text-warn">Test failed: {sandboxError}. Your unsent message is preserved; correct it or retry.</p>}
+      <div className="mt-3 flex gap-2"><PrimaryButton disabled={Boolean(disabledReason)} onClick={()=>void simulate()}>{busy?'Testing…':'Test response'}</PrimaryButton><SecondaryButton disabled={busy} onClick={()=>{setMessages([]);setSimulation(null);setForm('');setText('');setSandboxError('');setSessionId(crypto.randomUUID())}}>Reset test</SecondaryButton></div>
+      {disabledReason&&<p role="status" className="mt-2 text-xs text-cc-muted">{disabledReason}</p>}
+      {simulation?.blocked&&<p role="status" className="mt-3 text-sm text-warn">Entire conversation blocked: {simulation.blocked}. You can enter another test message or reset; nothing is sent.</p>}
+      {!!simulation?.decision.subtask_escalations?.length&&!simulation.blocked&&<p role="status" className="mt-3 text-sm text-ice">Subtask review only: custom work pricing needs Salvador. Standard material and delivery conversation remains active.</p>}
       {simulation&&<div className="mt-4 space-y-3 text-sm"><p className={simulation.blocked?'text-warn':'text-ice'}>{simulation.blocked?`Human review: ${simulation.blocked}`:`Action: ${simulation.decision.recommended_action}`}</p><dl>{simulation.decision.known_facts.map((f,i)=><div key={i} className="flex flex-wrap gap-2"><dt className="text-cc-muted">{f.key.replaceAll('_',' ')}:</dt><dd>{f.value}</dd></div>)}</dl><p>Still needed: {simulation.decision.missing_facts.join(', ')||'None'}</p><details><summary className="cursor-pointer py-2">Deterministic tool results</summary><pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-raised p-3 text-xs">{JSON.stringify(simulation.tool_results,null,2)}</pre></details></div>}
     </Panel>
     <Panel title="Review & change history">

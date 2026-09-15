@@ -251,7 +251,8 @@ describe('shared production AI safety',()=>{
     expect(service.rpc).toHaveBeenCalledTimes(2)
     expect(service.rpc).toHaveBeenCalledWith('apply_ai_material_to_quote',expect.objectContaining({p_material_id:'limestone',p_yards:8.5}))
     expect(service.rpc).toHaveBeenCalledWith('apply_ai_route_to_quote',expect.objectContaining({p_address:'4625 Virginia Ave, Dallas, TX 75204',p_distance_miles:10}))
-    expect(autonomousReply(result.decision,result.tool_results.pricing)).toContain('the estimated total with tax is')
+    expect(autonomousReply(result.decision,result.tool_results.pricing)).toContain('the estimated total is')
+    expect(autonomousReply(result.decision,result.tool_results.pricing)).not.toContain('with tax')
   })
   it('uses corrected quantities and never treats customer mileage as approved delivery pricing',()=>{
     const pricing=materialTool([{sender_type:'CUSTOMER',body:'10 yards of flexbase 20 miles away'},{sender_type:'CUSTOMER',body:'make that 15 yards'}],

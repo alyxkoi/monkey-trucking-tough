@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { isSimpleAcceptance, resolveConversationQuantity, type QuantityResolution } from './material-intelligence.ts'
-import { addressClarification, calculateDeliveryRoute, deliveryForMiles, type RouteResult } from './route-intelligence.ts'
+import { isSimpleAcceptance, materialCandidates, resolveConversationQuantity, type QuantityResolution } from './material-intelligence.ts'
+import { addressClarification, addressFromText, calculateDeliveryRoute, deliveryForMiles, type RouteResult } from './route-intelligence.ts'
+import { composeConversationResponse, responsePlanSchema } from './conversation-response.ts'
 
-const PROMPT_VERSION = 'mt-ai-draft-v8'
+const PROMPT_VERSION = 'mt-ai-draft-v9'
 
 const decisionSchema = {
   type: 'object',
@@ -11,9 +12,10 @@ const decisionSchema = {
     'detected_language', 'customer_intent', 'extracted_facts', 'known_facts',
     'missing_facts', 'uncertain_facts', 'ai_may_continue', 'requires_human',
     'escalation_reason', 'recommended_action', 'draft_reply', 'confidence',
-    'deterministic_pricing_required', 'payment_claim_detected', 'automation_state',
+    'deterministic_pricing_required', 'payment_claim_detected', 'automation_state', 'response_plan',
   ],
   properties: {
+    response_plan: responsePlanSchema,
     detected_language: { type: 'string', enum: ['ENGLISH', 'SPANISH', 'SPANGLISH'] },
     customer_intent: { type: 'string' },
     extracted_facts: { type: 'array', items: { $ref: '#/$defs/fact' } },
@@ -23,7 +25,7 @@ const decisionSchema = {
     ai_may_continue: { type: 'boolean' },
     requires_human: { type: 'boolean' },
     escalation_reason: { type: ['string', 'null'] },
-    recommended_action: { type: 'string', enum: ['ASK_NEXT_MISSING_FACT', 'COLLECT_RESCHEDULE_PREFERENCE', 'PROVIDE_STANDARD_PRICE', 'HOLD_FOR_SALVADOR', 'VERIFY_PAYMENT', 'MANUAL_REPLY', 'NO_ACTION'] },
+    recommended_action: { type: 'string', enum: ['ANSWER_CUSTOMER', 'ASK_NEXT_MISSING_FACT', 'COLLECT_RESCHEDULE_PREFERENCE', 'PROVIDE_STANDARD_PRICE', 'HOLD_FOR_SALVADOR', 'VERIFY_PAYMENT', 'MANUAL_REPLY', 'NO_ACTION'] },
     draft_reply: { type: 'string' },
     confidence: { type: 'string', enum: ['HIGH', 'MEDIUM', 'LOW'] },
     deterministic_pricing_required: { type: 'boolean' },
@@ -64,10 +66,10 @@ export function forcedEscalation(text: string, takeover: boolean) {
   if (/^(?:stop|cancel|unsubscribe|quit|end|start|unstop|subscribe|help|info)$/i.test(text.trim())) return 'Compliance keyword is handled by sent.DM and must not receive an AI reply.'
   if (/\b(i sent|i paid|sent the zelle|mand[eé] el zelle|ya pagu[eé])\b/i.test(text)) return 'Payment claim requires human verification.'
   if (/\b(discount|cheaper|price match|can you do (?:it|that) for|if i pay today|menos|descuento)\b/i.test(text)) return 'Pricing negotiation requires Salvador.'
-  if (/\b(driveway|private road|pond|grading|grade|site prep|clearing|ditch)\b/i.test(text) && /\b(how much|price|cost|total|cuanto|cuánto|fix|repair|arreglar)\b/i.test(text)) return 'Custom work pricing requires Salvador.'
-  if (/\b(dispute|wrong amount|not what we agreed|too much|no es lo acordado)\b/i.test(text)) return 'Invoice dispute requires Salvador.'
-  if (/\b(complaint|damaged|unhappy|not happy|terrible|problema)\b/i.test(text)) return 'Customer complaint requires human judgment.'
-  if (/\b(salvador|human|person|manager|someone real)\b/i.test(text)) return 'Customer requested a human.'
+  if (/\b(dispute|wrong amount|not what we agreed|no es lo acordado)\b/i.test(text)) return 'Invoice dispute requires Salvador.'
+  if (/\b(complaint|damaged|unhappy|not happy|terrible service)\b/i.test(text)) return 'Customer complaint requires human judgment.'
+  if (/\b(?:speak|talk|connect|need|want|hablar|comunicar)\b.{0,35}\b(?:salvador|human|person|manager|someone real|persona)\b/i.test(text)||/^(salvador|human|manager)[.!?\s]*$/i.test(text)) return 'Customer requested a human.'
+  if (/\b(driveway|private road|pond|grading|grade|site prep|clearing|ditch|entrada|estanque)\b/i.test(text) && /\b(how much|price|cost|total|cuanto|cuánto|fix|repair|arreglar|redo|redone|installation|instalaci[oó]n)\b/i.test(text)) return 'Custom work pricing requires Salvador.'
   return null
 }
 
@@ -77,7 +79,7 @@ export function validateDecision(decision: any) {
     || !['HIGH','MEDIUM','LOW'].includes(decision.confidence)
     || typeof decision.ai_may_continue !== 'boolean' || typeof decision.requires_human !== 'boolean'
     || typeof decision.draft_reply !== 'string' || typeof decision.payment_claim_detected !== 'boolean'
-    || !['ASK_NEXT_MISSING_FACT','COLLECT_RESCHEDULE_PREFERENCE','PROVIDE_STANDARD_PRICE','HOLD_FOR_SALVADOR','VERIFY_PAYMENT','MANUAL_REPLY','NO_ACTION'].includes(decision.recommended_action)
+    || !['ANSWER_CUSTOMER','ASK_NEXT_MISSING_FACT','COLLECT_RESCHEDULE_PREFERENCE','PROVIDE_STANDARD_PRICE','HOLD_FOR_SALVADOR','VERIFY_PAYMENT','MANUAL_REPLY','NO_ACTION'].includes(decision.recommended_action)
     || !Array.isArray(decision.known_facts) || !Array.isArray(decision.missing_facts)
     || !Array.isArray(decision.uncertain_facts)) return 'AI decision failed runtime validation.'
   if (decision.ai_may_continue && !decision.draft_reply) return 'AI returned an empty customer draft.'
@@ -151,7 +153,12 @@ Rescheduling is safe intake, not permission to change a job. When a customer ask
 Payment claims are not payments. Never change money state. Human takeover pauses conversational AI. Do not expose chain of thought. Provide only useful facts and a concise operational decision.
 The supplied current_human_takeover boolean is authoritative for current takeover state. Historical manual replies do not reactivate takeover after staff explicitly resume AI. Do not infer current takeover from conversation text or old drafts. Current application_forced_escalation and other safety rules still apply.
 For a request for material pricing, use PROVIDE_STANDARD_PRICE only when the customer specifications match a MATERIAL_CALCULATED deterministic result. A material-only price does not require an approved delivery total. When its route is not ROUTE_CALCULATED, give only the material price and explicitly state delivery and taxes are confirmed separately. When the route is ROUTE_CALCULATED, the deterministic result may provide the delivery fee and estimated total. Never invent an all-in total or claim a booking. If giving a standard material price, include known_facts with key quantity_yards and the numeric yard estimate as a string, and key material with the exact material_name from the matched deterministic result. Preserve quantity_tons when the customer supplied tons. Include delivery_address if already provided. Never create these facts from guesses.
-Never mention internal tax setup, bookkeeper confirmation, provider configuration, or other admin-only setup details in a customer draft.`
+Never mention internal tax setup, bookkeeper confirmation, provider configuration, or other admin-only setup details in a customer draft.
+CONVERSATIONAL PLANNING: Every message can contain multiple intents. Answer each meaningful question BEFORE collecting another fact. Use ANSWER_CUSTOMER with response_plan for normal explanations, product questions, price comparisons, corrections, summaries and multi-intent replies. Missing intake does not prevent answering a service question. The response_plan orders server-rendered answer blocks; it cannot supply any invented business facts or numbers. draft_reply is only a short internal description for this action, not the customer-facing facts.
+response_plan objective: ANSWER for ordinary questions, EXPLAIN for why, COMPARE for price differences, SUMMARY for what we have recorded, COLLECT for qualification. answers may include SERVICE_SCOPE, INSTALLATION_SCOPE, PRODUCT_OPTIONS, RECOMMENDATION, PRICE, DELIVERY, QUANTITY, SUMMARY. DELIVERY explains the route/load charge instead of replaying the whole quote; PRICE gives a new/current estimate only when requested, not on every follow-up; COMPARE uses comparison_keys from the supplied canonical catalog and server-computed same-quantity totals. PRODUCT_OPTIONS describes approved uses from the catalog. SUMMARY uses the current authoritative facts. QUANTITY acknowledges a correction once. Preserve all other side questions in the selected blocks. Use at most two concise answer blocks when possible, plus a next question. Do not repeat a block already answered unless the customer asks again.
+The server renders all quantities, names, products, prices, distances, loads, tax and business policies. acknowledgement is optional brief social wording only, without claims or numbers. next_question is optional, at most one short question ending in ?, with no numeric values, promises or asserted facts. Do not restate an answer in acknowledgement. Use the latest authoritative facts and fresh deterministic results, not historical quote totals or superseded amounts. These tools have ALREADY been recomputed for this inbound message; never escalate merely to request an updated calculation. required_tools records MATERIAL and/or ROUTE dependencies for the answer.
+Custom work is a SUBTASK escalation with category CUSTOM_WORK. Keep standard materials, delivery, explanations and date preference collection active. Record a custom_work_request in known_facts, separately from material selection. Custom scope does NOT set requires_human for the entire conversation. Only current takeover, an explicit human request, serious complaint/dispute, financial authorization, safety/compliance, or a genuinely unresolved global issue uses CONVERSATION scope and requires_human=true. A polite correction or asking why a charge exists is not a complaint or negotiation. TOOL_REFRESH is not a human task when the current tools already have the required result. Do not allow previous custom work handoffs to freeze later material questions.
+Use canonical material_id and material_catalog_key from the current catalog, not shorthand as identity. A comparison question does not change the selected material. Crushed concrete without a subtype can mean commercial clean or 3x4; ask which one. A specific correction such as commercial instead selects the matching canonical product. Superseded facts are not uncertain facts. Never invent a customer match or inherit another session based on a name. Only this supplied lead/customer context belongs to this conversation.`
 
 async function requestAiDecision(baseUrl: string, apiKey: string, model: string, context: any, allowDeterministicDraftFallback: boolean) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -239,6 +246,35 @@ function clarificationLanguage(text: string) {
   return /\b(hola|necesito|quiero|direcci[oó]n|entrega|c[oó]digo postal|gracias)\b/i.test(text) ? 'SPANISH' : 'ENGLISH'
 }
 
+function currentFacts(previous:any[], quantity:QuantityResolution, route:RouteResult, messages:any[], customer:any) {
+  // These keys have a single authoritative owner. Never retain stale model
+  // labels alongside the current canonical selection or corrected quantity.
+  const managed=/^(material|material_id|material_catalog_key|quantity.*|coverage_buffer_yards|delivery_address|address|delivery_zip|postal_code|zip|name|customer_name)$/
+  let facts=(previous??[]).filter((f:any)=>typeof f?.key==='string'&&!managed.test(f.key))
+  const bodies=messages.filter(m=>m.sender_type==='CUSTOMER').map(m=>String(m.body??''))
+  const name=bodies.map(b=>b.match(/\b(?:my name is|me llamo|mi nombre es)\s+([\p{L}]+(?:\s+[\p{L}]+)?)(?=[,.!]|\s+(?:and|y)\b|$)/iu)?.[1]).filter(Boolean).at(-1)
+    ?? (previous??[]).find((f:any)=>f.key==='customer_name'&&f.source==='CONVERSATION')?.value
+    ?? (customer?.name&&!/^(Test customer|Unknown SMS)/i.test(customer.name)?customer.name:null)
+  if(name)facts=upsertFact(facts,'customer_name',name,'CONVERSATION')
+  if(quantity.material_id){
+    facts=upsertFact(facts,'material_id',quantity.material_id)
+    facts=upsertFact(facts,'material',quantity.material_name??'')
+    if(quantity.material_catalog_key)facts=upsertFact(facts,'material_catalog_key',quantity.material_catalog_key)
+  }
+  if(quantity.input_value!=null){
+    facts=upsertFact(facts,'quantity_input_value',String(quantity.input_value))
+    facts=upsertFact(facts,'quantity_input_unit',quantity.input_unit??'YARDS')
+  }
+  if(quantity.yards!=null)facts=upsertFact(facts,'quantity_yards',String(quantity.yards))
+  if(quantity.input_unit==='TONS') {
+    facts=upsertFact(facts,'quantity_tons',String(quantity.input_value))
+    if(quantity.estimated_yards!=null)facts=upsertFact(facts,'quantity_estimated_yards',String(quantity.estimated_yards))
+    if(quantity.coverage_buffer_yards!=null)facts=upsertFact(facts,'coverage_buffer_yards',String(quantity.coverage_buffer_yards))
+  }
+  if(route.destination)facts=upsertFact(facts,'delivery_address',route.destination,'CONVERSATION')
+  return facts
+}
+
 
 export type AiConfig = { apiKey: string; baseUrl: string; model: string; googleMapsApiKey?: string; tone?: string; concise?: boolean; version?: number }
 export async function generateAiDraft(service: any, body: any, actorId: string | null, config: AiConfig, options: { sandbox?: boolean } = {}) {
@@ -304,21 +340,30 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     const toolMessages = intake ? [{ sender_type: 'CUSTOMER', body: intake }, ...messages] : messages
     const latestCustomer = [...messages].reverse().find((item: any) => item.sender_type === 'CUSTOMER')
     const takeover = Boolean((lead ?? subject)?.human_takeover)
-    const forced = forcedEscalation(latestCustomer?.body ?? '', takeover)
-    const quantity = resolveConversationQuantity(toolMessages, materialResult.data ?? [])
+    const forcedReason = forcedEscalation(latestCustomer?.body ?? '', takeover)
+    const customWorkRequested = forcedReason === 'Custom work pricing requires Salvador.'
+    const forced = customWorkRequested ? null : forcedReason
+    const quantity = resolveConversationQuantity(toolMessages, materialResult.data ?? [], stateResult.data)
     const route = await calculateDeliveryRoute({
       messages: toolMessages, state: stateResult.data, quotes: quoteResult.data ?? [], settings: appResult.data,
       enabled: controlResult.data.route_intelligence_enabled !== false,
       apiKey: config.googleMapsApiKey,
     })
-    const pricing = materialTool(messages, materialResult.data ?? [], appResult.data, { quantity, route })
+    const pricing:any = materialTool(messages, materialResult.data ?? [], appResult.data, { quantity, route })
+    const authoritativeFacts=currentFacts(stateResult.data?.known_facts,quantity,route,toolMessages,customerResult.data)
+    const catalogPricing=(materialResult.data??[]).map((material:any)=>{
+      const q=quantity.yards?{...quantity,status:'RESOLVED' as const,material_id:material.id,material_name:material.name}:undefined
+      return {id:material.id,catalog_key:material.catalog_key,name:material.name,price_per_yard:material.price_per_yard!=null&&Number(material.price_per_yard)>=0?Number(material.price_per_yard):null,
+        full_load_price:Number(material.full_load_price),full_load_yards:Number(material.full_load_yards),
+        current_quantity_total:q?(materialTool(messages,[material],appResult.data,{quantity:q,route}) as any).material_total:null}
+    })
     const context = {
       mode, automation_rule_id: automationRuleId, subject,
       presentation_preferences: { tone: config.tone ?? 'WARM', concise: config.concise !== false },
       customer: customerResult.data,
       lead: lead ?? (mode === 'CONVERSATION' ? subject : null),
       conversation: messages,
-      existing_extracted_state: stateResult.data,
+      existing_extracted_state: {...stateResult.data,known_facts:authoritativeFacts},
       recent_quotes: quoteResult.data ?? [], recent_jobs: jobResult.data ?? [],
       recent_invoices: invoiceResult.data ?? [], recent_verified_payments: paymentResult.data ?? [],
       official_materials: materialResult.data ?? [], delivery_and_tax_settings: appResult.data,
@@ -330,6 +375,8 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       deterministic_route_result: route,
       deterministic_pricing_result: pricing,
       application_forced_escalation: forced,
+      application_subtask_escalation:customWorkRequested?'Custom work pricing requires Salvador. Standard material/delivery can continue.':null,
+      canonical_catalog_pricing:catalogPricing,
     }
 
     if (takeover) {
@@ -360,7 +407,9 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       && pricing.status === 'MATERIAL_CALCULATED' && quantity.status === 'RESOLVED'
     let responseBody: any = null
     let decision: any
-    if (route.status === 'NEEDS_CLARIFICATION' && !forced) {
+    const latestIsAddressReply = (addressFromText(latestCustomer?.body??'') || /^\s*\d{5}(?:-\d{4})?\s*$/.test(latestCustomer?.body??''))
+      && !/[?？]/.test(latestCustomer?.body??'')
+    if (route.status === 'NEEDS_CLARIFICATION' && !forced && latestIsAddressReply) {
       const completeAddress = 'Verify delivery location'
       const language = stateResult.data?.detected_language ?? clarificationLanguage(messages.filter((m: any) => m.sender_type === 'CUSTOMER').map((m: any) => m.body).join(' '))
       const clarification = addressClarification(route.destination, language)
@@ -408,7 +457,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       const latestSuppliesTons = /\b\d+(?:\.\d+)?\s*(?:short\s+)?(?:tons?|toneladas?)\b/i.test(latestCustomer?.body ?? '')
       const accepted = isSimpleAcceptance(latestCustomer?.body ?? '')
       const quantityWasOnlyConcern = originalUncertainty.length > 0 && originalUncertainty.every((value: string) => quantityRelated(value))
-      if (!forced && !decision.uncertain_facts.length && latestSuppliesTons
+      if (!decision.response_plan && !forced && !decision.uncertain_facts.length && latestSuppliesTons
         && (!decision.requires_human || quantityWasOnlyConcern || quantityRelated(decision.escalation_reason ?? ''))) {
         decision.ai_may_continue = true
         decision.requires_human = false
@@ -422,7 +471,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       decision.known_facts = upsertFact(decision.known_facts, 'delivery_address', route.destination)
       decision.missing_facts = (decision.missing_facts ?? []).filter((value: string) => !/\b(address|zip|postal)\b/i.test(value))
       decision.uncertain_facts = (decision.uncertain_facts ?? []).filter((value: string) => !/\b(address|zip|postal)\b/i.test(value))
-      if (!forced && canUseVerifiedRouteFallback && !decision.uncertain_facts.length) {
+      if (!decision.response_plan && !forced && canUseVerifiedRouteFallback && !decision.uncertain_facts.length) {
         decision.ai_may_continue = true
         decision.requires_human = false
         decision.escalation_reason = null
@@ -441,6 +490,72 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     if (typeof decision.draft_reply === 'string') {
       decision.draft_reply = decision.draft_reply.trim()
       decision.draft_reply = decision.draft_reply.charAt(0).toLowerCase() + decision.draft_reply.slice(1)
+    }
+    decision.known_facts=currentFacts(decision.known_facts,quantity,route,toolMessages,customerResult.data)
+    decision.first_conversational_reply = !messages.some((m: any) => ['AI','HUMAN'].includes(m.sender_type))
+    const plan=decision.response_plan
+    const priorCustom=authoritativeFacts.find((f:any)=>f.key==='custom_work_request')?.value
+    const historicalCustom=toolMessages.some((m:any)=>m.sender_type==='CUSTOMER'&&forcedEscalation(m.body??'',false)==='Custom work pricing requires Salvador.')
+    const hasCustom=customWorkRequested||plan?.escalation_category==='CUSTOM_WORK'||Boolean(priorCustom)||historicalCustom
+    decision.subtask_escalations=hasCustom?[{topic:'CUSTOM_WORK',reason:'Custom work pricing requires Salvador. Material and delivery may continue.'}]:[]
+    if(hasCustom)decision.known_facts=upsertFact(decision.known_facts,'custom_work_request',priorCustom??'Custom work scope/pricing pending Salvador','CONVERSATION')
+    if(plan&&!forced) {
+      if(decision.ai_may_continue&&['MANUAL_REPLY','HOLD_FOR_SALVADOR','VERIFY_PAYMENT','NO_ACTION'].includes(decision.recommended_action)) {
+        throw new Error('Autonomous decision selected a staff-only action.')
+      }
+      if(plan.escalation_category==='CUSTOM_WORK') {
+        decision.requires_human=false;decision.ai_may_continue=true;decision.escalation_reason=null
+        decision.uncertain_facts=(decision.uncertain_facts??[]).filter((s:string)=>!/custom work|driveway.*pric|pond.*pric/i.test(s))
+        plan.escalation_scope='SUBTASK'
+      }
+      const toolsFresh=plan.required_tools?.length>0&&plan.required_tools.every((tool:string)=>tool==='MATERIAL'?pricing.status==='MATERIAL_CALCULATED':tool==='ROUTE'&&route.status==='ROUTE_CALCULATED')
+      if(plan.escalation_category==='TOOL_REFRESH'&&toolsFresh) {
+        plan.escalation_scope='NONE';plan.escalation_category='NONE'
+        decision.requires_human=false;decision.ai_may_continue=true;decision.escalation_reason=null
+        decision.uncertain_facts=(decision.uncertain_facts??[]).filter((s:string)=>!/\b(stale|recalculat|updated? (?:deterministic|pricing|route)|refresh)\b/i.test(s))
+      }
+      if(plan.escalation_scope==='CONVERSATION') {
+        decision.requires_human=true;decision.ai_may_continue=false
+        decision.recommended_action='MANUAL_REPLY'
+        decision.escalation_reason=decision.escalation_reason||`Conversation review required: ${plan.escalation_category}`
+      }
+      if(decision.ai_may_continue&&!decision.requires_human&&decision.recommended_action!=='COLLECT_RESCHEDULE_PREFERENCE') {
+        decision.recommended_action='ANSWER_CUSTOMER'
+        const selected=plan.comparison_keys?.length?catalogPricing.filter((m:any)=>plan.comparison_keys.includes(m.catalog_key)||plan.comparison_keys.includes(m.id)):[]
+        if(selected.length!==(new Set(plan.comparison_keys??[])).size)throw new Error('Response references an unknown catalog identity.')
+        const priorProductMessage=[...messages].reverse().find((m:any)=>materialCandidates(m.body??'',materialResult.data??[]).length>=2)
+        const candidates=materialCandidates(priorProductMessage?.body??latestCustomer?.body??'',materialResult.data??[])
+        const options=selected.length?selected:catalogPricing.filter((m:any)=>(quantity.material_candidates?.length?quantity.material_candidates:candidates).some((candidate:any)=>candidate.id===m.id))
+        const known=(key:string)=>decision.known_facts.find((f:any)=>f.key===key)?.value
+        const selectedMaterial=catalogPricing.find((m:any)=>m.id===quantity.material_id)
+        // Approved public catalog uses, keyed by immutable catalog identity.
+        const uses:Record<string,[string,string]>={
+          'mat-1':['driveways and compactable base','entradas y base compactable'],
+          'mat-2':['fill, leveling and pipe bedding','relleno, nivelación y lecho de tuberías'],
+          'mat-3':['large base, drainage and stabilization','base grande, drenaje y estabilización'],
+          'mat-4':['driveways, roads and base','entradas, caminos y base'],
+          'mat-5':['masonry, leveling and bedding','mampostería, nivelación y lecho'],
+          'mat-6':['driveways and parking areas','entradas y estacionamientos'],
+          'mat-7':['driveways, drainage and landscaping','entradas, drenaje y jardinería'],
+          'mat-8':['concrete mix and general aggregate use','mezcla de concreto y uso general de agregado'],
+          'mat-9':['paths, patios and ground cover','senderos, patios y cubierta del suelo'],
+          'mat-10':['driveways, base and drainage','entradas, base y drenaje'],
+        }
+        pricing.conversation={
+          customer_name:known('customer_name'),material_name:quantity.material_name,quantity_yards:quantity.yards,address:route.destination,
+          service_requests:hasCustom?['custom work pricing pending Salvador']:[],
+          approximate:quantity.input_unit==='TONS',
+          options:options.filter((m:any)=>Number.isFinite(m.price_per_yard)).slice(0,3).map((m:any)=>({...m,use_en:uses[m.catalog_key]?.[0],use_es:uses[m.catalog_key]?.[1]})),
+          full_load_price:selectedMaterial?.full_load_price,price_per_yard:selectedMaterial?.price_per_yard,
+          question_references:[...catalogPricing.flatMap((m:any)=>[m.name,m.name.toLowerCase(),...(m.catalog_key==='mat-3'?['3x4','3 x 4']:[])]),route.destination??''],
+          comparisons:selected.filter((m:any)=>Number.isFinite(m.current_quantity_total)).map((m:any)=>({...m,material_total:m.current_quantity_total})),comparison_yards:quantity.yards,
+          mention_custom_handoff:customWorkRequested||plan.escalation_category==='CUSTOM_WORK'&&!priorCustom&&!messages.some((m:any)=>m.sender_type==='AI'&&/Salvador/.test(m.body??'')),
+          product_guidance_en:options.some((m:any)=>m.catalog_key==='mat-1')&&options.some((m:any)=>m.catalog_key==='mat-3')?'commercial clean is listed for driveways and compactable base; 3x4 for large base, drainage and stabilization.':'',
+          product_guidance_es:options.some((m:any)=>m.catalog_key==='mat-1')&&options.some((m:any)=>m.catalog_key==='mat-3')?'commercial clean es para entradas y base compactable; 3x4 para base grande, drenaje y estabilización.':'',
+          refresh:{material:true,route:route.status,cached_route:route.cached===true},
+        }
+        decision.draft_reply=composeConversationResponse(decision,pricing)
+      }
     }
     const validationError = validateDecision(decision)
     if (validationError) throw new Error(validationError)
