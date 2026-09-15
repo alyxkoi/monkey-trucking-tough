@@ -49,4 +49,19 @@ Existing event-driven worker, revision/lease/idempotency controls, provider rout
 
 Regression coverage includes identity/email collisions, current-message/revision rejection, name collection, dates/timezone/clarification, email correction, quote preparation and invalidation, protected financial/calendar values, payment claims, returning transactions, single handoff acknowledgment, paused sandbox continuation, Overview destinations/removal, and unchanged communication/automation tests. Database tests execute the production migrations/RPCs in isolated PGlite transactions; provider/model responses are mocked in local engine regressions. Sandbox tests do not send real SMS or change production customers.
 
-Deployment evidence and final verification results are recorded below after rollout.
+## Rollout status
+
+- Implementation pushed to main as `3211ae0`.
+- Full regression suite: **450 passed across 56 files**.
+- Application TypeScript check: passed. Changed-file ESLint: zero errors; one existing AppState fast-refresh warning. Production Vite build: passed; existing bundle-size/Browserslist warnings remain.
+- **Not deployed or published.** Lovable Cloud paused the scoped deployment request because its credits were exhausted, displaying that five credits arrive in about three hours. No credit purchase or plan change was made.
+- Read-only production SQL confirmed `apply_ai_lifecycle`, `finish_ai_handoff` and `quotes.ai_ready_at` are all absent. Cloud shows ai-control last updated two hours earlier. GitHub remains at the tested implementation commit; no managed migration commit was produced. There is no partial lifecycle migration to clean up.
+- The current published site was intentionally preserved. Publishing the new frontend before its required RPC exists would break dashboard loading.
+- Direct deployment connector/credentials are not available in this session, and the Cloud function UI exposes logs/code viewing, not a deployment control.
+
+### Resume checklist
+
+1. Restore/wait for Lovable credits and resume the already submitted deployment-only request. Apply the exact migration, then deploy ai-control, ai-draft and process-communications with shared dependencies. No source regeneration, customer mutations, SMS or email sends.
+2. Verify new columns, service-only/staff-only RPC grants, dispatch guard, realtime tables and unchanged automation/compliance settings with read-only SQL.
+3. Test the deployed model through isolated sandbox scenarios: name capture, quote/date/email flow, scheduled notes/change requests, paid returning work, and acknowledged handoff followed by a paused turn. Local model/provider mocks are not a substitute for this pending deployed verification.
+4. Publish via the existing project UI, then check production instructions, Overview/staff-action views, console and responsive layout. Record final deployment evidence here.
