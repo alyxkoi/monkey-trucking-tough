@@ -483,6 +483,36 @@ export type Database = {
           },
         ]
       }
+      communication_provider_sync: {
+        Row: {
+          last_error: string | null
+          last_started_at: string | null
+          last_succeeded_at: string | null
+          lease_token: string | null
+          lease_until: string | null
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          last_error?: string | null
+          last_started_at?: string | null
+          last_succeeded_at?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          last_error?: string | null
+          last_started_at?: string | null
+          last_succeeded_at?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       communication_runtime: {
         Row: {
           activated_at: string | null
@@ -2710,6 +2740,7 @@ export type Database = {
         Args: { p_job_id: string }
         Returns: Json
       }
+      claim_sent_dm_reconciliation: { Args: never; Returns: string }
       claim_sms: { Args: { p_message_id?: string }; Returns: Json }
       communication_candidates: {
         Args: { p_now?: string }
@@ -3037,6 +3068,10 @@ export type Database = {
           p_template_id?: string
         }
         Returns: Json
+      }
+      finish_sent_dm_reconciliation: {
+        Args: { p_error?: string; p_lease_token: string }
+        Returns: undefined
       }
       ingest_sms_event: {
         Args: {
