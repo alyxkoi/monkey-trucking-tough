@@ -121,7 +121,7 @@ export function NewActionSheet() {
   if (mobile) return createPortal(
     <AnimatePresence>{newSheetOpen && <motion.div key="new-actions" className="cc-sheet-portal fixed inset-0 z-[60] font-control-body text-ink" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:reduced?0:0.15}}>
       <button type="button" tabIndex={-1} aria-label="Dismiss new actions" className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={()=>setNewSheetOpen(false)}/>
-      <div ref={menuRef} role="dialog" aria-modal="true" aria-label="New action" className="absolute right-4 flex max-w-[calc(100vw-32px)] flex-col items-end gap-3" style={{bottom:'calc(env(safe-area-inset-bottom, 0px) + 150px)'}}>
+      <div ref={menuRef} role="dialog" aria-modal="true" aria-label="New action" className="absolute right-4 flex max-w-[calc(100vw-32px)] flex-col items-end gap-3 [@media(max-height:600px)]:gap-2" style={{bottom:'calc(env(safe-area-inset-bottom, 0px) + 150px)'}}>
         {ACTIONS.map((action,i)=><motion.button key={action.key} type="button" onClick={()=>go(action)} initial={{opacity:0,y:reduced?0:20,scale:reduced?1:0.95}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:reduced?0:12}} transition={reduced?{duration:0}:{type:'spring',stiffness:440,damping:30,delay:(3-i)*0.035}} className="flex min-h-12 items-center gap-3 rounded-2xl border border-white/15 bg-panel px-4 py-3 shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-ice">
           <span className="text-[15px] font-semibold">{action.label}</span><span className={action.tone==='red'?'text-mt-red':'text-ice'}><action.icon className="h-5 w-5"/></span>
         </motion.button>)}

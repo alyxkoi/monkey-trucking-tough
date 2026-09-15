@@ -758,7 +758,7 @@ export function SettingsWorkers() {
         <div className="divide-y divide-line border-t border-line">
           {drivers.map((driver) => (
             <div key={driver.id} className="flex flex-wrap items-center gap-3 px-5 py-4">
-              <div className="min-w-0 flex-1 text-[16px] font-semibold text-ink">{driver.name}</div>
+              <div className="w-full min-w-0 break-words text-[16px] font-semibold text-ink sm:w-auto sm:flex-1">{driver.name}</div>
               <StatusPill tone={driver.is_active ? 'ok' : 'idle'} size="sm">{driver.is_active ? 'Active' : 'Inactive'}</StatusPill>
               <SecondaryButton size="sm" icon={<Pencil className="h-4 w-4" />} onClick={() => openDriver(driver.id)}>Edit</SecondaryButton>
               {driver.is_active ? (

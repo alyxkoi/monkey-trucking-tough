@@ -60,7 +60,7 @@ Deno.serve(async req=>{
       service.from('ai_audit_logs').select('model_id,prompt_version,status,latency_ms,created_at,error_message').order('created_at',{ascending:false}).limit(10),
       service.from('communication_runtime').select('ai_sending_enabled,scheduled_sending_enabled,marketing_approved,timezone').eq('id',1).single(),
       service.from('control_center_settings').select('business_number,sms_status,calling_status,route_status,ai_english,ai_spanish,human_takeover_on_reply,initial_response_target_seconds,route_intelligence_enabled').eq('id',1).single(),
-      service.from('communication_provider_sync').select('*'),
+      service.from('communication_provider_sync').select('provider,last_started_at,last_succeeded_at,last_error,updated_at'),
     ])
     if([settings,history,audit,runtime,channels,sync].some(r=>r.error))throw new Error('AI diagnostic data could not be loaded')
     return json({settings:settings.data,history:history.data,recent_runs:audit.data,runtime:runtime.data,channels:channels.data,
