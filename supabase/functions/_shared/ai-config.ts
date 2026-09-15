@@ -8,5 +8,6 @@ export function aiConfig(): AiConfig {
     apiKey,
     baseUrl: Deno.env.get('OPENAI_BASE_URL') ?? (direct ? 'https://api.openai.com/v1' : 'https://ai.gateway.lovable.dev/v1'),
     model: Deno.env.get('OPENAI_MODEL') ?? Deno.env.get('LOVABLE_AI_MODEL') ?? 'gpt-5.6-terra',
+    googleMapsApiKey: Deno.env.get('GOOGLE_MAPS_API_KEY'),
   }
 }

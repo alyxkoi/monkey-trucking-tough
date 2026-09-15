@@ -337,6 +337,10 @@ export function SettingsMaterials() {
   const [name, setName] = useState('')
   const [perYard, setPerYard] = useState('')
   const [fullLoad, setFullLoad] = useState('')
+  const [tonsPerYard, setTonsPerYard] = useState('')
+  const [conversionBasis, setConversionBasis] = useState<'OPERATIONAL_ESTIMATE' | 'SUPPLIER_TICKET' | 'LAB_TEST'>('OPERATIONAL_ESTIMATE')
+  const [conversionVerified, setConversionVerified] = useState(false)
+  const [conversionNote, setConversionNote] = useState('')
   const [saving, setSaving] = useState(false)
   const readiness = deriveSettingsReadiness(sourceData ?? null)
 
@@ -346,13 +350,18 @@ export function SettingsMaterials() {
     setName(current?.name ?? '')
     setPerYard(current ? String(current.price_per_yard) : '')
     setFullLoad(current ? String(current.full_load_price) : '')
+    setTonsPerYard(current?.tons_per_cubic_yard ? String(current.tons_per_cubic_yard) : '')
+    setConversionBasis((current?.tons_conversion_basis as typeof conversionBasis) ?? 'OPERATIONAL_ESTIMATE')
+    setConversionVerified(Boolean(current?.tons_conversion_verified))
+    setConversionNote(current?.tons_conversion_note ?? '')
   }
 
   const saveMaterial = async () => {
     const pricePerYard = Number(perYard)
     const fullLoadPrice = Number(fullLoad)
-    if (!name.trim() || pricePerYard <= 0 || fullLoadPrice <= 0) {
-      toast.error('Name, per-yard price and full-load price are required.')
+    const density = Number(tonsPerYard)
+    if (!name.trim() || pricePerYard <= 0 || fullLoadPrice <= 0 || !Number.isFinite(density) || density <= 0 || density > 5) {
+      toast.error('Name, prices and a valid tons-per-yard factor are required.')
       return
     }
     setSaving(true)
@@ -367,6 +376,10 @@ export function SettingsMaterials() {
             price_per_yard: pricePerYard,
             full_load_price: fullLoadPrice,
             full_load_yards: 20,
+            tons_per_cubic_yard: density,
+            tons_conversion_basis: conversionBasis,
+            tons_conversion_verified: conversionVerified,
+            tons_conversion_note: conversionNote.trim() || null,
             is_active: true,
             sort_order: editingId === 'new' ? Math.max(0, ...current.materials.map((item) => item.sort_order)) + 1 : current.materials.find((item) => item.id === id)?.sort_order ?? 1,
             created_at: current.materials.find((item) => item.id === id)?.created_at ?? now,
@@ -380,6 +393,10 @@ export function SettingsMaterials() {
           price_per_yard: pricePerYard,
           full_load_price: fullLoadPrice,
           full_load_yards: 20,
+          tons_per_cubic_yard: density,
+          tons_conversion_basis: conversionBasis,
+          tons_conversion_verified: conversionVerified,
+          tons_conversion_note: conversionNote.trim() || null,
           is_active: true,
           sort_order: Math.max(0, ...materials.map((item) => item.sort_order)) + 1,
         })
@@ -390,6 +407,10 @@ export function SettingsMaterials() {
           price_per_yard: pricePerYard,
           full_load_price: fullLoadPrice,
           full_load_yards: 20,
+          tons_per_cubic_yard: density,
+          tons_conversion_basis: conversionBasis,
+          tons_conversion_verified: conversionVerified,
+          tons_conversion_note: conversionNote.trim() || null,
         }).eq('id', editingId)
         if (error) throw new Error(error.message)
       }
@@ -492,6 +513,12 @@ export function SettingsMaterials() {
               <TextField tone={editingId === 'new' ? 'onSolid' : 'default'} label="Per yard" value={perYard} onChange={setPerYard} inputMode="decimal" />
               <TextField tone={editingId === 'new' ? 'onSolid' : 'default'} label="20 yd full load" value={fullLoad} onChange={setFullLoad} inputMode="decimal" />
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField tone={editingId === 'new' ? 'onSolid' : 'default'} label="Tons per cubic yard" value={tonsPerYard} onChange={setTonsPerYard} inputMode="decimal" />
+              <SelectField tone={editingId === 'new' ? 'onSolid' : 'default'} label="Conversion source" value={conversionBasis} onChange={setConversionBasis} options={['OPERATIONAL_ESTIMATE','SUPPLIER_TICKET','LAB_TEST'] as const} renderOption={(value) => value === 'SUPPLIER_TICKET' ? 'Supplier scale tickets' : value === 'LAB_TEST' ? 'Lab test' : 'Operational estimate'} />
+            </div>
+            <TextArea tone={editingId === 'new' ? 'onSolid' : 'default'} label="Conversion note" value={conversionNote} onChange={setConversionNote} rows={2} placeholder="Example: average from three supplier scale tickets" />
+            <Toggle label="Verified conversion" line="Turn this on after the factor is checked against supplier tickets or a lab result." value={conversionVerified} onChange={setConversionVerified} />
             <div className="flex flex-wrap gap-2">
               <PrimaryButton tone={editingId === 'new' ? 'onSolid' : 'default'} size="sm" disabled={saving} onClick={() => void saveMaterial()}>{saving ? 'Saving' : 'Save'}</PrimaryButton>
               <SecondaryButton tone={editingId === 'new' ? 'onSolid' : 'default'} size="sm" onClick={() => setEditingId(null)}>Cancel</SecondaryButton>
@@ -508,6 +535,10 @@ export function SettingsMaterials() {
                 </div>
                 <div className="mt-0.5 font-label text-[12px] uppercase tracking-[0.08em] text-cc-muted">
                   {material.full_load_yards} yards to a full load
+                </div>
+                <div className="mt-1 text-[13px] text-cc-muted">
+                  1 cubic yard is about {material.tons_per_cubic_yard ?? 'not set'} tons
+                  <span className="ml-2 text-idle">{material.tons_conversion_verified ? 'verified' : 'estimate'}</span>
                 </div>
               </div>
               <div className="shrink-0 text-right">
@@ -839,6 +870,7 @@ export function SettingsCommunication() {
   const [english, setEnglish] = useState(true)
   const [spanish, setSpanish] = useState(true)
   const [takeover, setTakeover] = useState(true)
+  const [routeEnabled, setRouteEnabled] = useState(true)
   const [initialReplyMinutes, setInitialReplyMinutes] = useState('0')
   const [openRule, setOpenRule] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -851,6 +883,10 @@ export function SettingsCommunication() {
   const previews = useMemo(() => sourceData ? buildAutomationPreviews(sourceData) : [], [sourceData])
   const aiIntegration = sourceData?.aiIntegration
   const readiness = deriveSettingsReadiness(sourceData ?? null)
+  const activeMaterials = sourceData?.materials.filter((material) => material.is_active) ?? []
+  const configuredConversions = activeMaterials.filter((material) => Number(material.tons_per_cubic_yard) > 0).length
+  const verifiedConversions = activeMaterials.filter((material) => material.tons_conversion_verified).length
+  const routeOrigin = [sourceData?.appSettings?.company_address, sourceData?.appSettings?.company_city_state_zip].filter(Boolean).join(', ')
 
   const generatePreview = async (ruleId: string) => {
     const preview = previews.find((item) => item.ruleId === ruleId)
@@ -874,6 +910,7 @@ export function SettingsCommunication() {
     setEnglish(settings.ai_english)
     setSpanish(settings.ai_spanish)
     setTakeover(true)
+    setRouteEnabled(settings.route_intelligence_enabled !== false)
     setInitialReplyMinutes(String(Math.max(0, Math.round((settings.initial_response_target_seconds ?? 0) / 60))))
   }, [settings])
 
@@ -887,7 +924,7 @@ export function SettingsCommunication() {
     try {
       if (demo.enabled) {
         const now = new Date().toISOString()
-        demo.updateData((current) => ({ ...current, controlSettings: current.controlSettings ? { ...current.controlSettings, business_number: number.trim() || null, ai_english: english, ai_spanish: spanish, human_takeover_on_reply: takeover, initial_response_target_seconds: parsedReplyMinutes * 60, updated_at: now } : null }))
+        demo.updateData((current) => ({ ...current, controlSettings: current.controlSettings ? { ...current.controlSettings, business_number: number.trim() || null, ai_english: english, ai_spanish: spanish, human_takeover_on_reply: takeover, route_intelligence_enabled: routeEnabled, route_status: routeEnabled ? current.controlSettings.route_status : 'OFF', initial_response_target_seconds: parsedReplyMinutes * 60, updated_at: now } : null }))
         toast.success('Communication settings saved in demo memory.')
         return
       }
@@ -896,6 +933,8 @@ export function SettingsCommunication() {
         ai_english: english,
         ai_spanish: spanish,
         human_takeover_on_reply: takeover,
+        route_intelligence_enabled: routeEnabled,
+        route_status: routeEnabled ? (settings?.route_status === 'OFF' ? 'SETUP_REQUIRED' : settings?.route_status ?? 'SETUP_REQUIRED') : 'OFF',
         initial_response_target_seconds: parsedReplyMinutes * 60,
       }).eq('id', 1)
       if (error) throw new Error(error.message)
@@ -949,6 +988,24 @@ export function SettingsCommunication() {
         </div>
       </Panel>
 
+      <Panel padded={false} title="Material & route intelligence">
+        <div className="divide-y divide-line border-t border-line">
+          <StatusRow
+            label="Tons to yards"
+            value={`${configuredConversions}/${activeMaterials.length} configured`}
+            tone={configuredConversions === activeMaterials.length && activeMaterials.length > 0 ? 'ok' : 'warn'}
+            line={`${verifiedConversions} verified with supplier tickets or a lab result. All customer conversions are described as estimates.`}
+          />
+          <StatusRow
+            label="Driving distance"
+            value={!routeEnabled ? 'Off' : settings?.route_status === 'READY' ? 'Ready' : 'Setup required'}
+            tone={!routeEnabled ? 'idle' : settings?.route_status === 'READY' ? 'ok' : 'warn'}
+            line={routeOrigin ? `Routes start at ${routeOrigin}. Exact mileage is calculated server side and can fill an untouched draft quote.` : 'Add the business address in Business settings before calculating routes.'}
+          />
+          <StatusRow label="Quote protection" value="On" tone="ok" line="AI can fill an empty draft. Any material or delivery value edited by staff is preserved." />
+        </div>
+      </Panel>
+
       <Panel title="How it talks">
         <div className="space-y-4">
           <TextField
@@ -970,6 +1027,12 @@ export function SettingsCommunication() {
             line="Always stops AI when a staff member replies. Required for SMS safety."
             value={true}
             onChange={() => { setTakeover(true); toast.info('Human takeover stays enabled for SMS safety.') }}
+          />
+          <Toggle
+            label="Automatic route pricing"
+            line="Uses the exact customer address and the saved delivery tiers. It never estimates mileage from a city name."
+            value={routeEnabled}
+            onChange={setRouteEnabled}
           />
         </div>
         <div className="mt-5">

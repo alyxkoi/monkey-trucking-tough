@@ -57,6 +57,10 @@ export type Quote = {
   delivery_type: string | null;
   delivery_miles: number | null;
   delivery_fee_per_load: number;
+  delivery_distance_source?: "GOOGLE_ROUTES" | "MANUAL" | null;
+  delivery_distance_calculated_at?: string | null;
+  delivery_origin?: string | null;
+  delivery_destination_place_id?: string | null;
   delivery_load_count: number;
   delivery_total: number;
   materials_subtotal: number;
@@ -88,6 +92,7 @@ export type QuoteItem = {
   is_full_load: boolean;
   rate_used: number;
   line_total: number;
+  intake_source?: "AI_CONVERSATION" | null;
   created_at: string;
 };
 
@@ -255,6 +260,8 @@ export type ControlSettings = {
   ai_spanish: boolean;
   human_takeover_on_reply: boolean;
   initial_response_target_seconds: number;
+  route_intelligence_enabled: boolean;
+  route_status: "READY" | "SETUP_REQUIRED" | "ERROR" | "OFF";
   updated_at: string;
 };
 

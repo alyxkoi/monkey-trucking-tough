@@ -1,5 +1,6 @@
 import type { ControlData, LeadMessage } from '@/control-center/data'
 import type { AiDecision, AiFact, AiLanguage } from './types'
+import { resolveConversationQuantity } from '../../../supabase/functions/_shared/material-intelligence'
 
 type EvaluationInput = {
   messages: Pick<LeadMessage, 'sender_type' | 'body'>[]
@@ -66,7 +67,14 @@ export function evaluateConversation(input: EvaluationInput): { decision: AiDeci
   const latest = customerMessages.at(-1)?.body ?? ''
   const language = detectLanguage(latest)
   const extracted = extractFacts(latest)
-  const known = mergeFacts(input.messages)
+  let known = mergeFacts(input.messages)
+  const quantityResolution = resolveConversationQuantity(input.messages, input.materials ?? [])
+  if (quantityResolution.status === 'RESOLVED' && quantityResolution.yards && quantityResolution.material_name) {
+    known = known.filter((item) => !['material','quantity_yards','quantity_tons'].includes(item.key))
+    known.push({ key: 'material', value: quantityResolution.material_name, source: 'PRICING' })
+    known.push({ key: 'quantity_yards', value: String(quantityResolution.yards), source: 'PRICING' })
+    if (quantityResolution.input_unit === 'TONS') known.push({ key: 'quantity_tons', value: String(quantityResolution.input_value), source: 'PRICING' })
+  }
   const paymentClaim = Boolean(valueOf(known, 'payment_claim'))
   const negotiation = /\b(discount|cheaper|price match|can you do (?:it|that) for|if i pay today|menos|descuento)\b/i.test(latest)
   const customPricing = /\b(driveway|private road|pond|grading|grade|site prep|clearing|ditch)\b/i.test(latest) && /\b(how much|price|cost|total|cuanto|cuánto|fix|repair|arreglar)\b/i.test(latest)
@@ -107,7 +115,7 @@ export function evaluateConversation(input: EvaluationInput): { decision: AiDeci
   const deterministicPricing = Boolean(material && quantity && asksPrice && !customPricing && !negotiation)
   if (deterministicPricing) {
     const row = input.materials?.find((entry) => entry.name.toLowerCase().includes(material!.toLowerCase()))
-    const yards = Number(valueOf(known, 'quantity_yards') ?? 0)
+    const yards = Number(quantityResolution.status === 'RESOLVED' ? quantityResolution.yards : valueOf(known, 'quantity_yards') ?? 0)
     if (row && yards > 0) {
       const fullLoads = Math.floor(yards / Number(row.full_load_yards))
       const remainder = yards % Number(row.full_load_yards)
@@ -126,6 +134,11 @@ export function evaluateConversation(input: EvaluationInput): { decision: AiDeci
   if (input.humanTakeover) draft = ''
   else if (paymentClaim) draft = language === 'SPANISH' ? 'perfecto, gracias. le aviso a salvador para que verifique el pago.' : 'perfect, thank you. i will let salvador know so he can verify it.'
   else if (humanReason) draft = language === 'SPANISH' ? 'déjeme revisar eso con salvador y le confirmamos.' : 'let me check with salvador on that and get back to you.'
+  else if (quantityResolution.status === 'RESOLVED' && quantityResolution.input_unit === 'TONS' && /\btons?|toneladas?\b/i.test(latest)) {
+    const tons = quantityResolution.input_value
+    const yards = quantityResolution.yards
+    draft = language === 'SPANISH' ? `${tons} toneladas son aproximadamente ${yards} yardas. cuál es la dirección exacta de entrega.` : `${tons} tons is about ${yards} cubic yards. what is the exact delivery address.`
+  }
   else if (missing[0] === 'delivery address') draft = language === 'SPANISH' ? 'claro, me comparte la dirección exacta para calcular la entrega.' : language === 'SPANGLISH' ? 'perfecto, what is the exact delivery address so i can calculate the delivery.' : 'what is the exact delivery address so i can calculate the delivery.'
   else if (missing[0] === 'quantity') draft = language === 'SPANISH' ? 'claro, cuántas yardas o cargas necesita.' : 'how many yards or loads do you need.'
   else if (missing[0] === 'material') draft = language === 'SPANISH' ? 'claro, qué material necesita.' : 'what material do you need.'
@@ -150,7 +163,7 @@ export function evaluateConversation(input: EvaluationInput): { decision: AiDeci
     payment_claim_detected: paymentClaim,
     automation_state: { mode: input.automationRuleId ? 'AUTOMATION_DRY_RUN' : 'CONVERSATION', rule_id: input.automationRuleId ?? null, transport: 'SETUP_REQUIRED', send_allowed: false },
   }
-  return { decision, toolResults: { pricing: pricingResult, city: city ?? null } }
+  return { decision, toolResults: { pricing: pricingResult, quantity: quantityResolution, city: city ?? null } }
 }
 
 export function validateCustomerDraft(decision: AiDecision) {
