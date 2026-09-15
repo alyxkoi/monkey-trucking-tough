@@ -14,6 +14,7 @@ function renderAutonomousReply(decision: any, pricing: any): string {
   if (invalid) throw new Error(invalid)
   if (decision.requires_human || !decision.ai_may_continue || decision.payment_claim_detected || decision.confidence !== 'HIGH'
     || decision.uncertain_facts.length) throw new Error(decision.escalation_reason || 'AI decision needs human review')
+  if(decision.lifecycle_reply)return decision.lifecycle_reply
   if(decision.recommended_action==='ANSWER_CUSTOMER')return composeConversationResponse(decision,pricing)
   if (decision.recommended_action === 'PROVIDE_STANDARD_PRICE') {
     if (pricing?.status !== 'MATERIAL_CALCULATED' || !Number.isFinite(pricing.material_total) || pricing.material_total < 0) throw new Error('Verified material pricing unavailable')
@@ -98,16 +99,18 @@ export async function runCommunicationJob(service: any, config: AiConfig, templa
   if (!job) return { processed: false }
   let text: string | null = null
   let reason: string | null = null
+  let handoff: boolean | null = null
   try {
     const eligible = await service.rpc('communication_job_eligible', { p_job_id: job.id, p_lease_token: job.lease_token })
     if (eligible.error || eligible.data !== true) throw new Error('Communication job is no longer eligible')
     if (job.kind === 'AI_REPLY') {
       const result = await generateAiDraft(service, { lead_id: job.lead_id }, null, config)
-      text = autonomousReply(result.decision, result.tool_results.pricing)
+      if(result.decision.handoff_acknowledgement)handoff=result.decision.detected_language==='SPANISH'
+      else text = autonomousReply(result.decision, result.tool_results.pricing)
     } else text = await scheduledText(service, job, config)
-    if (!text || text.length>420 || /[—–]/.test(text)) throw new Error('Automated message failed length or style checks')
+    if (handoff===null&&(!text || text.length>420 || /[—–]/.test(text))) throw new Error('Automated message failed length or style checks')
   } catch (error) { reason = error instanceof Error ? error.message : 'Communication generation failed' }
-  const finished = await service.rpc('finish_communication_job', {
+  const finished = handoff!==null&&!reason ? await service.rpc('finish_ai_handoff',{p_job_id:job.id,p_lease_token:job.lease_token,p_spanish:handoff,p_template_id:templateId??null}) : await service.rpc('finish_communication_job', {
     p_job_id:job.id,p_lease_token:job.lease_token,p_body:reason ? null : text,p_template_id:templateId ?? null,p_error:reason,
   })
   if (finished.error) throw new Error('Communication result could not be committed')

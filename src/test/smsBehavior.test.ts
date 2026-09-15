@@ -90,7 +90,7 @@ function aiService(failingTable?:string,takeoverOnRecheck=false,initialTakeover=
       }}
     return chain
   })
-  return {from,calls,updates,rpc:vi.fn(async()=>({data:{applied:true},error:null}))}
+  return {from,calls,updates,rpc:vi.fn(async()=>({data:{status:'APPLIED',ready:false},error:null}))}
 }
 describe('shared production AI safety',()=>{
   it('supplies authoritative current takeover state and separates material-only pricing from unapproved delivery',async()=>{
@@ -250,9 +250,8 @@ describe('shared production AI safety',()=>{
     expect(result.decision.known_facts).toContainEqual(expect.objectContaining({key:'delivery_address',value:'4625 Virginia Ave, Dallas, TX 75204'}))
     expect(result.decision.uncertain_facts).toEqual([])
     expect(result.tool_results).toMatchObject({quantity:{estimated_yards:7.1,recommended_yards:8.5},route:{status:'ROUTE_CALCULATED',distance_miles:10}})
-    expect(service.rpc).toHaveBeenCalledTimes(2)
-    expect(service.rpc).toHaveBeenCalledWith('apply_ai_material_to_quote',expect.objectContaining({p_material_id:'limestone',p_yards:8.5}))
-    expect(service.rpc).toHaveBeenCalledWith('apply_ai_route_to_quote',expect.objectContaining({p_address:'4625 Virginia Ave, Dallas, TX 75204',p_distance_miles:10}))
+    expect(service.rpc).toHaveBeenCalledTimes(1)
+    expect(service.rpc).toHaveBeenCalledWith('apply_ai_lifecycle',expect.objectContaining({p_plan:expect.objectContaining({context:expect.objectContaining({pricing:expect.objectContaining({material_id:'limestone',yards:8.5,route:expect.objectContaining({destination:'4625 Virginia Ave, Dallas, TX 75204',distance_miles:10})})})})}))
     expect(autonomousReply(result.decision,result.tool_results.pricing)).toContain('the estimated total is')
     expect(autonomousReply(result.decision,result.tool_results.pricing)).not.toContain('with tax')
   })
@@ -276,21 +275,20 @@ describe('shared production AI safety',()=>{
     expect(result.decision).toMatchObject({requires_human:false,ai_may_continue:true,recommended_action:'ANSWER_CUSTOMER'})
     expect(result.decision.subtask_escalations).toHaveLength(1)
     expect(service.updates).toEqual([])
-    expect(service.rpc).toHaveBeenCalledWith('apply_ai_material_to_quote',{p_lead_id:'lead',p_expected_revision:1,p_material_id:'base',p_yards:28})
-    expect(service.rpc).toHaveBeenCalledWith('apply_ai_route_to_quote',expect.objectContaining({p_expected_revision:1,p_address:'4625 Virginia Ave, Dallas, TX 75204',p_distance_miles:10}))
+    expect(service.rpc).toHaveBeenCalledWith('apply_ai_lifecycle',expect.objectContaining({p_lead_id:'lead',p_expected_revision:1,p_plan:expect.objectContaining({context:expect.objectContaining({pricing:expect.objectContaining({material_id:'base',yards:28,route:expect.objectContaining({destination:'4625 Virginia Ave, Dallas, TX 75204',distance_miles:10})})})})}))
     expect(autonomousReply(result.decision,result.tool_results.pricing)).toContain('$1224.00')
   })
-  it('latches explicit global handoffs in the existing revision-guarded takeover state',async()=>{
+  it('defers explicit handoff pause to the atomic acknowledgment reservation',async()=>{
     vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)}))))
     const service=aiService(undefined,false,false,{lead_messages:[{id:'request',sender_type:'CUSTOMER',body:'I want to speak to Salvador'}]})
     const result=await generateAiDraft(service,{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model'})
-    expect(result.decision).toMatchObject({requires_human:true,ai_may_continue:false,global_pause_applied:true})
-    expect(service.updates).toEqual([{table:'leads',value:expect.objectContaining({human_takeover:true,conversation_revision:2})}])
+    expect(result.decision).toMatchObject({requires_human:true,ai_may_continue:false,handoff_acknowledgement:true})
+    expect(service.updates).toEqual([])
     expect(service.rpc).not.toHaveBeenCalled()
   })
   it('fails closed if a concurrent change wins the handoff update',async()=>{
     vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)}))))
-    const service=aiService(undefined,false,false,{lead_messages:[{id:'request',sender_type:'CUSTOMER',body:'I want to speak to Salvador'}]})
+    const service=aiService(undefined,false,false,{lead_messages:[{id:'request',sender_type:'CUSTOMER',body:'I have a complaint'}]})
     const original=service.from
     service.from=vi.fn((table:string)=>{
       const chain=original(table)

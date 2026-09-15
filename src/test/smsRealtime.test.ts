@@ -97,7 +97,7 @@ describe('communications realtime lifecycle', () => {
     const payload = change('lead_messages', 'INSERT', { id: 'm1' })
     mocks.callbacks.forEach((callback) => callback(payload))
 
-    expect(applyChange).toHaveBeenCalledTimes(5)
+    expect(applyChange).toHaveBeenCalledTimes(10)
     expect(refresh).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(COMMUNICATION_REALTIME_RECONCILE_MS)
     expect(refresh).toHaveBeenCalledTimes(1)

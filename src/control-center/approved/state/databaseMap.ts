@@ -104,6 +104,7 @@ export function mapLeads(data: ControlData): Lead[] {
       ? aiState.missing_facts.filter((item): item is string => typeof item === 'string')
       : []
     const latestMessageAt = messages.reduce((latest, message) => Math.max(latest, message.at), 0)
+    const latestResolutionAt=(data.activities??[]).filter(a=>a.entity_id===row.id&&a.event_type==='AI_ACTION_RESOLVED').reduce((latest,a)=>Math.max(latest,requiredAt(a.created_at)),0)
     const lastCustomer = [...messages].reverse().find((message) => message.actor === 'customer')
     const lastResponder = [...messages].reverse().find((message) =>
       (message.actor === 'salvador' || message.actor === 'ai')
@@ -120,8 +121,8 @@ export function mapLeads(data: ControlData): Lead[] {
       lastActivityAt: Math.max(requiredAt(row.updated_at), latestMessageAt),
       needsSalvador: Boolean(
         messages.some((message) => message.sendError && message.actor !== 'customer') ||
-        messages.some((message) => message.escalation) ||
-        (!row.human_takeover && (latestAiAudit?.status === 'FAILED' || aiDecision?.requires_human === true)) ||
+        messages.some((message) => message.escalation && message.at>latestResolutionAt && message.at>(lastResponder?.at??0)) ||
+        (latestAiAudit && requiredAt(latestAiAudit.created_at)>latestResolutionAt && requiredAt(latestAiAudit.created_at)>=(lastResponder?.at??0) && (latestAiAudit.status === 'FAILED' || aiDecision?.requires_human === true && (row.human_takeover||!aiDecision?.global_pause_applied&&!aiDecision?.handoff_acknowledgement))) ||
         (lastCustomer && (!lastResponder || lastCustomer.at > lastResponder.at)),
       ),
       aiPaused: row.human_takeover,

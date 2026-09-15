@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.116.0'
 import { configuredAi, aiConfig } from '../_shared/ai-config.ts'
 import { simulateConversation } from '../_shared/ai-sandbox.ts'
 import { HttpError, requireStaff } from '../_shared/staff-auth.ts'
+import { activeAiInstructions, PROMPT_VERSION } from '../_shared/ai-engine.ts'
 const cors = { 'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info' }
 const json=(value:unknown,status=200)=>new Response(JSON.stringify(value),{status,headers:{...cors,'Content-Type':'application/json'}})
 
@@ -65,7 +66,7 @@ Deno.serve(async req=>{
     if([settings,history,audit,runtime,channels,sync].some(r=>r.error))throw new Error('AI diagnostic data could not be loaded')
     return json({settings:settings.data,history:history.data,recent_runs:audit.data,runtime:runtime.data,channels:channels.data,
       provider_sync:sync.data, configured_model:config.model,provider:new URL(config.baseUrl).hostname,
-      maps_key_configured:Boolean(config.googleMapsApiKey),prompt_version:'mt-ai-draft-v9',context_message_limit:80,
+      maps_key_configured:Boolean(config.googleMapsApiKey),prompt_version:PROMPT_VERSION,active_instructions:activeAiInstructions(config),context_message_limit:80,
       immutable_rules:['Server calculated material prices and delivery tiers','Approximate tons conversion, internal one yard reserve','Only untouched draft quotes can be updated','STOP / START / HELP and consent gates','Human takeover and revision checks','One transient retry; fail closed for business decisions','12 replies per minute emergency burst guard; scheduled follow up limits unchanged'],
     })
   }catch(error){return json({error:error instanceof Error?error.message:'AI control failed'},error instanceof HttpError?error.status:502)}

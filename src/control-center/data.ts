@@ -30,6 +30,11 @@ export type Customer = {
 };
 
 export type Lead = {
+  requested_delivery_date?: string | null;
+  requested_delivery_time?: string | null;
+  requested_delivery_text?: string | null;
+  quote_requested_at?: string | null;
+  quote_confirmed_email?: string | null;
   id: string;
   customer_id: string;
   status: "NEW" | "ACTIVE" | "QUOTED" | "WON" | "LOST";
@@ -47,6 +52,10 @@ export type Lead = {
 };
 
 export type Quote = {
+  ai_ready_at?: string | null;
+  requested_delivery_date?: string | null;
+  requested_delivery_time?: string | null;
+  confirmed_email?: string | null;
   id: string;
   quote_number: string;
   customer_id: string;
@@ -460,6 +469,7 @@ export type ControlData = {
   workers: Worker[];
   workerPayments: WorkerPayment[];
   activities: Activity[];
+  staffActions?: Activity[];
   messages: LeadMessage[];
   financialHistory: FinancialHistory[];
   materials: Material[];
@@ -633,7 +643,7 @@ export async function loadControlData(): Promise<ControlData> {
   const [
     customers, leads, quotes, quoteItems, jobs, tickets, ticketItems, ticketHistory, invoices,
     invoiceTickets, payments, workers, workerPayments, activities, messages, financialHistory,
-    materials, drivers, appSettings, userRoles, controlSettings, automations, snoozes, communicationRuntime,
+    materials, drivers, appSettings, userRoles, controlSettings, automations, snoozes, communicationRuntime, staffActions,
   ] = await Promise.all([
     controlDb.from("customers").select("*").order("last_activity_at", { ascending: false }),
     controlDb.from("leads").select("*").order("created_at", { ascending: false }),
@@ -659,6 +669,7 @@ export async function loadControlData(): Promise<ControlData> {
     controlDb.from("automation_rules").select("*").order("name"),
     controlDb.from("attention_snoozes").select("*"),
     controlDb.from('communication_runtime').select('id,ai_sending_enabled,scheduled_sending_enabled,marketing_approved,timezone,activated_at').eq('id',1).maybeSingle(),
+    runRpc<Activity[]>('open_ai_staff_actions', {}),
   ]);
   const optionalAi = await optionalAiPromise;
   const optionalStripe = await optionalStripePromise;
@@ -679,6 +690,7 @@ export async function loadControlData(): Promise<ControlData> {
     workers: unwrap(workers, "Workers") ?? [],
     workerPayments: unwrap(workerPayments, "Worker payments") ?? [],
     activities: unwrap(activities, "Activity history") ?? [],
+    staffActions,
     messages: unwrap(messages, "Messages") ?? [],
     financialHistory: unwrap(financialHistory, "Financial history") ?? [],
     materials: unwrap(materials, "Materials") ?? [],
@@ -711,6 +723,10 @@ async function runRpc<T>(name: string, args: Record<string, unknown>): Promise<T
   const { data, error } = await rpc(name, args);
   if (error) throw new Error(error.message);
   return data as T;
+}
+
+export function resolveAiStaffAction(requestId: string, note: string) {
+  return runRpc<void>('resolve_ai_staff_action',{p_request_id:requestId,p_note:note});
 }
 
 export type NewLeadInput = {

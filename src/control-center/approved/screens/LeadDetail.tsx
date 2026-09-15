@@ -25,6 +25,7 @@ import { useDemoMode } from '@/control-center/demo/DemoMode'
 import { useControlCenter } from '@/control-center/context'
 import { changeConversationSms } from '@/control-center/data'
 import { clearSmsRequestIdentity, smsRequestIdentity } from '@/control-center/smsRequestIdentity'
+import { AiStaffActions } from '@/control-center/approved/components/ui/AiStaffActions'
 
 export function LeadDetail() {
   const { leadId = '' } = useParams()
@@ -193,6 +194,7 @@ export function LeadDetail() {
       />
 
       {entry && <AttentionBanner entry={entry} />}
+      <AiStaffActions actions={(sourceData?.staffActions??[]).filter(action=>action.entity_id===lead.id)} onResolved={refresh}/>
 
       {lead.needsSalvador && (
         <SalvadorNeeded line={latestAiAudit?.concise_rationale ?? 'This conversation needs your reply. The AI stopped rather than guess.'} />

@@ -128,7 +128,7 @@ export function subscribeToCommunicationChanges({
     }
   }
   const channel = supabase.channel('control-center-communications')
-  for (const table of ['lead_messages', 'leads', 'customers', 'communication_jobs', 'sms_outbox']) {
+  for (const table of ['lead_messages', 'leads', 'customers', 'communication_jobs', 'sms_outbox', 'activity_history', 'quotes', 'jobs', 'invoices', 'payments']) {
     channel.on('postgres_changes', { event: '*', schema: 'public', table }, changed)
   }
   channel.subscribe((status) => {

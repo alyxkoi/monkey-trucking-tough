@@ -13,6 +13,8 @@ import { invoiceStatus } from './moneyData'
 import type { Job } from './jobsData'
 import type { Customer, Lead, Quote } from './salesData'
 import { quoteTotals } from './salesData'
+import type { Activity as DatabaseActivity } from '@/control-center/data'
+import { aiActionDetails } from './aiActions'
 
 export type Priority = 'NOW' | 'TODAY' | 'FOLLOW_UP'
 
@@ -103,6 +105,7 @@ export function deriveAttention(input: {
   jobs: Job[]
   invoices: Invoice[]
   customers: Customer[]
+  staffActions?: DatabaseActivity[]
   aiFailures?: { id: string; customerId?: string; automationRuleId?: string; at: number; error: string }[]
   stripeFailures?: { id: string; invoiceId?: string; at: number; error: string }[]
   today: string
@@ -112,6 +115,11 @@ export function deriveAttention(input: {
   const name = (customerId: string) =>
     input.customers.find((customer) => customer.id === customerId)?.name ?? 'Unknown'
   const items: AttentionItem[] = []
+  input.staffActions?.forEach(entry=>{
+    const action=aiActionDetails(entry)
+    items.push({id:`ai-action:${entry.id}`,priority:action.kind==='QUOTE_READY'?'TODAY':'NOW',kind:'customer_waiting',title:action.title,
+      context:`${name(entry.customer_id??'')}. ${action.context}`,since:new Date(entry.created_at).getTime(),action:{label:action.label,to:action.to},recommend:'none'})
+  })
 
   input.stripeFailures?.forEach((failure) => {
     const receiptFailure = /receipt|email/i.test(failure.error)
@@ -197,7 +205,7 @@ export function deriveAttention(input: {
   input.leads
     .filter(
       (lead) =>
-        lead.status === 'NEW' && !lead.messages.some((message) => message.actor === 'salvador'),
+        lead.status === 'NEW' && !lead.messages.some((message) => message.actor === 'salvador'||message.actor==='ai'),
     )
     .forEach((lead) => {
       items.push({

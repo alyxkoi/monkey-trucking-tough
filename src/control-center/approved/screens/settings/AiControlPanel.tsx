@@ -7,7 +7,7 @@ import { TextArea } from '../../components/ui/Field'
 type Profile = { model: string | null; tone: string; concise: boolean; review_enabled: boolean; version: number; last_review_at: string | null }
 type Entry = { id: string; created_at: string; kind: string; summary: string; before_settings: Profile | null; findings: { code: string; count: number; recommendation: string }[] }
 type Message = { sender_type: 'CUSTOMER' | 'AI'; body: string }
-type Status = { settings: Profile; history: Entry[]; configured_model: string; provider: string; prompt_version: string; context_message_limit: number; maps_key_configured: boolean; immutable_rules: string[]; recent_runs: { model_id: string | null; status: string; latency_ms: number; created_at: string }[] }
+type Status = { settings: Profile; history: Entry[]; configured_model: string; provider: string; prompt_version: string; active_instructions?:string; context_message_limit: number; maps_key_configured: boolean; immutable_rules: string[]; recent_runs: { model_id: string | null; status: string; latency_ms: number; created_at: string }[] }
 type Simulation = { reply: string | null; blocked: string | null; model: string; session_id:string; decision: { known_facts: {key:string;value:string}[];missing_facts:string[];recommended_action:string;subtask_escalations?:{topic:string;reason:string}[] }; tool_results: unknown }
 
 async function call<T>(body: unknown): Promise<T> {
@@ -28,6 +28,7 @@ export function AiControlPanel() {
   const [error,setError]=useState('')
   const [notice,setNotice]=useState('')
   const [form,setForm]=useState('')
+  const [scenario,setScenario]=useState('LEAD')
   const [text,setText]=useState('')
   const [messages,setMessages]=useState<Message[]>([])
   const [simulation,setSimulation]=useState<Simulation|null>(null)
@@ -43,7 +44,7 @@ export function AiControlPanel() {
     setSandboxError('')
     const next:Message[]=[...messages,{sender_type:'CUSTOMER',body:text.trim()}]
     try {
-      const result=await call<Simulation>({action:'simulate',messages:next,form,session_id:sessionId})
+      const result=await call<Simulation>({action:'simulate',messages:next,form,session_id:sessionId,scenario})
       setMessages(result.reply?[...next,{sender_type:'AI',body:result.reply}]:next)
       setText('');setSimulation(result)
     }catch(e){setSandboxError(e instanceof Error?e.message:'Test failed');setSimulation(null)}
@@ -73,10 +74,13 @@ export function AiControlPanel() {
         </div>
       </div>}
     </Panel>
+    <Panel title="Active AI instructions">
+      <p className="mb-3 text-sm font-semibold">{status?.prompt_version??'Load configuration'} · Read only</p><p className="mb-3 text-sm text-cc-muted">Effective server instructions including lifecycle policy and presentation preferences. Customer context and credentials are excluded.</p><textarea aria-label="Active AI instructions" readOnly value={status?.active_instructions??'Load the live configuration to view effective instructions.'} rows={14} className="w-full resize-y rounded-xl border border-line bg-raised p-4 font-mono text-xs leading-relaxed"/><p className="mt-3 text-sm">Can update verified contact details, delivery preferences, eligible draft quotes and job notes; prepare quotes; create staff priorities; pause for a human. Cannot send quotes, accept terms, verify payments or change accepted prices and confirmed calendar bookings.</p>
+    </Panel>
     <Panel title="Conversation sandbox · no SMS">
       <p className="mb-4 text-sm text-cc-muted">Uses the production AI engine, current prices and Google routing. No messages, quotes or customer records are changed. AI and Maps API usage may apply.</p>
       <p className="mb-3 text-xs text-cc-muted">Isolated session {sessionId.slice(0,8)} · Messages stay in this test until Reset. Names never select a real customer.</p>
-      <fieldset disabled={busy||messages.length>0}><TextArea label="Optional form information" value={form} onChange={setForm} rows={2}/></fieldset>
+      <fieldset disabled={busy||messages.length>0}><label className="mb-3 block text-sm">Synthetic lifecycle scenario<select aria-label="Sandbox lifecycle" value={scenario} onChange={e=>setScenario(e.target.value)} className="mt-2 block min-h-11 w-full rounded-xl border border-line bg-raised p-3">{['LEAD','QUOTE_SENT','ACCEPTED','SCHEDULED','COMPLETED','PAID'].map(value=><option key={value}>{value}</option>)}</select></label><TextArea label="Optional form information" value={form} onChange={setForm} rows={2}/></fieldset>
       {messages.length>0&&<p className="mt-2 text-xs text-cc-muted">Reset to change the starting form or test a different customer.</p>}
       <div className="my-4 flex flex-wrap gap-2">{['I need 10 tons of flexbase','839 S Good Latimer Expy\nDallas, TX 75226\nUnited States','Yes','How much to build a pond?'].map(example=><SecondaryButton key={example} size="sm" disabled={busy} onClick={()=>setText(example)}>{example.startsWith('839')?'Full address':example}</SecondaryButton>)}</div>
       <div aria-live="polite" className="max-h-80 space-y-3 overflow-y-auto">{messages.map((m,i)=><div key={i} className={`rounded-xl border border-line p-3 text-sm ${m.sender_type==='AI'?'bg-ice/10':'bg-raised'}`}><span className="font-semibold">{m.sender_type==='AI'?'AI':'Test customer'}: </span>{m.body}</div>)}</div>

@@ -169,7 +169,7 @@ describe('shared production conversation orchestration',()=>{
   })
   it('treats explicit human requests as global even if the model chooses custom subtask scope',async()=>{
     const result=await run([customer('I want to speak to Salvador about the driveway')],{escalation_scope:'SUBTASK',escalation_category:'CUSTOM_WORK'})
-    expect(result.reply).toBeNull()
+    expect(result.reply).toContain('Salvador')
     expect(result.decision).toMatchObject({requires_human:true,ai_may_continue:false})
   })
   it('does not treat ordinary corrections or explanatory questions as complaints',()=>{

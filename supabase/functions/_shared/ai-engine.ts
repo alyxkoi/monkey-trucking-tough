@@ -2,8 +2,9 @@
 import { isSimpleAcceptance, materialCandidates, resolveConversationQuantity, type QuantityResolution } from './material-intelligence.ts'
 import { addressClarification, addressFromText, calculateDeliveryRoute, deliveryForMiles, type RouteResult } from './route-intelligence.ts'
 import { composeConversationResponse, responsePlanSchema } from './conversation-response.ts'
+import { dashboardPlanSchema, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName } from './lifecycle.ts'
 
-const PROMPT_VERSION = 'mt-ai-draft-v9'
+export const PROMPT_VERSION = 'mt-ai-lifecycle-v10'
 
 const decisionSchema = {
   type: 'object',
@@ -12,9 +13,10 @@ const decisionSchema = {
     'detected_language', 'customer_intent', 'extracted_facts', 'known_facts',
     'missing_facts', 'uncertain_facts', 'ai_may_continue', 'requires_human',
     'escalation_reason', 'recommended_action', 'draft_reply', 'confidence',
-    'deterministic_pricing_required', 'payment_claim_detected', 'automation_state', 'response_plan',
+    'deterministic_pricing_required', 'payment_claim_detected', 'automation_state', 'response_plan', 'dashboard_plan',
   ],
   properties: {
+    dashboard_plan: dashboardPlanSchema,
     response_plan: responsePlanSchema,
     detected_language: { type: 'string', enum: ['ENGLISH', 'SPANISH', 'SPANGLISH'] },
     customer_intent: { type: 'string' },
@@ -64,7 +66,7 @@ function outputText(response: any) {
 export function forcedEscalation(text: string, takeover: boolean) {
   if (takeover) return 'Human takeover is active.'
   if (/^(?:stop|cancel|unsubscribe|quit|end|start|unstop|subscribe|help|info)$/i.test(text.trim())) return 'Compliance keyword is handled by sent.DM and must not receive an AI reply.'
-  if (/\b(i sent|i paid|sent the zelle|mand[eé] el zelle|ya pagu[eé])\b/i.test(text)) return 'Payment claim requires human verification.'
+  if (/\b(i sent|i paid|already paid|paid already|sent the zelle|mand[eé] el zelle|ya pagu[eé])\b/i.test(text)) return 'Payment claim requires human verification.'
   if (/\b(discount|cheaper|price match|can you do (?:it|that) for|if i pay today|menos|descuento)\b/i.test(text)) return 'Pricing negotiation requires Salvador.'
   if (/\b(dispute|wrong amount|not what we agreed|no es lo acordado)\b/i.test(text)) return 'Invoice dispute requires Salvador.'
   if (/\b(complaint|damaged|unhappy|not happy|terrible service)\b/i.test(text)) return 'Customer complaint requires human judgment.'
@@ -83,7 +85,7 @@ export function validateDecision(decision: any) {
     || !Array.isArray(decision.known_facts) || !Array.isArray(decision.missing_facts)
     || !Array.isArray(decision.uncertain_facts)) return 'AI decision failed runtime validation.'
   if (decision.ai_may_continue && !decision.draft_reply) return 'AI returned an empty customer draft.'
-  if (/[—–-]/.test(decision.draft_reply ?? '')) return 'Draft contains prohibited dash punctuation.'
+  if (/[—–-]/.test((decision.draft_reply ?? '').replace(/\S+@\S+/g,''))) return 'Draft contains prohibited dash punctuation.'
   if (decision.draft_reply && decision.draft_reply[0] !== decision.draft_reply[0].toLowerCase()) return 'Draft must begin with lowercase text.'
   if ((decision.draft_reply ?? '').length > 420) return 'Draft exceeds the approved SMS length.'
   if (decision.requires_human && decision.ai_may_continue) return 'Escalated decision cannot continue autonomously.'
@@ -163,6 +165,10 @@ Use canonical material_id and material_catalog_key from the current catalog, not
 
 const compositionInstructions = `Product differences and price differences are separate intents. For uses/differences select PRODUCT_OPTIONS. Add PRICE with objective COMPARE only if a price/cost difference was requested. For a recommendation select RECOMMENDATION and set recommendation_key to the best fitting official catalog_key based on the customer's intended use and these approved uses: commercial clean for driveways/compactable base; 3x4 for large base/drainage/stabilization; flexbase for driveways/roads/base; select fill for fill/leveling/pipe bedding; mason sand for masonry/bedding; millings for driveways/parking; native gravel for drainage/landscaping/driveways; sand mix for concrete aggregate; granite for paths/patios; limestone for driveways/base/drainage. Do not make a site-specific installation guarantee. If the use is unknown, leave recommendation_key empty and ask how it will be used. The recommendation is not a customer selection. Do not repeat the same answer as both acknowledgement and a business block. When a response plan is used, draft_reply is an internal nonempty description only. Keep the composed SMS under 390 characters on the first reply and 420 thereafter.`
 
+export function activeAiInstructions(config: Pick<AiConfig,'tone'|'concise'>) {
+  return `${instructions}\n${compositionInstructions}\n${LIFECYCLE_POLICY}\nApproved presentation preferences: ${JSON.stringify({tone:config.tone??'WARM',concise:config.concise!==false})}. These affect wording only, never business rules.`
+}
+
 async function requestAiDecision(baseUrl: string, apiKey: string, model: string, context: any, allowDeterministicDraftFallback: boolean) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let aiResponse: Response
@@ -172,7 +178,7 @@ async function requestAiDecision(baseUrl: string, apiKey: string, model: string,
         signal: AbortSignal.timeout(45_000),
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model, store: false, instructions: `${instructions}\n${compositionInstructions}\nApproved presentation preferences: ${JSON.stringify(context.presentation_preferences)}. These affect wording only, never business rules.`, max_output_tokens: 2500,
+          model, store: false, instructions: activeAiInstructions(context.presentation_preferences), max_output_tokens: 3000,
           input: [{ role: 'user', content: [{ type: 'input_text', text: JSON.stringify(context) }] }],
           text: { format: { type: 'json_schema', name: 'monkey_trucking_ai_decision', strict: true, schema: decisionSchema } },
         }),
@@ -255,9 +261,7 @@ function currentFacts(previous:any[], quantity:QuantityResolution, route:RouteRe
   const managed=/^(material|material_id|material_catalog_key|quantity.*|coverage_buffer_yards|delivery_address|address|delivery_zip|postal_code|zip|name|customer_name)$/
   let facts=(previous??[]).filter((f:any)=>typeof f?.key==='string'&&!managed.test(f.key))
   const bodies=messages.filter(m=>m.sender_type==='CUSTOMER').map(m=>String(m.body??''))
-  const name=bodies.map(b=>b.match(/\b(?:my name is|me llamo|mi nombre es)\s+([\p{L}]+(?:\s+[\p{L}]+)?)(?=[,.!]|\s+(?:and|y)\b|$)/iu)?.[1]).filter(Boolean).at(-1)
-    ?? (previous??[]).find((f:any)=>f.key==='customer_name'&&f.source==='CONVERSATION')?.value
-    ?? (customer?.name&&!/^(Test customer|Unknown SMS)/i.test(customer.name)?customer.name:null)
+  const name=bodies.map(b=>customerName(b)).filter(Boolean).at(-1) ?? knownCustomerName(customer?.name)
   if(name)facts=upsertFact(facts,'customer_name',name,'CONVERSATION')
   if(quantity.material_id){
     facts=upsertFact(facts,'material_id',quantity.material_id)
@@ -327,10 +331,10 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       service.from('customers').select('id,name,phone,email,notes,sms_consent_at,sms_consent_source,sms_double_opt_in_at,sms_opted_out_at').eq('id', customerId).single(),
       leadId ? service.from('lead_messages').select('id,sender_type,body,created_at').eq('lead_id', leadId).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(80) : Promise.resolve({ data: [], error: null }),
       leadId ? service.from('ai_conversation_state').select('*').eq('lead_id', leadId).maybeSingle() : Promise.resolve({ data: null, error: null }),
-      service.from('quotes').select('id,quote_number,status,description,address,delivery_type,delivery_miles,delivery_fee_per_load,delivery_load_count,delivery_distance_source,delivery_origin,delivery_destination_place_id,grand_total,sent_at,accepted_at').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(3),
-      service.from('jobs').select('id,status,category,scheduled_date,scheduled_time,address,description,agreed_amount,blocked_reason').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(3),
-      service.from('invoices').select('id,invoice_number,status,amount,due_at,disputed,dispute_note,payment_claimed_at,payment_claim_note').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(3),
-      service.from('payments').select('invoice_id,amount,method,received_at,voided_at').eq('customer_id', customerId).order('received_at', { ascending: false }).limit(5),
+      service.from('quotes').select('*').eq('customer_id', customerId).eq('lead_id',leadId).order('created_at', { ascending: false }).limit(10),
+      service.from('jobs').select('id,quote_id,status,category,scheduled_date,scheduled_time,address,description,agreed_amount,blocked_reason,notes,completed_at').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(30),
+      service.from('invoices').select('id,job_id,quote_id,invoice_number,status,amount,due_at,disputed,dispute_note,payment_claimed_at,payment_claim_note').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(30),
+      service.from('payments').select('invoice_id,amount,method,received_at,voided_at,confirmed_by').eq('customer_id', customerId).order('received_at', { ascending: false }).limit(100),
       service.from('materials').select('id,name,catalog_key,price_per_yard,full_load_price,full_load_yards,tons_per_cubic_yard,tons_conversion_basis,tons_conversion_verified,tons_conversion_note').eq('is_active', true).order('sort_order'),
       service.from('app_settings').select('company_address,company_city_state_zip,delivery_tier_1_fee,delivery_tier_1_max_miles,delivery_tier_2_fee,delivery_tier_2_max_miles,delivery_tier_3_fee,delivery_tier_3_max_miles,delivery_overage_base_fee,delivery_overage_per_mile,tax_enabled,tax_rate,tax_applies_to_delivery').limit(1).maybeSingle(),
       service.from('control_center_settings').select('ai_english,ai_spanish,human_takeover_on_reply,sms_status,calling_status,custom_work_tax_rule,route_intelligence_enabled,route_status').eq('id', 1).maybeSingle(),
@@ -338,8 +342,9 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     if ([customerResult,messageResult,stateResult,quoteResult,jobResult,invoiceResult,paymentResult,materialResult,appResult,controlResult].some((result) => result.error)
       || !customerResult.data || !appResult.data || !controlResult.data) throw new Error('Required conversation context could not be loaded.')
     const messages = [...(messageResult.data ?? [])].reverse()
+    const lifecycle=lifecycleContext(lead,quoteResult.data??[],jobResult.data??[],invoiceResult.data??[],paymentResult.data??[])
     // Form intake is context, never an outbound message or a current trigger.
-    const intake = [lead?.service_type, lead?.address, lead?.need, lead?.description, lead?.message].filter(Boolean).join('. ')
+    const intake = [lead?.service_type, lead?.delivery_address, lead?.address, lead?.need, lead?.description, lead?.message].filter(Boolean).join('. ')
     const toolMessages = intake ? [{ sender_type: 'CUSTOMER', body: intake }, ...messages] : messages
     const latestCustomer = [...messages].reverse().find((item: any) => item.sender_type === 'CUSTOMER')
     const takeover = Boolean((lead ?? subject)?.human_takeover)
@@ -362,6 +367,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     })
     const context = {
       mode, automation_rule_id: automationRuleId, subject,
+      lifecycle,
       presentation_preferences: { tone: config.tone ?? 'WARM', concise: config.concise !== false },
       customer: customerResult.data,
       lead: lead ?? (mode === 'CONVERSATION' ? subject : null),
@@ -500,8 +506,11 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     const priorCustom=authoritativeFacts.find((f:any)=>f.key==='custom_work_request')?.value
     const historicalCustom=toolMessages.some((m:any)=>m.sender_type==='CUSTOMER'&&forcedEscalation(m.body??'',false)==='Custom work pricing requires Salvador.')
     const hasCustom=customWorkRequested||plan?.escalation_category==='CUSTOM_WORK'||Boolean(priorCustom)||historicalCustom
+    decision.current_custom_work_request=customWorkRequested
     decision.subtask_escalations=hasCustom?[{topic:'CUSTOM_WORK',reason:'Custom work pricing requires Salvador. Material and delivery may continue.'}]:[]
     if(hasCustom)decision.known_facts=upsertFact(decision.known_facts,'custom_work_request',priorCustom??'Custom work scope/pricing pending Salvador','CONVERSATION')
+    const proposal=lifecycleProposal({lead,customer:customerResult.data,messages,lifecycle,decision,pricing})
+    const preparedLifecycleReply=mode==='CONVERSATION'&&!forced?lifecycleReply(proposal,lifecycle,decision,pricing):null
     if(plan&&!forced) {
       if(decision.ai_may_continue&&['MANUAL_REPLY','HOLD_FOR_SALVADOR','VERIFY_PAYMENT','NO_ACTION'].includes(decision.recommended_action)) {
         throw new Error('Autonomous decision selected a staff-only action.')
@@ -560,9 +569,24 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
           product_guidance_es:options.some((m:any)=>m.catalog_key==='mat-1')&&options.some((m:any)=>m.catalog_key==='mat-3')?'commercial clean es para entradas y base compactable; 3x4 para base grande, drenaje y estabilización.':'',
           refresh:{material:true,route:route.status,cached_route:route.cached===true},
         }
-        decision.draft_reply=composeConversationResponse(decision,pricing)
+        if(!preparedLifecycleReply)decision.draft_reply=composeConversationResponse(decision,pricing)
       }
     }
+    decision.lifecycle=lifecycle.stage
+    decision.dashboard_proposal=proposal
+    // Only server-rendered lifecycle statements may claim a dashboard change.
+    // They are persisted below before the worker can reserve this response.
+    if(mode==='CONVERSATION'&&!forced&&decision.ai_may_continue&&!decision.requires_human&&decision.confidence==='HIGH') {
+      let reply=preparedLifecycleReply
+      const policyReply=Boolean(reply)
+      if(!reply&&!knownCustomerName(customerResult.data.name)&&!proposal.name&&!lifecycle.reactive&&decision.recommended_action!=='PROVIDE_STANDARD_PRICE'&&!latestIsAddressReply) {
+        const question=decision.detected_language==='SPANISH'?'cómo se llama para empezar su solicitud?':'what is your name so I can get this started for you?'
+        if((decision.recommended_action==='ASK_NEXT_MISSING_FACT'||plan?.objective==='COLLECT'&&!plan?.answers?.length)&&!/[?？]/.test(latestCustomer?.body??''))reply=question
+        if(decision.draft_reply.length+question.length<360&&!decision.draft_reply.includes('?'))reply=decision.draft_reply+' '+question
+      }
+      if(reply){reply=reply.replace(/(\d{4})-(\d{2})-(\d{2})/g,'$2/$3/$1');decision.lifecycle_reply=reply.charAt(0).toLowerCase()+reply.slice(1);decision.draft_reply=decision.lifecycle_reply;if(policyReply)decision.recommended_action='ASK_NEXT_MISSING_FACT'}
+    }
+    decision.handoff_acknowledgement=mode==='CONVERSATION'&&forced==='Customer requested a human.'
     const validationError = validateDecision(decision)
     if (validationError) throw new Error(validationError)
     if ((decision.detected_language !== 'SPANISH' && !controlResult.data.ai_english)
@@ -578,7 +602,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       const globalHandoff = decision.requires_human && !decision.ai_may_continue
         && ((forced && !/Compliance keyword/.test(forced))
           || plan?.escalation_scope==='CONVERSATION' && ['HUMAN_REQUEST','COMPLAINT','FINANCIAL','SAFETY'].includes(plan.escalation_category))
-      if(mode==='CONVERSATION'&&globalHandoff) {
+      if(mode==='CONVERSATION'&&globalHandoff&&!decision.handoff_acknowledgement) {
         const paused=await service.from('leads').update({human_takeover:true,conversation_revision:lead.conversation_revision+1,updated_at:new Date().toISOString()})
           .eq('id',leadId).eq('conversation_revision',lead.conversation_revision).eq('human_takeover',false).select('id').maybeSingle()
         if(paused.error||!paused.data)throw new Error('Conversation changed before the human handoff could be recorded. Nothing will be sent.')
@@ -588,24 +612,15 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
 
     decision.explain_conversion = /\b\d+(?:\.\d+)?\s*(?:tons?|toneladas?)\b/i.test(latestCustomer?.body ?? '')
     decision.first_conversational_reply = !messages.some((m: any) => ['AI','HUMAN'].includes(m.sender_type))
-    if (options.sandbox) return { decision, draft: null, tool_results: { pricing, quantity, route }, model: responseBody?.model ?? model, profile_version: config.version, sandbox: true }
+    if (options.sandbox) return { decision, draft: null, tool_results: { pricing, quantity, route, lifecycle, proposed_changes:proposal }, model: responseBody?.model ?? model, profile_version: config.version, sandbox: true }
 
     const quoteApplication: Record<string, unknown> = {}
-    if (mode === 'CONVERSATION' && leadId && decision.ai_may_continue && typeof service.rpc === 'function') {
-      if (quantity.status === 'RESOLVED' && quantity.material_id && quantity.yards) {
-        const applied = await service.rpc('apply_ai_material_to_quote', {
-          p_lead_id: leadId, p_expected_revision: lead.conversation_revision,
-          p_material_id: quantity.material_id, p_yards: quantity.yards,
-        })
-        quoteApplication.material = applied.error ? { status: 'ERROR', reason: applied.error.message } : applied.data
-      }
-      if (route.status === 'ROUTE_CALCULATED' && route.distance_miles != null && route.destination && route.origin) {
-        const applied = await service.rpc('apply_ai_route_to_quote', {
-          p_lead_id: leadId, p_expected_revision: lead.conversation_revision,
-          p_address: route.destination, p_origin: route.origin, p_distance_miles: route.distance_miles,
-          p_destination_place_id: route.destination_place_id ?? null,
-        })
-        quoteApplication.route = applied.error ? { status: 'ERROR', reason: applied.error.message } : applied.data
+    if (mode === 'CONVERSATION' && leadId && typeof service.rpc === 'function') {
+      if((decision.ai_may_continue&&!decision.requires_human&&decision.confidence==='HIGH'&&!proposal.clarification)||proposal.actions.length) {
+        const applied=await service.rpc('apply_ai_lifecycle',{p_lead_id:leadId,p_expected_revision:lead.conversation_revision+(decision.global_pause_applied?1:0),p_source_message_id:proposal.source_message_id,p_plan:{...proposal,write_allowed:decision.ai_may_continue&&!decision.requires_human&&decision.confidence==='HIGH'&&!decision.uncertain_facts.length}})
+        if(applied.error||!['APPLIED','ALREADY_APPLIED'].includes(applied.data?.status))throw new Error(applied.error?.message??'Lifecycle update could not be safely applied. Nothing will be sent.')
+        quoteApplication.lifecycle=applied.data
+        if(proposal.ready&&!applied.data.ready){decision.lifecycle_reply=decision.detected_language==='SPANISH'?'Salvador revisará los detalles protegidos antes de preparar su cotización.':'Salvador will review the protected details before preparing your quote.';decision.lifecycle_reply=decision.lifecycle_reply.charAt(0).toLowerCase()+decision.lifecycle_reply.slice(1);decision.draft_reply=decision.lifecycle_reply}
       }
     }
     if (route.status === 'ROUTE_CALCULATED' && controlResult.data.route_status !== 'READY') {

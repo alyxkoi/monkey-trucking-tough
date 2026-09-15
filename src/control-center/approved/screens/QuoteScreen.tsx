@@ -37,6 +37,7 @@ export function QuoteScreen() {
     acceptQuote,
     declineQuote,
     emailSendingFor,
+    sourceData,
   } = useAppState()
 
   const [materialSheet, setMaterialSheet] = useState(false)
@@ -72,6 +73,8 @@ export function QuoteScreen() {
         onBack={() => navigate(`/admin/leads/${quote.leadId}`)}
         right={<StatusPill tone={QUOTE_TONE[quote.status]}>{QUOTE_LABEL[quote.status]}</StatusPill>}
       />
+
+      {sourceData?.quotes.find(row=>row.id===quote.id)?.requested_delivery_date&&<Panel title="Customer delivery request"><p className="font-semibold">{sourceData.quotes.find(row=>row.id===quote.id)?.requested_delivery_date} at {sourceData.quotes.find(row=>row.id===quote.id)?.requested_delivery_time?.slice(0,5)}</p><p className="mt-2 text-sm text-cc-muted">Requested, not booked. Quote recipient: {sourceData.quotes.find(row=>row.id===quote.id)?.confirmed_email??customer?.email??'Needs confirmation'}. Review the details before sending.</p></Panel>}
 
       <div className="grid gap-5 lg:grid-cols-12">
         <div className="min-w-0 space-y-5 lg:col-span-7">

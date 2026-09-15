@@ -394,6 +394,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, [jobs, leads, quotes])
   const todayJobs = useMemo(() => jobs.filter((job) => job.date === dateKey(new Date()) && job.status !== 'CANCELLED'), [jobs])
   const derivedAttention = useMemo(() => deriveAttention({
+    staffActions: data?.staffActions,
     leads,
     quotes,
     jobs,
@@ -417,7 +418,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       at: new Date(entry.received_at).getTime(),
       error: entry.error_message ?? 'Stripe payment confirmation needs manual reconciliation.',
     })),
-  }), [customers, data?.aiAuditLogs, data?.stripeIssues, invoices, jobs, leads, quotes])
+  }), [customers, data?.aiAuditLogs, data?.stripeIssues, data?.staffActions, invoices, jobs, leads, quotes])
   const snoozes = useMemo(() => new Map((data?.snoozes ?? []).map((row) => [row.fingerprint, new Date(row.returns_at).getTime()])), [data?.snoozes])
   const attention = useMemo(() => derivedAttention.filter((item) => (snoozes.get(item.id) ?? 0) <= Date.now()), [derivedAttention, snoozes])
   const snoozedItems = useMemo(() => derivedAttention.filter((item) => (snoozes.get(item.id) ?? 0) > Date.now()).map((item) => ({ item, returnsAt: snoozes.get(item.id) as number })), [derivedAttention, snoozes])
