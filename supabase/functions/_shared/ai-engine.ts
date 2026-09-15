@@ -160,6 +160,8 @@ The server renders all quantities, names, products, prices, distances, loads, ta
 Custom work is a SUBTASK escalation with category CUSTOM_WORK. Keep standard materials, delivery, explanations and date preference collection active. Record a custom_work_request in known_facts, separately from material selection. Custom scope does NOT set requires_human for the entire conversation. Only current takeover, an explicit human request, serious complaint/dispute, financial authorization, safety/compliance, or a genuinely unresolved global issue uses CONVERSATION scope and requires_human=true. A polite correction or asking why a charge exists is not a complaint or negotiation. TOOL_REFRESH is not a human task when the current tools already have the required result. Do not allow previous custom work handoffs to freeze later material questions.
 Use canonical material_id and material_catalog_key from the current catalog, not shorthand as identity. A comparison question does not change the selected material. Crushed concrete without a subtype can mean commercial clean or 3x4; ask which one. A specific correction such as commercial instead selects the matching canonical product. Superseded facts are not uncertain facts. Never invent a customer match or inherit another session based on a name. Only this supplied lead/customer context belongs to this conversation.`
 
+const compositionInstructions = `Product differences and price differences are separate intents. For uses/differences select PRODUCT_OPTIONS. Add PRICE with objective COMPARE only if a price/cost difference was requested. For a recommendation select RECOMMENDATION and set recommendation_key to the best fitting official catalog_key based on the customer's intended use and these approved uses: commercial clean for driveways/compactable base; 3x4 for large base/drainage/stabilization; flexbase for driveways/roads/base; select fill for fill/leveling/pipe bedding; mason sand for masonry/bedding; millings for driveways/parking; native gravel for drainage/landscaping/driveways; sand mix for concrete aggregate; granite for paths/patios; limestone for driveways/base/drainage. Do not make a site-specific installation guarantee. If the use is unknown, leave recommendation_key empty and ask how it will be used. The recommendation is not a customer selection. Do not repeat the same answer as both acknowledgement and a business block. When a response plan is used, draft_reply is an internal nonempty description only. Keep the composed SMS under 390 characters on the first reply and 420 thereafter.`
+
 async function requestAiDecision(baseUrl: string, apiKey: string, model: string, context: any, allowDeterministicDraftFallback: boolean) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let aiResponse: Response
@@ -169,7 +171,7 @@ async function requestAiDecision(baseUrl: string, apiKey: string, model: string,
         signal: AbortSignal.timeout(45_000),
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model, store: false, instructions: `${instructions}\nApproved presentation preferences: ${JSON.stringify(context.presentation_preferences)}. These affect wording only, never business rules.`, max_output_tokens: 2500,
+          model, store: false, instructions: `${instructions}\n${compositionInstructions}\nApproved presentation preferences: ${JSON.stringify(context.presentation_preferences)}. These affect wording only, never business rules.`, max_output_tokens: 2500,
           input: [{ role: 'user', content: [{ type: 'input_text', text: JSON.stringify(context) }] }],
           text: { format: { type: 'json_schema', name: 'monkey_trucking_ai_decision', strict: true, schema: decisionSchema } },
         }),
@@ -528,6 +530,8 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
         const options=selected.length?selected:catalogPricing.filter((m:any)=>(quantity.material_candidates?.length?quantity.material_candidates:candidates).some((candidate:any)=>candidate.id===m.id))
         const known=(key:string)=>decision.known_facts.find((f:any)=>f.key===key)?.value
         const selectedMaterial=catalogPricing.find((m:any)=>m.id===quantity.material_id)
+        const recommended=plan.recommendation_key?catalogPricing.find((m:any)=>m.catalog_key===plan.recommendation_key||m.id===plan.recommendation_key):null
+        if(plan.recommendation_key&&!recommended)throw new Error('Response recommends an unknown catalog identity.')
         // Approved public catalog uses, keyed by immutable catalog identity.
         const uses:Record<string,[string,string]>={
           'mat-1':['driveways and compactable base','entradas y base compactable'],
@@ -546,6 +550,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
           service_requests:hasCustom?['custom work pricing pending Salvador']:[],
           approximate:quantity.input_unit==='TONS',
           options:options.filter((m:any)=>Number.isFinite(m.price_per_yard)).slice(0,3).map((m:any)=>({...m,use_en:uses[m.catalog_key]?.[0],use_es:uses[m.catalog_key]?.[1]})),
+          recommendation:recommended?{...recommended,use_en:uses[recommended.catalog_key]?.[0],use_es:uses[recommended.catalog_key]?.[1]}:null,
           full_load_price:selectedMaterial?.full_load_price,price_per_yard:selectedMaterial?.price_per_yard,
           question_references:[...catalogPricing.flatMap((m:any)=>[m.name,m.name.toLowerCase(),...(m.catalog_key==='mat-3'?['3x4','3 x 4']:[])]),route.destination??''],
           comparisons:selected.filter((m:any)=>Number.isFinite(m.current_quantity_total)).map((m:any)=>({...m,material_total:m.current_quantity_total})),comparison_yards:quantity.yards,

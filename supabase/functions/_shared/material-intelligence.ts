@@ -95,7 +95,8 @@ export function resolveConversationQuantity(messages: any[], materials: any[], s
     const selector=selections.at(-1)
     const explicitSelection=selector?body.slice(selector.index!+selector[0].length):undefined
     const comparing=/\b(difference|compare|versus|vs|recommend|diferencia|recomienda)\b/i.test(body)
-    const mentions=materialCandidates(explicitSelection??body,materials)
+    const selectedMentions=explicitSelection?materialCandidates(explicitSelection,materials):[]
+    const mentions=selectedMentions.length?selectedMentions:materialCandidates(body,materials)
     if (!comparing || explicitSelection) {
       if(mentions.length===1){currentMaterial=mentions[0];candidates=[]}
       else if(mentions.length>1){currentMaterial=null;candidates=mentions}

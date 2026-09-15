@@ -77,6 +77,9 @@ describe('canonical corrections before business tools',()=>{
   it('does not use negated quantities or an earlier selection in the same correction',()=>{
     expect(resolveConversationQuantity([customer("I don't want commercial, use flexbase, 25 yards not 30 yards")],materials)).toMatchObject({material_id:'uuid-flex',yards:25})
   })
+  it('resolves material and quantity corrections independently within one message',()=>{
+    expect(resolveConversationQuantity([customer('18 yards crushed concrete'),customer('commercial instead, actually make it 30 yards')],materials)).toMatchObject({material_id:'uuid-commercial',yards:30})
+  })
 })
 
 describe('shared production conversation orchestration',()=>{
@@ -98,7 +101,7 @@ describe('shared production conversation orchestration',()=>{
     expect(result.contexts[0].deterministic_pricing_result).toMatchObject({yards:28})
   })
   it('compares verified same-quantity prices without replaying a quote or selecting another product',async()=>{
-    const result=await run([customer('18 yards commercial'),ai('what address?'),customer('what is the price difference with 3x4?')],{objective:'COMPARE',answers:[],comparison_keys:['mat-1','mat-3'],next_question:''})
+    const result=await run([customer('18 yards commercial'),ai('what address?'),customer('what is the price difference with 3x4?')],{objective:'COMPARE',answers:['PRICE'],comparison_keys:['mat-1','mat-3'],next_question:''})
     expect(result.reply).toContain('difference for 18 yards is $90.00')
     expect(result.reply).not.toContain('estimated total')
     expect(result.tool_results.quantity.material_id).toBe('uuid-commercial')
@@ -109,6 +112,12 @@ describe('shared production conversation orchestration',()=>{
     expect(result.reply).toContain('10 miles')
     expect(result.reply).toContain('2 loads')
     expect(result.reply).not.toMatch(/999|estimated total|Monkey Trucking/)
+  })
+  it('does not duplicate product guidance or add prices to a uses/recommendation question',async()=>{
+    const result=await run([customer('18 yards crushed concrete for a driveway'),ai('commercial clean or 3x4?'),customer('what is the difference and which do you recommend?')],{objective:'COMPARE',answers:['PRODUCT_OPTIONS','RECOMMENDATION'],comparison_keys:['mat-1','mat-3'],recommendation_key:'mat-1',next_question:'Which would you like?'})
+    expect(result.reply).toContain("I'd start with commercial clean")
+    expect(result.reply?.match(/3x4 crushed concrete:/g)).toHaveLength(1)
+    expect(result.reply).not.toContain('$')
   })
   it('explains the material rate/load breakdown without model arithmetic',async()=>{
     const result=await run([customer('28 yards flexbase'),ai('material is $1024.00'),customer('how did you calculate the material cost?')],{objective:'EXPLAIN',answers:['PRICE'],next_question:''})

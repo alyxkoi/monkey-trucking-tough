@@ -3,11 +3,12 @@
 // next question. Business assertions are composed only from these server facts.
 export const responsePlanSchema = {
   type:'object',additionalProperties:false,
-  required:['objective','answers','comparison_keys','acknowledgement','next_question','required_tools','escalation_scope','escalation_category'],
+  required:['objective','answers','comparison_keys','recommendation_key','acknowledgement','next_question','required_tools','escalation_scope','escalation_category'],
   properties:{
     objective:{type:'string',enum:['ANSWER','EXPLAIN','COMPARE','SUMMARY','COLLECT']},
     answers:{type:'array',items:{type:'string',enum:['SERVICE_SCOPE','INSTALLATION_SCOPE','PRODUCT_OPTIONS','RECOMMENDATION','PRICE','DELIVERY','QUANTITY','SUMMARY']}},
     comparison_keys:{type:'array',items:{type:'string'}},
+    recommendation_key:{type:'string'},
     acknowledgement:{type:'string'},next_question:{type:'string'},
     required_tools:{type:'array',items:{type:'string',enum:['MATERIAL','ROUTE']}},
     escalation_scope:{type:'string',enum:['NONE','SUBTASK','CONVERSATION']},
@@ -61,10 +62,15 @@ export function composeConversationResponse(decision:any,pricing:any) {
   for(const answer of answerSet) {
     if(answer==='SERVICE_SCOPE')pieces.push(es?'sí, hacemos entradas, caminos privados, estanques y trabajo de tierra.':'yes, we do driveways, private roads, ponds and dirt work.')
     if(answer==='INSTALLATION_SCOPE')pieces.push(es?'este cálculo cubre material y entrega, no el trabajo de instalación. Salvador cotiza ese trabajo por separado.':'this estimate covers material and delivery, not installation work. Salvador prices that work separately.')
-    if(answer==='PRODUCT_OPTIONS'||answer==='RECOMMENDATION') {
+    if(answer==='PRODUCT_OPTIONS') {
       const options=c.options??[]
       if(options.length)pieces.push(options.map((m:any)=>`${productLabel(m)}${m[es?'use_es':'use_en']?`: ${m[es?'use_es':'use_en']}`:''}`).join('; ')+'.')
       else pieces.push(es?'para recomendar el material correcto, necesito saber cómo lo va a usar.':'to recommend the right material, I need to know how you will use it.')
+    }
+    if(answer==='RECOMMENDATION') {
+      const recommended=c.recommendation
+      if(recommended?.[es?'use_es':'use_en'])pieces.push(es?`yo empezaría con ${productLabel(recommended)} para ${recommended.use_es}.`:`I'd start with ${productLabel(recommended)} for ${recommended.use_en}.`)
+      else if(!answerSet.has('PRODUCT_OPTIONS'))pieces.push(es?'para recomendarle uno, cómo piensa usar el material?':'to recommend one, how will you use the material?')
     }
     if(answer==='QUANTITY'&&Number.isFinite(yards)&&yards>0)pieces.push(es?`queda ${c.approximate?'aproximadamente ':''}${amount(yards)} yardas${name?` de ${name}`:''}.`:`got it, ${c.approximate?'approximately ':''}${amount(yards)} yards${name?` of ${name}`:''}.`)
     if(answer==='PRICE'&&plan.objective!=='COMPARE') {
@@ -86,7 +92,7 @@ export function composeConversationResponse(decision:any,pricing:any) {
       pieces.push(es?`hasta ahora tengo: ${values.join('; ')||'todavía no hay detalles confirmados'}.`:`so far I have: ${values.join('; ')||'no confirmed details yet'}.`)
     }
   }
-  if(plan.objective==='COMPARE') {
+  if(plan.objective==='COMPARE'&&answerSet.has('PRICE')) {
     const comparisons=c.comparisons??[]
     if(comparisons.length>=2) {
       pieces.push(comparisons.map((m:any)=>`${productLabel(m)}: ${money(m.material_total)} ${es?'de material':'for material'}`).join('; ')+'.')
