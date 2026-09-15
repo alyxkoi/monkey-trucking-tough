@@ -533,15 +533,21 @@ export type Database = {
           consent_source: string
           customer_id: string | null
           email: string
+          email_marketing_consent: boolean
+          email_marketing_consent_at: string | null
           email_message_id: string
           id: string
           lead_id: string | null
+          marketing_consent_disclosure_text: string | null
+          marketing_consent_disclosure_version: string | null
           message: string | null
           name: string
           phone: string
           project_type: string | null
           sms_consent: boolean
           sms_consent_at: string | null
+          sms_marketing_consent: boolean
+          sms_marketing_consent_at: string | null
           source: string | null
           submitted_at: string
           tracking_link_id: string | null
@@ -553,15 +559,21 @@ export type Database = {
           consent_source: string
           customer_id?: string | null
           email: string
+          email_marketing_consent?: boolean
+          email_marketing_consent_at?: string | null
           email_message_id: string
           id?: string
           lead_id?: string | null
+          marketing_consent_disclosure_text?: string | null
+          marketing_consent_disclosure_version?: string | null
           message?: string | null
           name: string
           phone: string
           project_type?: string | null
           sms_consent?: boolean
           sms_consent_at?: string | null
+          sms_marketing_consent?: boolean
+          sms_marketing_consent_at?: string | null
           source?: string | null
           submitted_at?: string
           tracking_link_id?: string | null
@@ -573,15 +585,21 @@ export type Database = {
           consent_source?: string
           customer_id?: string | null
           email?: string
+          email_marketing_consent?: boolean
+          email_marketing_consent_at?: string | null
           email_message_id?: string
           id?: string
           lead_id?: string | null
+          marketing_consent_disclosure_text?: string | null
+          marketing_consent_disclosure_version?: string | null
           message?: string | null
           name?: string
           phone?: string
           project_type?: string | null
           sms_consent?: boolean
           sms_consent_at?: string | null
+          sms_marketing_consent?: boolean
+          sms_marketing_consent_at?: string | null
           source?: string | null
           submitted_at?: string
           tracking_link_id?: string | null
@@ -751,6 +769,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           email: string | null
+          email_marketing_consent_at: string | null
           id: string
           is_active: boolean
           last_activity_at: string
@@ -774,6 +793,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email?: string | null
+          email_marketing_consent_at?: string | null
           id?: string
           is_active?: boolean
           last_activity_at?: string
@@ -797,6 +817,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email?: string | null
+          email_marketing_consent_at?: string | null
           id?: string
           is_active?: boolean
           last_activity_at?: string
@@ -2980,6 +3001,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           email: string | null
+          email_marketing_consent_at: string | null
           id: string
           is_active: boolean
           last_activity_at: string

@@ -9,7 +9,7 @@ const Terms = () => (
       description="Website, service, quote, scheduling, payment, and customer care messaging terms for Monkey Trucking LLC."
       path="/terms"
     />
-    <LegalPage title="TERMS & CONDITIONS" updated="August 27, 2026">
+    <LegalPage title="TERMS & CONDITIONS" updated="September 14, 2026">
       <LegalSection title="ABOUT THESE TERMS">
         <p>
           These Terms &amp; Conditions govern use of the Monkey Trucking LLC website and provide a practical baseline for website inquiries and customer care messaging. Monkey Trucking LLC is located at 7653 S FM 148, Kaufman, TX 75142.
@@ -54,16 +54,17 @@ const Terms = () => (
       </LegalSection>
 
       <LegalSection title="SMS TERMS">
-        <p className="font-semibold text-foreground">Program: Monkey Trucking LLC Customer Care Messaging</p>
+        <p className="font-semibold text-foreground">Program: Monkey Trucking LLC Customer Care and Promotional Email and Text Messaging</p>
         <p>Messages may include:</p>
         <LegalList>
           <li>Quote communication.</li>
           <li>Scheduling and delivery information.</li>
           <li>Job updates.</li>
           <li>Service questions and customer support.</li>
+          <li>Occasional service offers and seasonal updates when the customer expressly opts in.</li>
         </LegalList>
         <p>
-          Participation is voluntary, and consent is not a condition of purchase. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Applicable opt-out requests will stop further non-required SMS communications. Carriers are not responsible for delayed or undelivered messages. Please keep your contact information accurate.
+          Participation is voluntary, and consent is not a condition of purchase. Message frequency varies. Message and data rates may apply. Reply STOP to opt out of texts or HELP for help. Marketing emails include an unsubscribe method. Applicable opt-out requests will stop further non-required messages on that channel. Carriers are not responsible for delayed or undelivered messages. Please keep your contact information accurate.
         </p>
         <p>
           Mobile phone numbers, SMS opt-in data, and messaging consent are not shared with third parties or affiliates for marketing or promotional purposes. Service providers may process information only as reasonably necessary to support Monkey Trucking's communications services. See the <Link to="/privacy-policy" className="font-medium text-primary underline underline-offset-2">Privacy Policy</Link> for more information.

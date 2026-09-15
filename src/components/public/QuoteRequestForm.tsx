@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
 import { getTrackingAttribution } from "@/lib/trackingAttribution";
 
-const SMS_DISCLOSURE_VERSION = "website-contact-v1-2026-08-27";
+const SMS_DISCLOSURE_VERSION = "website-contact-v2-2026-09-14";
 const newClientRequestId = () => globalThis.crypto?.randomUUID?.()
   ?? "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (digit) => (
     Number(digit) ^ (Math.random() * 16 >> Number(digit) / 4)
@@ -195,7 +195,7 @@ export default function QuoteRequestForm({ idPrefix = "contact", appearance = "d
                 <Checkbox id={`${idPrefix}-sms-consent`} checked={form.smsConsent} onCheckedChange={(checked) => setForm({ ...form, smsConsent: checked === true })} aria-describedby={`${idPrefix}-sms-disclosure`} className={`mt-1 h-5 w-5 ${dark ? "border-white/40 data-[state=checked]:border-primary data-[state=checked]:bg-primary" : ""}`} />
                 <div id={`${idPrefix}-sms-disclosure`} className={`text-sm leading-relaxed ${dark ? "text-white/[0.68]" : "text-muted-foreground"}`}>
                   <label htmlFor={`${idPrefix}-sms-consent`} className="cursor-pointer">
-                    I agree to receive customer care text messages from Monkey Trucking LLC regarding quotes, scheduling, deliveries, job updates, and service questions. Message frequency varies. Msg &amp; data rates may apply. Reply HELP for help or STOP to opt out. Consent is not a condition of purchase. See our{" "}
+                    I agree to receive customer care and occasional promotional emails and text messages from Monkey Trucking LLC regarding quotes, scheduling, deliveries, job updates, service questions, offers, and seasonal updates. Message frequency varies. Msg &amp; data rates may apply. Reply HELP for help or STOP to opt out of texts. Consent is not a condition of purchase. See our{" "}
                   </label>
                   <Link to="/privacy-policy" className="font-medium text-primary underline underline-offset-2">Privacy Policy</Link>{" "}and{" "}
                   <Link to="/terms" className="font-medium text-primary underline underline-offset-2">Terms &amp; Conditions</Link>.

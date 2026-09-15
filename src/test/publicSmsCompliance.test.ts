@@ -12,6 +12,7 @@ describe("public SMS consent and legal-page contracts", () => {
     expect(contact).toContain("smsConsent: checked === true");
     expect(contact).toContain("Optional. Leave unchecked to submit without SMS consent.");
     expect(contact).toContain('smsDisclosureVersion: SMS_DISCLOSURE_VERSION');
+    expect(contact).toContain('customer care and occasional promotional emails and text messages');
     expect(contact).not.toMatch(/id="contact-sms-consent"[^>]*required/s);
   });
 
@@ -23,6 +24,9 @@ describe("public SMS consent and legal-page contracts", () => {
     expect(handler).toContain("emailWarnings");
     expect(handler).toContain("consent_source: SMS_CONSENT_SOURCE");
     expect(handler).toContain("consent_disclosure_version: SMS_CONSENT_VERSION");
+    expect(handler).toContain("sms_marketing_consent: smsConsent");
+    expect(handler).toContain("email_marketing_consent: smsConsent");
+    expect(handler).toContain("marketing_consent_disclosure_version: SMS_CONSENT_VERSION");
     expect(handler).not.toMatch(/functions\.invoke\([^)]*sms/i);
   });
 
@@ -52,7 +56,7 @@ describe("public SMS consent and legal-page contracts", () => {
     const privacy = read("src/pages/PrivacyPolicy.tsx");
     const terms = read("src/pages/Terms.tsx");
     expect(privacy).toContain("does not share, sell, rent, or provide mobile phone numbers, SMS opt-in data, or messaging consent to third parties or affiliates for marketing or promotional purposes");
-    expect(terms).toContain("Program: Monkey Trucking LLC Customer Care Messaging");
+    expect(terms).toContain("Program: Monkey Trucking LLC Customer Care and Promotional Email and Text Messaging");
     for (const page of [privacy, terms]) {
       expect(page).toContain("Message frequency varies");
       expect(page).toContain("Message and data rates may apply");

@@ -885,7 +885,6 @@ export function SettingsCommunication() {
   const readiness = deriveSettingsReadiness(sourceData ?? null)
   const activeMaterials = sourceData?.materials.filter((material) => material.is_active) ?? []
   const configuredConversions = activeMaterials.filter((material) => Number(material.tons_per_cubic_yard) > 0).length
-  const verifiedConversions = activeMaterials.filter((material) => material.tons_conversion_verified).length
   const routeOrigin = [sourceData?.appSettings?.company_address, sourceData?.appSettings?.company_city_state_zip].filter(Boolean).join(', ')
 
   const generatePreview = async (ruleId: string) => {
@@ -994,7 +993,7 @@ export function SettingsCommunication() {
             label="Tons to yards"
             value={`${configuredConversions}/${activeMaterials.length} configured`}
             tone={configuredConversions === activeMaterials.length && activeMaterials.length > 0 ? 'ok' : 'warn'}
-            line={`${verifiedConversions} verified with supplier tickets or a lab result. All customer conversions are described as estimates.`}
+            line="Configured as loose material operating estimates. The AI talks and quotes in yards, adds the approved one yard reserve only when converting tons, and describes every conversion as approximate."
           />
           <StatusRow
             label="Driving distance"
@@ -1059,9 +1058,9 @@ export function SettingsCommunication() {
                       {rule.delay_description}
                     </span>
                   </span>
-                  {readiness.capabilities.automations.status !== 'READY' && <StatusPill tone={readinessTone(readiness.capabilities.automations.status)} size="sm" className="shrink-0">
-                    {readiness.capabilities.automations.label}
-                  </StatusPill>}
+                  <StatusPill tone={rule.status === 'ON' ? 'ok' : rule.status === 'OFF' ? 'idle' : 'warn'} size="sm" className="shrink-0">
+                    {rule.status === 'ON' ? 'On' : rule.status === 'OFF' ? 'Off' : 'Setup required'}
+                  </StatusPill>
                 </button>
 
                 {open && (

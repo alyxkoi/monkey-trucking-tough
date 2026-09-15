@@ -8,8 +8,8 @@ const corsHeaders = {
 }
 
 const SMS_CONSENT_SOURCE = 'website_contact_form'
-const SMS_CONSENT_VERSION = 'website-contact-v1-2026-08-27'
-const SMS_CONSENT_DISCLOSURE = 'I agree to receive customer care text messages from Monkey Trucking LLC regarding quotes, scheduling, deliveries, job updates, and service questions. Message frequency varies. Msg & data rates may apply. Reply HELP for help or STOP to opt out. Consent is not a condition of purchase. See our Privacy Policy and Terms & Conditions.'
+const SMS_CONSENT_VERSION = 'website-contact-v2-2026-09-14'
+const SMS_CONSENT_DISCLOSURE = 'I agree to receive customer care and occasional promotional emails and text messages from Monkey Trucking LLC regarding quotes, scheduling, deliveries, job updates, service questions, offers, and seasonal updates. Message frequency varies. Msg & data rates may apply. Reply HELP for help or STOP to opt out of texts. Consent is not a condition of purchase. See our Privacy Policy and Terms & Conditions.'
 const SITE_ORIGIN = (Deno.env.get('PUBLIC_SITE_URL') ?? 'https://www.monkeytrucking.llc').replace(/\/$/, '')
 const FROM = 'Monkey Trucking <no-reply@notify.monkeytrucking.llc>'
 const REPLY_TO = 'contact@monkeytrucking.llc'
@@ -226,6 +226,7 @@ Deno.serve(async (req) => {
       ? clientRequestId
       : crypto.randomUUID()
 
+    const smsConsentAt = smsConsent ? new Date().toISOString() : null
     const baseSubmission = {
       email_message_id: messageId,
       name,
@@ -234,7 +235,13 @@ Deno.serve(async (req) => {
       project_type: projectType || null,
       message: [location ? `Location: ${location}` : '', message || '', submissionMetadata ? `Website source:\n${submissionMetadata}` : ''].filter(Boolean).join('\n\n') || null,
       sms_consent: smsConsent,
-      sms_consent_at: smsConsent ? new Date().toISOString() : null,
+      sms_consent_at: smsConsentAt,
+      sms_marketing_consent: smsConsent,
+      sms_marketing_consent_at: smsConsentAt,
+      email_marketing_consent: smsConsent,
+      email_marketing_consent_at: smsConsentAt,
+      marketing_consent_disclosure_version: SMS_CONSENT_VERSION,
+      marketing_consent_disclosure_text: SMS_CONSENT_DISCLOSURE,
       consent_source: SMS_CONSENT_SOURCE,
       consent_disclosure_version: SMS_CONSENT_VERSION,
       consent_disclosure_text: SMS_CONSENT_DISCLOSURE,

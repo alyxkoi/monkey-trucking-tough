@@ -42,6 +42,7 @@ beforeAll(async () => {
   await db.exec(read('20260914154000_failed_consent_retry'))
   await db.exec(read('20260914190000_initial_response_and_reschedule_intake'))
   await db.exec(read('20260914223000_immediate_sms_processing'))
+  await db.exec(read('20260915021000_transactional_followup_alignment'))
 }, 30_000)
 afterAll(async () => { await db?.close() })
 
@@ -255,14 +256,30 @@ describe.sequential('executed PostgreSQL SMS transactions', () => {
       await db.exec("update communication_runtime set scheduled_sending_enabled=true,activated_at='2026-09-01T00:00:00Z'; update automation_rules set status='ON'")
       await query("update customers set sms_double_opt_in_at='2026-09-01T00:00:00Z' where id=$1",[c.customerId])
       await query("update leads set created_at='2026-09-14T09:00:00-05:00' where id=$1",[c.leadId])
-      const due=await query("select * from communication_candidates('2026-09-14T09:05:00-05:00') where lead_id=$1",[c.leadId])
+      const due=await query("select * from communication_candidates('2026-09-14T13:05:00-05:00') where lead_id=$1",[c.leadId])
       expect(due).toHaveLength(1)
-      expect(due[0]).toMatchObject({rule_id:'new-lead',step:0})
+      expect(due[0]).toMatchObject({rule_id:'new-lead',step:1})
       const [q]=await query("insert into quotes(quote_number,customer_id,lead_id,status,sent_at) values('FIX-Q1',$1,$2,'SENT','2026-09-14T10:00:00-05:00') returning *",[c.customerId,c.leadId])
       const guard={subject_id:q.id,anchor:q.sent_at,version:q.updated_at,step:0}
       expect(await rpc('sms_automation_guard',['quote-follow-up',c.leadId,guard,'2026-09-15T09:05:00-05:00'])).toBe(true)
       await query("update quotes set status='ACCEPTED' where id=$1",[q.id])
       expect(await rpc('sms_automation_guard',['quote-follow-up',c.leadId,guard,'2026-09-15T09:05:00-05:00'])).toBe(false)
+    } finally {await db.exec('rollback')}
+  })
+
+  it('never duplicates the immediate reply and stops lead follow-ups after a real customer response',async()=>{
+    await db.exec('begin')
+    try {
+      const c=await customer('+12145550014')
+      await db.exec("update communication_runtime set scheduled_sending_enabled=true,activated_at='2026-09-01T00:00:00Z'; update automation_rules set status='ON' where id='new-lead'")
+      await query("update customers set sms_double_opt_in_at='2026-09-01T00:00:00Z' where id=$1",[c.customerId])
+      await query("update leads set created_at='2026-09-14T09:00:00-05:00' where id=$1",[c.leadId])
+      await query("insert into lead_messages(lead_id,customer_id,sender_type,body,delivery_status,message_kind,created_at) values($1,$2,'CUSTOMER','Need gravel','RECEIVED','INBOUND','2026-09-14T09:00:00-05:00')",[c.leadId,c.customerId])
+      expect(await query("select * from communication_candidates('2026-09-14T09:05:00-05:00') where lead_id=$1",[c.leadId])).toEqual([])
+      const [candidate]=await query("select * from communication_candidates('2026-09-14T13:05:00-05:00') where lead_id=$1",[c.leadId])
+      expect(candidate).toMatchObject({rule_id:'new-lead',step:1})
+      await query("insert into lead_messages(lead_id,customer_id,sender_type,body,delivery_status,message_kind,created_at) values($1,$2,'CUSTOMER','10 yards','RECEIVED','INBOUND','2026-09-14T09:10:00-05:00')",[c.leadId,c.customerId])
+      expect(await rpc('sms_automation_guard',['new-lead',c.leadId,candidate.guard,'2026-09-14T13:05:00-05:00'])).toBe(false)
     } finally {await db.exec('rollback')}
   })
 

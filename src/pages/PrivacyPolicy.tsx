@@ -9,7 +9,7 @@ const PrivacyPolicy = () => (
       description="How Monkey Trucking LLC collects, uses, protects, and retains customer and website information, including SMS consent records."
       path="/privacy-policy"
     />
-    <LegalPage title="PRIVACY POLICY" updated="August 27, 2026">
+    <LegalPage title="PRIVACY POLICY" updated="September 14, 2026">
       <LegalSection title="ABOUT THIS POLICY">
         <p>
           This Privacy Policy explains how Monkey Trucking LLC collects and uses information when you visit our website, contact us, request a quote, or communicate with us about materials, delivery, or property and site services.
@@ -48,7 +48,7 @@ const PrivacyPolicy = () => (
           Monkey Trucking LLC does not share, sell, rent, or provide mobile phone numbers, SMS opt-in data, or messaging consent to third parties or affiliates for marketing or promotional purposes.
         </p>
         <p>
-          If you voluntarily opt in, Monkey Trucking may send customer care messages about quotes, scheduling, deliveries, job updates, and service questions. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. SMS consent is not a condition of purchase.
+          If you voluntarily opt in, Monkey Trucking may send customer care messages about quotes, scheduling, deliveries, job updates, and service questions, plus occasional service offers and seasonal updates by email or text as disclosed at the point of consent. Message frequency varies. Message and data rates may apply. Reply STOP to opt out of texts or HELP for help. Consent is not a condition of purchase. Marketing emails include an unsubscribe method.
         </p>
         <p>
           Service providers may receive information only when reasonably necessary to support services for Monkey Trucking, such as communications, hosting, security, or technology services. They are not permitted to use mobile information or SMS consent for their own marketing or promotional purposes.

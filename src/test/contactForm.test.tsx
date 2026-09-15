@@ -48,7 +48,7 @@ describe("public quote form", () => {
         location: "Kaufman, TX",
         message: "Need driveway material",
         smsConsent: false,
-        smsDisclosureVersion: "website-contact-v1-2026-08-27",
+        smsDisclosureVersion: "website-contact-v2-2026-09-14",
         trackingAttribution: null,
         clientRequestId: expect.stringMatching(/^[0-9a-f-]{36}$/i),
       }),
@@ -77,5 +77,30 @@ describe("public quote form", () => {
     expect(screen.getByLabelText("Name")).toHaveValue("Alicia Ortiz");
     expect(screen.getByLabelText("Phone")).toHaveValue("214-555-0182");
     expect(screen.getByLabelText("Email")).toHaveValue("alicia@example.com");
+  });
+
+  it("submits the expanded SMS choice only after the customer checks it", async () => {
+    render(
+      <HelmetProvider>
+        <MemoryRouter>
+          <Contact />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Mike Test" } });
+    fireEvent.change(screen.getByLabelText("Phone"), { target: { value: "214-555-0199" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "mike@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue to project details" }));
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: "Send Quote Request" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
+    expect(invoke).toHaveBeenCalledWith("send-contact-email", {
+      body: expect.objectContaining({
+        smsConsent: true,
+        smsDisclosureVersion: "website-contact-v2-2026-09-14",
+      }),
+    });
   });
 });
