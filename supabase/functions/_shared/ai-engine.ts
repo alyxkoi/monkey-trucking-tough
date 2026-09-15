@@ -133,6 +133,7 @@ export function materialTool(messages: any[], materials: any[], settings: any, r
     delivery_fee_per_load: deliveryPerLoad,
     delivery_total: deliveryTotal ?? (route?.status === 'SETUP_REQUIRED' ? 'ROUTE_SETUP_REQUIRED' : route?.destination ? 'REQUIRES_APPROVED_DISTANCE' : 'REQUIRES_EXACT_ADDRESS'),
     tax_total: tax,
+    tax_applicable: appliedTaxRate > 0,
     grand_total: deliveryTotal == null ? null : Math.round((materialTotal + deliveryTotal + (tax ?? 0)) * 100) / 100,
     quantity,
     route,

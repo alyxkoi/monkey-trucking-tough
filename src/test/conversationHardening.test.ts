@@ -199,6 +199,7 @@ describe('shared production conversation orchestration',()=>{
     const result=await run([customer('20 yards commercial')],{objective:'ANSWER',answers:['PRICE'],next_question:''},{draft_reply:'the cost is $999999 for 999 miles'})
     expect(result.reply).toContain('$750.00')
     expect(result.reply).not.toContain('999')
+    expect(result.reply).not.toMatch(/tax|impuestos/)
   })
   it('requires server conversation facts in the standalone composer',()=>{
     expect(()=>composeConversationResponse(decision(),{})).toThrow('Current conversation facts')

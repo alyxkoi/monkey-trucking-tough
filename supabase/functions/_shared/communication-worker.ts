@@ -39,8 +39,8 @@ function renderAutonomousReply(decision: any, pricing: any): string {
         : `${converted ? `i recommend approximately ${converted.recommendedYards} yards. ` : ''}the material is $${amount}. delivery for ${pricing.delivery_loads} ${pricing.delivery_loads===1?'load':'loads'} is $${delivery}. the estimated total${pricing.tax_total>0?' with tax':''} is $${total}.`
     }
     return decision.detected_language === 'SPANISH'
-      ? `${converted ? `recomiendo aproximadamente ${converted.recommendedYards} yardas. ` : ''}el material para ${pricing.yards} yardas de ${material} cuesta $${amount}. la entrega y los impuestos se confirman por separado.${addressKnown?'':' cuál es la dirección exacta de entrega.'}`
-      : `${converted ? `i recommend approximately ${converted.recommendedYards} yards. ` : ''}the material for ${pricing.yards} yards of ${material} is $${amount}. delivery and tax are confirmed separately.${addressKnown?'':' what is the exact delivery address.'}`
+      ? `${converted ? `recomiendo aproximadamente ${converted.recommendedYards} yardas. ` : ''}el material para ${pricing.yards} yardas de ${material} cuesta $${amount}. ${pricing.tax_applicable===false?'la entrega se confirma por separado.':'la entrega y los impuestos se confirman por separado.'}${addressKnown?'':' cuál es la dirección exacta de entrega.'}`
+      : `${converted ? `i recommend approximately ${converted.recommendedYards} yards. ` : ''}the material for ${pricing.yards} yards of ${material} is $${amount}. ${pricing.tax_applicable===false?'delivery is confirmed separately.':'delivery and tax are confirmed separately.'}${addressKnown?'':' what is the exact delivery address.'}`
   }
   if (!['ASK_NEXT_MISSING_FACT','COLLECT_RESCHEDULE_PREFERENCE'].includes(decision.recommended_action)) throw new Error('This AI action requires staff review')
   if (decision.recommended_action === 'COLLECT_RESCHEDULE_PREFERENCE'

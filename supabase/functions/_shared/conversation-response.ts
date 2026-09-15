@@ -80,7 +80,7 @@ export function composeConversationResponse(decision:any,pricing:any) {
           if(!detail||!Number.isFinite(c.full_load_price)||!Number.isFinite(c.price_per_yard))throw new Error('Current material rate details are unavailable.')
           pieces.push(`${detail}: ${money(pricing.material_total)} ${es?'de material':'for material'}.`)
         }else if(routed)pieces.push(es?`${money(pricing.material_total)} de material y ${money(pricing.delivery_total)} de entrega${pricing.tax_total>0?`, más ${money(pricing.tax_total)} de impuestos`:''}. total estimado: ${money(pricing.grand_total)}.`:`${money(pricing.material_total)} for material and ${money(pricing.delivery_total)} for delivery${pricing.tax_total>0?`, plus ${money(pricing.tax_total)} tax`:''}. estimated total: ${money(pricing.grand_total)}.`)
-        else pieces.push(es?`${amount(yards)} yardas de ${name} salen en ${money(pricing.material_total)} de material. la entrega y los impuestos se calculan por separado.`:`${amount(yards)} yards of ${name} comes to ${money(pricing.material_total)} for material. delivery and tax are calculated separately.`)
+        else pieces.push(es?`${amount(yards)} yardas de ${name} salen en ${money(pricing.material_total)} de material. ${pricing.tax_applicable===false?'la entrega se calcula por separado.':'la entrega y los impuestos se calculan por separado.'}`:`${amount(yards)} yards of ${name} comes to ${money(pricing.material_total)} for material. ${pricing.tax_applicable===false?'delivery is calculated separately.':'delivery and tax are calculated separately.'}`)
       }else pieces.push(es?'puedo calcularlo al confirmar el material y la cantidad.':'I can calculate that once the material and quantity are confirmed.')
     }
     if(answer==='DELIVERY') {
