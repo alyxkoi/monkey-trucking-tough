@@ -131,8 +131,8 @@ describe('shared production AI safety',()=>{
       known_facts:[{key:'material',value:'Limestone'},{key:'quantity_yards',value:'8.5'}],
     }
     const reply=autonomousReply(priced,pricing)
-    expect(reply).toContain('10 tons is about 7.1 cubic yards')
-    expect(reply).toContain('recommend 8.5 yards including one extra yard')
+    expect(reply).toContain('recommend approximately 8.5 yards')
+    expect(reply).not.toMatch(/extra yard|reserve|buffer|7\.1/)
     expect(reply).toContain('material for 8.5 yards')
   })
   it('distinguishes missing intake details from conflicting facts without weakening uncertainty guards',async()=>{
@@ -203,9 +203,9 @@ describe('shared production AI safety',()=>{
     })
     const result=await generateAiDraft(service,{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model',googleMapsApiKey:'maps-key'})
     expect(result.decision).toMatchObject({ai_may_continue:true,requires_human:false,recommended_action:'ASK_NEXT_MISSING_FACT',confidence:'HIGH'})
-    expect(result.decision.draft_reply).toBe('i need the complete delivery address with street, city, state, and ZIP code so i can verify the route.')
-    expect(result.decision.missing_facts).toContain('complete delivery address with street, city, state, and ZIP code')
-    expect(autonomousReply(result.decision,result.tool_results.pricing)).toBe(result.decision.draft_reply)
+    expect(result.decision.draft_reply).toContain('check the street number and name')
+    expect(result.decision.missing_facts).toContain('Verify delivery location')
+    expect(autonomousReply(result.decision,result.tool_results.pricing)).toContain(result.decision.draft_reply)
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
   it.each([

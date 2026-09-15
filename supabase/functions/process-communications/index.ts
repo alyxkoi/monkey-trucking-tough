@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.116.0'
-import { aiConfig } from '../_shared/ai-config.ts'
+import { configuredAi } from '../_shared/ai-config.ts'
 import { runCommunicationJob } from '../_shared/communication-worker.ts'
 import { dispatchSms } from '../_shared/sms-dispatch.ts'
 import { workerAuthorized } from '../_shared/worker-auth.ts'
@@ -30,9 +30,9 @@ Deno.serve(async(req) => {
     if (runtime.error) throw new Error('Runtime settings unavailable')
     let job:{processed:boolean,messageId?:string|null}={processed:false}
     if (jobId&&runtime.data.ai_sending_enabled) {
-      job=await runCommunicationJob(service,aiConfig(),Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID'),jobId)
+      job=await runCommunicationJob(service,await configuredAi(service),Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID'),jobId)
     } else if (!targeted&&(runtime.data.ai_sending_enabled||runtime.data.scheduled_sending_enabled)) {
-      job=await runCommunicationJob(service,aiConfig(),Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID'))
+      job=await runCommunicationJob(service,await configuredAi(service),Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID'))
     }
     const apiKey=Deno.env.get('SENT_DM_API_KEY')
     let dispatches=0

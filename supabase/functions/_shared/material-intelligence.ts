@@ -38,7 +38,8 @@ function materialForText(text: string, materials: any[]) {
   let best: { material: any; index: number; length: number } | null = null
   for (const material of materials) {
     const canonical = normalize(String(material.name ?? ''))
-    const aliases = [canonical, ...(MATERIAL_ALIASES[canonical] ?? [])]
+    const identityName = material.catalog_key === 'mat-6' ? 'millings asphalt 1/2" minus' : Object.keys(MATERIAL_ALIASES)[Number(String(material.catalog_key ?? '').replace('mat-', '')) - 1]
+    const aliases = [canonical, ...(MATERIAL_ALIASES[identityName ?? canonical] ?? MATERIAL_ALIASES[canonical] ?? [])]
     for (const alias of aliases) {
       const index = normalized.lastIndexOf(alias)
       if (index >= 0 && (!best || index > best.index || (index === best.index && alias.length > best.length))) {
@@ -69,10 +70,21 @@ export function resolveConversationQuantity(messages: any[], materials: any[]): 
   let quantity: ReturnType<typeof lastQuantity> = null
   let sourceMessageId: string | null = null
 
-  for (const message of messages) {
+  for (const [index,message] of messages.entries()) {
     if (message.sender_type !== 'CUSTOMER') continue
     currentMaterial = materialForText(String(message.body ?? ''), materials) ?? currentMaterial
-    const found = lastQuantity(String(message.body ?? ''))
+    let found = lastQuantity(String(message.body ?? ''))
+    // An acceptance applies to the preceding single yard proposal, not an
+    // older ton estimate. Multiple yard options still require clarification.
+    const previous=messages[index-1]
+    if (!found && isSimpleAcceptance(String(message.body ?? '')) && ['AI','HUMAN'].includes(previous?.sender_type)) {
+      const proposals=[...String(previous.body??'').matchAll(/\b(\d+(?:\.\d+)?)\s*(?:cubic\s+)?(?:yards?|yardas?)\b/gi)]
+      const values=new Set(proposals.map(match=>Number(match[1])))
+      if(values.size===1){
+        found={index:0,unit:'YARDS',value:[...values][0]}
+        currentMaterial=materialForText(String(previous.body??''),materials)??currentMaterial
+      }
+    }
     if (found) {
       quantity = found
       sourceMessageId = message.id ?? null

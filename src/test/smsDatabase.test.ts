@@ -44,10 +44,38 @@ beforeAll(async () => {
   await db.exec(read('20260914223000_immediate_sms_processing'))
   await db.exec(read('20260915021000_transactional_followup_alignment'))
   await db.exec(read('20260915030000_fast_message_reconciliation'))
+  await db.exec(`create table materials(id uuid primary key default gen_random_uuid(),name text,price_per_yard numeric);
+    create table ai_audit_logs(id uuid primary key default gen_random_uuid(),created_at timestamptz default now(),status text);`)
+  await db.exec(read('20260915120000_ai_control_audit'))
 }, 30_000)
 afterAll(async () => { await db?.close() })
 
 describe.sequential('executed PostgreSQL SMS transactions', () => {
+  it('audits settings versions, rejects stale edits and runs a review at most every three days', async () => {
+    const saved=await rpc('save_ai_operation_settings',[actor,1,null,'DIRECT',true,true,null])
+    expect(saved.version).toBe(2)
+    await expect(rpc('save_ai_operation_settings',[actor,1,null,'WARM',true,true,null])).rejects.toThrow('Settings changed')
+    expect((await query("select count(*)::int as count from ai_operation_history where kind='SETTINGS'"))[0].count).toBe(1)
+    expect(await rpc('review_ai_operations')).toMatchObject({changed_rules:false})
+    expect(await rpc('review_ai_operations')).toMatchObject({skipped:true})
+    expect((await query("select has_function_privilege('authenticated','public.save_ai_operation_settings(uuid,integer,text,text,boolean,boolean,uuid)','EXECUTE') as allowed"))[0].allowed).toBe(false)
+  })
+
+  it('changes the conversation cutoff without touching the scheduled monthly limit', async () => {
+    const definition=(await query("select pg_get_functiondef('public.authorize_sms_dispatch(uuid,uuid)'::regprocedure) as body"))[0].body
+    expect(definition).toContain('AI_BURST_GUARD: 12 replies in 60 seconds')
+    expect(definition).not.toContain('Conversation rate limit reached')
+    expect(definition).toContain('Monthly follow up limit reached')
+    expect(definition).toContain('Double opt in is missing')
+    expect(definition).toContain('Conversation changed or human takeover')
+  })
+
+  it('renames a material without changing its identity or allowing identity reassignment', async () => {
+    const [material]=await query("insert into materials(name,catalog_key,price_per_yard) values('Millings Asphalt 1/2\" Minus','mat-6',45) returning id")
+    await query("update materials set name='Millings Asphalt 1/2\"' where id=$1",[material.id])
+    expect((await query('select catalog_key,price_per_yard from materials where id=$1',[material.id]))[0]).toEqual({catalog_key:'mat-6',price_per_yard:'45'})
+    await expect(query("update materials set catalog_key='mat-7' where id=$1",[material.id])).rejects.toThrow('Material identity cannot be changed')
+  })
   it('leases provider reconciliation without allowing overlapping runs', async () => {
     const first = await rpc('claim_sent_dm_reconciliation')
     expect(first).toMatch(/^[0-9a-f-]{36}$/)

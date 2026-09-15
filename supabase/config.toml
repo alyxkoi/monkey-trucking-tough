@@ -36,3 +36,6 @@ verify_jwt = false
 
 [functions.ai-draft]
 verify_jwt = false
+
+[functions.ai-control]
+verify_jwt = false

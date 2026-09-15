@@ -215,7 +215,8 @@ export function ReplyComposer({
           placeholder={disabled ? 'Connect SMS in Settings to reply' : 'Write a reply'}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void send() }
+            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229
+              && (event.metaKey || event.ctrlKey || window.matchMedia('(min-width: 1024px) and (pointer: fine)').matches)) { event.preventDefault(); void send() }
           }}
           className="w-full resize-y rounded-xl border border-line bg-raised px-4 py-3 text-[16px] leading-relaxed text-ink placeholder:text-cc-muted transition-colors focus:border-ice/60 focus:outline-none"
         />

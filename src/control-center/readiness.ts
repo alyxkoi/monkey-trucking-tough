@@ -43,7 +43,10 @@ function materialCatalogIssues(data: ControlData): string[] {
   const issues: string[] = []
 
   for (const approved of APPROVED_MATERIALS) {
-    const matches = active.filter((material) => materialKey(material.name) === materialKey(approved.name))
+    const matches = active.filter((material) => {
+      const key = (material as typeof material & { catalog_key?: string }).catalog_key
+      return key ? key === approved.id : materialKey(material.name) === materialKey(approved.name)
+    })
     if (matches.length === 0) {
       issues.push(`Missing active material: ${approved.name}.`)
       continue
@@ -61,7 +64,9 @@ function materialCatalogIssues(data: ControlData): string[] {
     }
   }
 
-  const unexpected = active.filter((material) => !approvedKeys.has(materialKey(material.name)))
+  const unexpected = active.filter((material) => !((material as typeof material & { catalog_key?: string }).catalog_key
+    ? APPROVED_MATERIALS.some((approved) => approved.id === (material as typeof material & { catalog_key?: string }).catalog_key)
+    : approvedKeys.has(materialKey(material.name))))
   for (const material of unexpected) issues.push(`Unexpected active material: ${material.name}. Make it inactive if it is a test or retired item.`)
   return issues
 }

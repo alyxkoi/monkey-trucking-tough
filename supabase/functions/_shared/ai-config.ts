@@ -11,3 +11,13 @@ export function aiConfig(): AiConfig {
     googleMapsApiKey: Deno.env.get('GOOGLE_MAPS_API_KEY'),
   }
 }
+
+// Server configuration is authoritative; editable options are narrowly scoped.
+// Supabase's schema-aware client and the test adapter both provide this chain.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function configuredAi(service: { from: (table: string) => any }): Promise<AiConfig> {
+  const config = aiConfig()
+  const result = await service.from('ai_operation_settings').select('model,tone,concise,version').eq('id', 1).single()
+  if (result.error) throw new Error('AI control settings could not be loaded')
+  return { ...config, model: result.data.model || config.model, tone: result.data.tone, concise: result.data.concise, version: result.data.version }
+}

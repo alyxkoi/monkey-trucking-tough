@@ -43,4 +43,5 @@ grant execute on function public.wake_sent_dm_reconciliation() to service_role;
 -- Named schedules update in place, so rerunning this operation never creates duplicates.
 select cron.schedule('process-communications-minute','10 seconds','select public.wake_communication_worker();');
 select cron.schedule('reconcile-sent-conversations','10 seconds','select public.wake_sent_dm_reconciliation();');
+select cron.schedule('ai-conversation-review','0 8 * * *','select public.review_ai_operations();');
 commit;

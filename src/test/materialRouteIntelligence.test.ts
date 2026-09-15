@@ -18,6 +18,26 @@ const settings = {
 }
 
 describe('material and route intelligence', () => {
+  it('preserves a multiline Expy address with country and accepts the real Google RPC status', async () => {
+    const messages = [{sender_type:'CUSTOMER',body:'839 S Good Latimer Expy\nDallas, TX 75226\nUnited States'}]
+    expect(resolveDeliveryAddress(messages,null,[])).toBe('839 S Good Latimer Expy, Dallas, TX 75226, United States')
+    const fetcher=vi.fn(async()=>new Response(JSON.stringify({routes:[{distanceMeters:60000,duration:'3500s'}],geocodingResults:{destination:{geocoderStatus:{},placeId:'actual-shape'}}})))
+    const result=await calculateDeliveryRoute({messages,state:null,quotes:[],settings,enabled:true,apiKey:'fixture',fetcher:fetcher as typeof fetch})
+    expect(result.status).toBe('ROUTE_CALCULATED')
+    expect(result.distance_miles).toBeCloseTo(60000/1609.344)
+  })
+
+  it('retains aliases after renaming the stable asphalt catalog record', () => {
+    expect(resolveConversationQuantity([{sender_type:'CUSTOMER',body:'10 tons of millings'}],[{...material,catalog_key:'mat-6',name:'Millings Asphalt 1/2"'}])).toMatchObject({status:'RESOLVED',yards:8.5})
+  })
+
+  it('combines a city answer with the preceding street rather than losing it', () => {
+    expect(resolveDeliveryAddress([
+      {sender_type:'CUSTOMER',body:'123 Oak Road'},
+      {sender_type:'AI',body:'what city is that in?'},
+      {sender_type:'CUSTOMER',body:'Dallas, TX'},
+    ],null,[])).toBe('123 Oak Road, Dallas, TX')
+  })
   it('converts the latest customer ton amount and ignores an older quantity', () => {
     const result = resolveConversationQuantity([
       { id: '1', sender_type: 'CUSTOMER', body: 'I need about 45 yards of flexbase' },
@@ -31,13 +51,13 @@ describe('material and route intelligence', () => {
     })
   })
 
-  it('keeps the deterministic conversion when the customer accepts after a conflicting human estimate', () => {
+  it('accepts the immediately preceding human yard proposal instead of resurrecting old tons', () => {
     const result = resolveConversationQuantity([
       { id: '1', sender_type: 'CUSTOMER', body: '10 tons of flexbase' },
       { id: '2', sender_type: 'HUMAN', body: 'that is about 20 yards' },
       { id: '3', sender_type: 'CUSTOMER', body: "okay let's do that" },
     ], [material])
-    expect(result).toMatchObject({ status: 'RESOLVED', estimated_yards: 7.1, recommended_yards: 8.5, yards: 8.5, source_message_id: '1' })
+    expect(result).toMatchObject({ status: 'RESOLVED', input_unit:'YARDS', yards:20, coverage_buffer_yards:0, source_message_id:'3' })
     expect(isSimpleAcceptance("okay let's do that")).toBe(true)
   })
 

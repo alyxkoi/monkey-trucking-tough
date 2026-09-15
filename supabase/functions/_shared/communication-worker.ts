@@ -2,6 +2,12 @@
 import { generateAiDraft, validateDecision, type AiConfig } from './ai-engine.ts'
 
 export function autonomousReply(decision: any, pricing: any): string {
+  const reply = renderAutonomousReply(decision, pricing)
+  if (!decision.first_conversational_reply || /monkey trucking/i.test(reply)) return reply
+  return `${decision.detected_language === 'SPANISH' ? 'hola, somos Monkey Trucking. ' : 'hi, this is Monkey Trucking. '}${reply}`
+}
+
+function renderAutonomousReply(decision: any, pricing: any): string {
   const invalid = validateDecision(decision)
   if (invalid) throw new Error(invalid)
   if (decision.requires_human || !decision.ai_may_continue || decision.payment_claim_detected || decision.confidence !== 'HIGH'
@@ -15,7 +21,7 @@ export function autonomousReply(decision: any, pricing: any): string {
     const amount = pricing.material_total.toFixed(2)
     const material = String(pricing.material_name).toLowerCase().replace(/[—–-]/g, ' ')
     const addressKnown=decision.known_facts.some((fact:any)=>['address','delivery_address'].includes(fact.key)&&fact.value)
-    const converted = pricing.quantity?.input_unit === 'TONS'
+    const converted = pricing.quantity?.input_unit === 'TONS' && decision.explain_conversion !== false
       ? {
           tons: Number(pricing.quantity.input_value).toLocaleString('en-US',{maximumFractionDigits:2}),
           estimatedYards: Number(pricing.quantity.estimated_yards ?? pricing.quantity.raw_yards).toLocaleString('en-US',{maximumFractionDigits:1}),
@@ -27,12 +33,12 @@ export function autonomousReply(decision: any, pricing: any): string {
       const delivery = Number(pricing.delivery_total).toFixed(2)
       const total = Number(pricing.grand_total).toFixed(2)
       return decision.detected_language === 'SPANISH'
-        ? `${converted ? `${converted.tons} toneladas son aproximadamente ${converted.estimatedYards} yardas cúbicas. para no quedar cortos, recomiendo ${converted.recommendedYards} yardas incluyendo una yarda adicional. ` : ''}el material cuesta $${amount}. la entrega para ${pricing.delivery_loads} ${pricing.delivery_loads===1?'carga':'cargas'} cuesta $${delivery}. el total estimado con impuestos es $${total}.`
-        : `${converted ? `${converted.tons} tons is about ${converted.estimatedYards} cubic yards. to avoid running short, i recommend ${converted.recommendedYards} yards including one extra yard. ` : ''}the material is $${amount}. delivery for ${pricing.delivery_loads} ${pricing.delivery_loads===1?'load':'loads'} is $${delivery}. the estimated total with tax is $${total}.`
+        ? `${converted ? `recomiendo aproximadamente ${converted.recommendedYards} yardas. ` : ''}el material cuesta $${amount}. la entrega para ${pricing.delivery_loads} ${pricing.delivery_loads===1?'carga':'cargas'} cuesta $${delivery}. el total estimado con impuestos es $${total}.`
+        : `${converted ? `i recommend approximately ${converted.recommendedYards} yards. ` : ''}the material is $${amount}. delivery for ${pricing.delivery_loads} ${pricing.delivery_loads===1?'load':'loads'} is $${delivery}. the estimated total with tax is $${total}.`
     }
     return decision.detected_language === 'SPANISH'
-      ? `${converted ? `${converted.tons} toneladas son aproximadamente ${converted.estimatedYards} yardas cúbicas. para no quedar cortos, recomiendo ${converted.recommendedYards} yardas incluyendo una yarda adicional. ` : ''}el material para ${pricing.yards} yardas de ${material} cuesta $${amount}. la entrega y los impuestos se confirman por separado.${addressKnown?'':' cuál es la dirección exacta de entrega.'}`
-      : `${converted ? `${converted.tons} tons is about ${converted.estimatedYards} cubic yards. to avoid running short, i recommend ${converted.recommendedYards} yards including one extra yard. ` : ''}the material for ${pricing.yards} yards of ${material} is $${amount}. delivery and tax are confirmed separately.${addressKnown?'':' what is the exact delivery address.'}`
+      ? `${converted ? `recomiendo aproximadamente ${converted.recommendedYards} yardas. ` : ''}el material para ${pricing.yards} yardas de ${material} cuesta $${amount}. la entrega y los impuestos se confirman por separado.${addressKnown?'':' cuál es la dirección exacta de entrega.'}`
+      : `${converted ? `i recommend approximately ${converted.recommendedYards} yards. ` : ''}the material for ${pricing.yards} yards of ${material} is $${amount}. delivery and tax are confirmed separately.${addressKnown?'':' what is the exact delivery address.'}`
   }
   if (!['ASK_NEXT_MISSING_FACT','COLLECT_RESCHEDULE_PREFERENCE'].includes(decision.recommended_action)) throw new Error('This AI action requires staff review')
   if (decision.recommended_action === 'COLLECT_RESCHEDULE_PREFERENCE'

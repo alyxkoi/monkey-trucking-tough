@@ -28,7 +28,7 @@ const FADE = 34
  */
 export function MobileTabBar() {
   const { pathname } = useLocation()
-  const { setNewSheetOpen, pinnedBarActive } = useAppState()
+  const { newSheetOpen, setNewSheetOpen, pinnedBarActive } = useAppState()
   const current = sectionForPath(pathname)
 
   const scrollerRef = useRef<HTMLDivElement>(null)
@@ -78,15 +78,16 @@ export function MobileTabBar() {
 
   return (
     <>
-      {!pinnedBarActive && (
+      {!pinnedBarActive && !newSheetOpen && (
         <button
           type="button"
-          onClick={() => setNewSheetOpen(true)}
-          aria-label="New"
+          onClick={() => setNewSheetOpen(!newSheetOpen)}
+          aria-label={newSheetOpen ? "Close new actions" : "New"}
+          aria-expanded={newSheetOpen}
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}
-          className="fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-mt-red text-white shadow-[0_10px_28px_rgba(0,0,0,0.5)] transition-colors active:bg-mt-deep lg:hidden"
+          className="fixed right-4 z-[70] flex h-14 w-14 items-center justify-center rounded-2xl bg-mt-red text-white shadow-[0_10px_28px_rgba(0,0,0,0.5)] transition-colors active:bg-mt-deep lg:hidden"
         >
-          <Plus className="h-7 w-7" strokeWidth={2.6} />
+          <Plus className={cn("h-7 w-7 transition-transform duration-200 motion-reduce:transition-none", newSheetOpen && "rotate-45")} strokeWidth={2.6} />
         </button>
       )}
 

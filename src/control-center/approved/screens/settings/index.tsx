@@ -13,7 +13,7 @@ import { InitialAvatar } from '@/control-center/approved/components/ui/CustomerI
 import { cn } from '@/control-center/approved/lib/cn'
 import { shortAgo, usd } from '@/control-center/approved/lib/format'
 import { useAppState } from '@/control-center/approved/state/AppState'
-import { AI_SAMPLES } from '@/control-center/approved/state/automationData'
+import { AiControlPanel } from './AiControlPanel'
 import { DELIVERY_OPTIONS } from '@/control-center/approved/state/pricing'
 import { effectiveTaxRate } from '@/control-center/billing'
 import {
@@ -360,7 +360,7 @@ export function SettingsMaterials() {
     const pricePerYard = Number(perYard)
     const fullLoadPrice = Number(fullLoad)
     const density = Number(tonsPerYard)
-    if (!name.trim() || pricePerYard <= 0 || fullLoadPrice <= 0 || !Number.isFinite(density) || density <= 0 || density > 5) {
+    if (!name.trim() || !Number.isFinite(pricePerYard) || !Number.isFinite(fullLoadPrice) || pricePerYard <= 0 || fullLoadPrice <= 0 || !Number.isFinite(density) || density <= 0 || density > 5) {
       toast.error('Name, prices and a valid tons-per-yard factor are required.')
       return
     }
@@ -371,11 +371,12 @@ export function SettingsMaterials() {
         demo.updateData((current) => {
           const id = editingId === 'new' ? `qa-runtime-material-${current.materials.length + 1}` : editingId as string
           const row = {
+            ...current.materials.find((item) => item.id === id),
             id,
             name: name.trim(),
             price_per_yard: pricePerYard,
             full_load_price: fullLoadPrice,
-            full_load_yards: 20,
+            full_load_yards: current.materials.find((item) => item.id === id)?.full_load_yards ?? 20,
             tons_per_cubic_yard: density,
             tons_conversion_basis: conversionBasis,
             tons_conversion_verified: conversionVerified,
@@ -406,7 +407,6 @@ export function SettingsMaterials() {
           name: name.trim(),
           price_per_yard: pricePerYard,
           full_load_price: fullLoadPrice,
-          full_load_yards: 20,
           tons_per_cubic_yard: density,
           tons_conversion_basis: conversionBasis,
           tons_conversion_verified: conversionVerified,
@@ -486,16 +486,7 @@ export function SettingsMaterials() {
     }
   }
 
-  return (
-    <SettingsScreen title="Materials & Delivery">
-      <ReadinessNotice state={readiness.categories.materials} />
-      <Panel padded={false} title={`${materials.length} materials`}>
-        <div className="flex justify-end border-t border-line px-5 py-3">
-          <SecondaryButton size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openMaterial('new')}>
-            Add material
-          </SecondaryButton>
-        </div>
-        {editingId && (
+  const materialEditor = (
           <div className={cn(
             'space-y-4 border-t p-5',
             editingId === 'new'
@@ -524,10 +515,22 @@ export function SettingsMaterials() {
               <SecondaryButton tone={editingId === 'new' ? 'onSolid' : 'default'} size="sm" onClick={() => setEditingId(null)}>Cancel</SecondaryButton>
             </div>
           </div>
-        )}
+         )
+
+  return (
+    <SettingsScreen title="Materials & Delivery">
+      <ReadinessNotice state={readiness.categories.materials} />
+      <Panel padded={false} title={`${materials.length} materials`}>
+        <div className="flex justify-end border-t border-line px-5 py-3">
+          <SecondaryButton size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openMaterial('new')}>
+            Add material
+          </SecondaryButton>
+        </div>
+        {editingId === 'new' && materialEditor}
         <div className="divide-y divide-line border-t border-line">
           {materials.map((material) => (
-            <div key={material.id} className="flex flex-wrap items-center gap-4 px-5 py-4">
+            <div key={material.id}>
+            <div className="flex flex-wrap items-center gap-4 px-5 py-4">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="text-[16px] font-semibold text-ink">{material.name}</div>
@@ -566,6 +569,8 @@ export function SettingsMaterials() {
                 )}
                 <SecondaryButton size="sm" icon={<Trash2 className="h-4 w-4" />} onClick={() => void deleteMaterial(material.id, material.name, material.is_active)}>Delete</SecondaryButton>
               </div>
+            </div>
+            {editingId === material.id && materialEditor}
             </div>
           ))}
         </div>
@@ -815,7 +820,7 @@ export function SettingsWorkers() {
               <InitialAvatar name={worker.name} className="h-12 w-12 rounded-xl" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[16px] font-semibold text-ink">{worker.name}</span>
+                  <span className="w-full break-words text-[16px] font-semibold text-ink">{worker.name}</span>
                   {worker.isDriver && (
                     <StatusPill tone="ice" size="sm">
                       Driver
@@ -1118,26 +1123,7 @@ export function SettingsCommunication() {
         </div>
       </Panel>
 
-      <Panel padded={false} title="How the AI sounds">
-        <div className="divide-y divide-line border-t border-line">
-          {AI_SAMPLES.map((sample) => (
-            <div key={sample.id} className="px-5 py-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusPill tone="ice" size="sm">
-                  {sample.language}
-                </StatusPill>
-                <span className="font-label text-[12px] uppercase tracking-[0.1em] text-idle">
-                  {sample.context}
-                </span>
-              </div>
-              <p className="mt-2 text-[15px] leading-relaxed text-ink/85">{sample.text}</p>
-            </div>
-          ))}
-        </div>
-        <p className="border-t border-line px-5 py-3 text-[13px] leading-snug text-cc-muted">
-          Short, friendly, context-aware. Business judgment always goes to Salvador.
-        </p>
-      </Panel>
+      {demo.enabled ? <Panel title="AI control center"><p>Live AI controls are disabled in demo mode. Sign in to test the production engine without sending SMS.</p></Panel> : <AiControlPanel />}
     </SettingsScreen>
   )
 }

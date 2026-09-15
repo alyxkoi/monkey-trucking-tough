@@ -5,6 +5,12 @@ import { deriveSettingsReadiness } from '@/control-center/readiness'
 const fixture = () => createQaFixtureData(new Date('2026-08-27T12:00:00-05:00'))
 
 describe('Settings readiness is derived from managed configuration', () => {
+  it('uses stable catalog identity when an approved display name changes', () => {
+    const data=fixture()
+    const index=data.materials.findIndex(m=>m.name.includes('Millings'))
+    Object.assign(data.materials[index],{catalog_key:'mat-6',name:'Millings Asphalt 1/2"'})
+    expect(deriveSettingsReadiness(data).categories.materials.status).toBe('READY')
+  })
   it('separates real blockers from capabilities that are already ready', () => {
     const readiness = deriveSettingsReadiness(fixture())
     expect(readiness.categories.business.status).toBe('READY')
@@ -57,7 +63,7 @@ describe('Settings readiness is derived from managed configuration', () => {
 
   it('does not mark an extra active test material as the approved ten-item catalog', () => {
     const data = fixture()
-    data.materials.push({ ...data.materials[0], id: 'material-extra', name: 'Test Material' })
+    data.materials.push({ ...data.materials[0], id: 'material-extra', catalog_key: null, name: 'Test Material' })
     expect(deriveSettingsReadiness(data).categories.materials.status).toBe('ERROR')
     expect(deriveSettingsReadiness(data).categories.materials.reason).toContain('Unexpected active material: Test Material')
   })

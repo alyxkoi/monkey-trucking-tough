@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   DriverInvoiceSheet,
   HourlyPaySheet,
@@ -65,6 +65,12 @@ function dueLabel(dueAt: number | undefined, status: InvoiceStatus): string {
 export function Money() {
   const [mode, setMode] = useState<Mode>('INVOICES')
   const [paymentSheet, setPaymentSheet] = useState(false)
+  const [searchParams,setSearchParams]=useSearchParams()
+  useEffect(()=>{
+    if(searchParams.get('action')!=='record-payment')return
+    setPaymentSheet(true)
+    setSearchParams(current=>{const next=new URLSearchParams(current);next.delete('action');return next},{replace:true})
+  },[searchParams,setSearchParams])
 
   return (
     <div className="space-y-5">
