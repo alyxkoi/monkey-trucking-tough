@@ -39,6 +39,10 @@ const material = (
   price_per_yard: pricePerYard,
   is_active: true,
   sort_order: 1,
+  tons_per_cubic_yard: 1.35,
+  tons_conversion_basis: "OPERATIONAL_ESTIMATE",
+  tons_conversion_verified: false,
+  tons_conversion_note: "",
   created_at: "2026-08-26T00:00:00.000Z",
   updated_at: "2026-08-26T00:00:00.000Z",
 });
