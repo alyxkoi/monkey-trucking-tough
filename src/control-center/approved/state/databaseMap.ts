@@ -130,7 +130,9 @@ export function mapLeads(data: ControlData): Lead[] {
     return {
       id: row.id,
       customerId: row.customer_id,
-      status: row.status === 'ACTIVE' ? 'TALKING' : row.status,
+      // ACTIVE was the retired "Talking" presentation state. Old rows remain
+      // readable, but project into the real lifecycle rather than conversation activity.
+      status: row.status === 'ACTIVE' ? (quote ? 'QUOTED' : 'NEW') : row.status,
       need: row.need,
       source: row.source,
       campaign: row.campaign ?? undefined,

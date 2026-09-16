@@ -169,6 +169,13 @@
       "when": 1789588800000,
       "tag": "0023_customer_email_and_lead_need",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789592400000,
+      "tag": "0024_simplify_lead_status",
+      "breakpoints": true
     }
   ]
 }

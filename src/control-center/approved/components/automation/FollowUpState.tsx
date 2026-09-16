@@ -97,7 +97,7 @@ export function ReactivationPanel({
   const lastPaid = paid[0]
   if (!lastPaid) return null
 
-  const activeLead = leads.some((lead) => ['NEW', 'TALKING', 'QUOTED'].includes(lead.status))
+  const activeLead = leads.some((lead) => lead.status === 'NEW' || lead.status === 'QUOTED')
   const activeQuote = quotes.some((quote) => quote.status === 'SENT' || quote.status === 'DRAFT')
   const activeJob = jobs.some(
     (job) => job.status === 'SCHEDULED' || job.status === 'IN_PROGRESS',

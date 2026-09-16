@@ -187,6 +187,11 @@ describe.sequential('executed PostgreSQL SMS transactions', () => {
     expect(saved.version).toBe(2)
     await expect(rpc('save_ai_operation_settings',[actor,1,null,'WARM',true,true,null])).rejects.toThrow('Settings changed')
     expect((await query("select count(*)::int as count from ai_operation_history where kind='SETTINGS'"))[0].count).toBe(1)
+    const settingsEntry=(await query("select id,before_settings from ai_operation_history where kind='SETTINGS' limit 1"))[0]
+    const restored=await rpc('save_ai_operation_settings',[actor,2,settingsEntry.before_settings.model,settingsEntry.before_settings.tone,settingsEntry.before_settings.concise,settingsEntry.before_settings.review_enabled,settingsEntry.id])
+    expect(restored.version).toBe(3)
+    expect((await query("select count(*)::int as count from ai_operation_history where kind='ROLLBACK'"))[0].count).toBe(1)
+    expect((await query("select count(*)::int as count from ai_operation_history"))[0].count).toBe(2)
     expect(await rpc('review_ai_operations')).toMatchObject({changed_rules:false})
     expect(await rpc('review_ai_operations')).toMatchObject({skipped:true})
     expect((await query("select has_function_privilege('authenticated','public.save_ai_operation_settings(uuid,integer,text,text,boolean,boolean,uuid)','EXECUTE') as allowed"))[0].allowed).toBe(false)

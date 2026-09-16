@@ -76,7 +76,7 @@ function deriveAttention(data: ControlData): AttentionItem[] {
         action: "Reply",
         waitingSince: latest.created_at,
       });
-    } else if (lead.status === "NEW") {
+    } else if (lead.status === "NEW" && !messages.some((message) => message.sender_type === "AI" || message.sender_type === "HUMAN")) {
       items.push({
         id: `new-lead:${lead.id}`,
         rank: 30,
@@ -87,7 +87,7 @@ function deriveAttention(data: ControlData): AttentionItem[] {
         action: "Open lead",
         waitingSince: lead.created_at,
       });
-    } else if (lead.status === "ACTIVE" && now - new Date(lead.updated_at).getTime() > 24 * 60 * 60 * 1000) {
+    } else if (lead.status === "NEW" && now - new Date(lead.updated_at).getTime() > 24 * 60 * 60 * 1000) {
       items.push({
         id: `lead-follow-up:${lead.id}`,
         rank: 70,

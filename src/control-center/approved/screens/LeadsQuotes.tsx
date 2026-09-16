@@ -11,19 +11,10 @@ import { shortAgo, usd } from '@/control-center/approved/lib/format'
 import { LEAD_LABEL, LEAD_TONE, QUOTE_LABEL, QUOTE_TONE } from '@/control-center/approved/lib/status'
 import { RECORD_NAME_ROW } from '@/control-center/approved/lib/typography'
 import { useAppState } from '@/control-center/approved/state/AppState'
-import { quoteTotals, type LeadStatus } from '@/control-center/approved/state/salesData'
+import { quoteTotals } from '@/control-center/approved/state/salesData'
+import { ACTIVE_LEAD_FILTERS, countLeadsForFilter, type LeadFilter } from '@/control-center/approved/state/leadWorkflow'
 
 type Mode = 'leads' | 'quotes'
-type Filter = 'ALL' | LeadStatus
-
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: 'ALL', label: 'All' },
-  { value: 'NEW', label: 'New' },
-  { value: 'TALKING', label: 'Talking' },
-  { value: 'QUOTED', label: 'Quoted' },
-  { value: 'WON', label: 'Won' },
-  { value: 'LOST', label: 'Lost' },
-]
 
 const NAME = RECORD_NAME_ROW
 
@@ -62,7 +53,7 @@ export function LeadsQuotes() {
 
 /** An opportunity inbox, not a CRM table. */
 function LeadsInbox() {
-  const [filter, setFilter] = useState<Filter>('ALL')
+  const [filter, setFilter] = useState<LeadFilter>('ALL')
   const { leads, customerById, setNewLeadSheetOpen } = useAppState()
   const navigate = useNavigate()
 
@@ -73,14 +64,13 @@ function LeadsInbox() {
   })
   const visible = filter === 'ALL' ? sorted : sorted.filter((lead) => lead.status === filter)
 
-  const countFor = (value: Filter) =>
-    value === 'ALL' ? leads.length : leads.filter((lead) => lead.status === value).length
+  const countFor = (value: LeadFilter) => countLeadsForFilter(leads,value)
 
   return (
     <Panel padded={false}>
       <div className="no-scrollbar w-full overflow-x-auto border-b border-white/[0.07] px-5 py-3.5">
         <div className="flex items-center gap-2">
-          {FILTERS.map((entry) => {
+          {ACTIVE_LEAD_FILTERS.map((entry) => {
             const selected = entry.value === filter
             return (
               <button

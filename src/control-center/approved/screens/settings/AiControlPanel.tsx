@@ -3,9 +3,10 @@ import { supabase } from '@/integrations/supabase/client'
 import { Panel } from '../../components/ui/Panel'
 import { PrimaryButton, SecondaryButton } from '../../components/ui/Button'
 import { TextArea } from '../../components/ui/Field'
+import { Sheet } from '../../components/shell/Sheet'
 
 type Profile = { model: string | null; tone: string; concise: boolean; review_enabled: boolean; version: number; last_review_at: string | null }
-type Entry = { id: string; created_at: string; kind: string; summary: string; before_settings: Profile | null; findings: { code: string; count: number; recommendation: string }[] }
+type Entry = { id: string; created_at: string; kind: string; summary: string; before_settings: Profile | null; after_settings: Profile | null; findings: { code: string; count: number; recommendation: string }[] }
 type Message = { sender_type: 'CUSTOMER' | 'AI'; body: string }
 type Status = { settings: Profile; history: Entry[]; configured_model: string; provider: string; prompt_version: string; active_instructions?:string; context_message_limit: number; maps_key_configured: boolean; immutable_rules: string[]; recent_runs: { model_id: string | null; status: string; latency_ms: number; created_at: string }[] }
 type Fact = {key:string;value:string}
@@ -21,6 +22,30 @@ type Diagnostics = {
   exact_tool_errors:string[]
 }
 type Simulation = { reply: string | null; blocked: string | null; model: string; session_id:string; decision: { known_facts: Fact[];missing_facts:string[];recommended_action:string;subtask_escalations?:{topic:string;reason:string}[] }; tool_results: {diagnostics?:Diagnostics;[key:string]:unknown} }
+type RestorableVersion = { key:string; entryId:string; settingsSide:'before'|'after'; profile:Profile; createdAt:string; kind:string; summary:string }
+type ProfileField = 'model'|'tone'|'concise'|'review_enabled'
+
+const PROFILE_FIELDS: {key:ProfileField;label:string}[]=[
+  {key:'model',label:'Model'}, {key:'tone',label:'Tone'},
+  {key:'concise',label:'Concise responses'}, {key:'review_enabled',label:'Three day review'},
+]
+
+const settingValue=(value:Profile[ProfileField])=>typeof value==='boolean'?(value?'On':'Off'):(value??'Server default')
+
+function restorableVersions(status:Status):RestorableVersion[] {
+  const versions=new Map<number,RestorableVersion>()
+  for(const entry of status.history){
+    for(const [settingsSide,profile] of [['after',entry.after_settings],['before',entry.before_settings]] as const){
+      if(!profile||profile.version===status.settings.version||versions.has(profile.version))continue
+      versions.set(profile.version,{key:`${entry.id}:${settingsSide}`,entryId:entry.id,settingsSide,profile,createdAt:entry.created_at,kind:entry.kind,summary:entry.summary})
+    }
+  }
+  return [...versions.values()].sort((a,b)=>b.profile.version-a.profile.version)
+}
+
+function changedProfileFields(current:Profile,target:Profile){
+  return PROFILE_FIELDS.filter(({key})=>current[key]!==target[key])
+}
 
 const duration=(value:unknown)=>typeof value==='number'?(value<1000?`${value} ms`:`${(value/1000).toFixed(2)} s`):'Not recorded'
 
@@ -92,6 +117,9 @@ export function AiControlPanel() {
   const [simulation,setSimulation]=useState<Simulation|null>(null)
   const [sessionId,setSessionId]=useState(()=>crypto.randomUUID())
   const [sandboxError,setSandboxError]=useState('')
+  const [restoreOpen,setRestoreOpen]=useState(false)
+  const [selectedVersion,setSelectedVersion]=useState<RestorableVersion|null>(null)
+  const [confirmRestore,setConfirmRestore]=useState(false)
   const requestBusy=useRef(false)
   const disabledReason=busy?'A request is running.':!status?'Load the live configuration above to test.':messages.length>=79?'This test reached the context limit. Reset to start a new session.':!text.trim()?'Enter a customer message to test.':''
   const load=async()=>{const data=await call<Status>({action:'status'});setStatus(data);setProfile(data.settings)}
@@ -107,12 +135,16 @@ export function AiControlPanel() {
       setText('');setSimulation(result)
     }catch(e){setSandboxError(e instanceof Error?e.message:'Test failed');setSimulation(null)}
   })
+  const closeRestore=()=>{if(busy)return;setRestoreOpen(false);setSelectedVersion(null);setConfirmRestore(false)}
+  const versions=status?restorableVersions(status):[]
+  const changedFields=profile&&selectedVersion?changedProfileFields(profile,selectedVersion.profile):[]
   return <>
     <Panel title="AI control center">
       {error&&<p role="alert" className="mb-3 text-warn">{error}</p>}
       {notice&&<p role="status" className="mb-3 text-ice">{notice}</p>}
       {!status||!profile?<SecondaryButton disabled={busy} onClick={()=>void run(load)}>Load live configuration</SecondaryButton>:<div className="space-y-5">
         <dl className="grid gap-4 text-sm sm:grid-cols-2">
+          <div><dt className="text-cc-muted">Active settings version</dt><dd className="font-semibold">Version {profile.version}</dd></div>
           <div><dt className="text-cc-muted">Configured model</dt><dd className="break-all font-semibold">{status.configured_model}</dd></div>
           <div><dt className="text-cc-muted">Last observed model</dt><dd>{status.recent_runs.find(r=>r.model_id)?.model_id??'No model call recorded'}</dd></div>
           <div><dt className="text-cc-muted">Provider / prompt</dt><dd>{status.provider} / {status.prompt_version}</dd></div>
@@ -153,7 +185,45 @@ export function AiControlPanel() {
     <Panel title="Review & change history">
       <p className="mb-3 text-sm text-cc-muted">Latest 20 entries. Full history is retained. Last review: {profile?.last_review_at?new Date(profile.last_review_at).toLocaleString():'Not run yet'}.</p>
       <SecondaryButton disabled={busy||!status} onClick={()=>void run(async()=>{const result=await call<{skipped?:boolean}>({action:'review'});await load();setNotice(result.skipped?'The three day review is not due yet.':'Conversation review completed. No rules were changed.')})}>Run due review</SecondaryButton>
-      <div className="mt-4 divide-y divide-line">{status?.history.map(entry=><div key={entry.id} className="space-y-2 py-4 text-sm"><p className="font-semibold">{entry.kind} · {new Date(entry.created_at).toLocaleString()}</p><p>{entry.summary}</p>{entry.findings.map(f=><p key={f.code} className="text-cc-muted">{f.count} {f.code.toLowerCase().replaceAll('_',' ')}: {f.recommendation}</p>)}{entry.before_settings&&<SecondaryButton size="sm" disabled={busy} onClick={()=>void run(async()=>{await call({action:'rollback',history_id:entry.id,expected_version:profile?.version});await load();setNotice('Earlier presentation settings restored as a new audited version.')})}>Restore previous settings</SecondaryButton>}</div>)}</div>
+      <div className="mt-4 divide-y divide-line">{status?.history.map(entry=><div key={entry.id} className="space-y-2 py-4 text-sm"><p className="font-semibold">{entry.kind} · {new Date(entry.created_at).toLocaleString()}</p><p>{entry.summary}</p>{entry.findings.map(f=><p key={f.code} className="text-cc-muted">{f.count} {f.code.toLowerCase().replaceAll('_',' ')}: {f.recommendation}</p>)}</div>)}</div>
+      <div className="mt-5 border-t border-line pt-5">
+        <p className="mb-3 text-sm text-cc-muted">Restoring creates a new audited version. It never deletes later history.</p>
+        <PrimaryButton disabled={busy||versions.length===0} onClick={()=>setRestoreOpen(true)}>Restore previous version</PrimaryButton>
+      </div>
     </Panel>
+    <Sheet
+      open={restoreOpen}
+      onClose={closeRestore}
+      eyebrow="AI settings safety"
+      title={confirmRestore?'Confirm restore':'Restore previous version'}
+      footer={confirmRestore?<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <SecondaryButton disabled={busy} onClick={closeRestore}>Cancel</SecondaryButton>
+        <PrimaryButton disabled={busy||!selectedVersion} onClick={()=>selectedVersion&&void run(async()=>{
+          const sourceVersion=selectedVersion.profile.version
+          await call({action:'rollback',history_id:selectedVersion.entryId,settings_side:selectedVersion.settingsSide,expected_version:profile?.version})
+          await load();setNotice(`Version ${sourceVersion} settings restored as a new audited version.`);setRestoreOpen(false);setSelectedVersion(null);setConfirmRestore(false)
+        })}>{busy?'Restoring…':'Confirm restore'}</PrimaryButton>
+      </div>:<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <SecondaryButton disabled={busy} onClick={closeRestore}>Cancel</SecondaryButton>
+        <PrimaryButton disabled={busy||!selectedVersion} onClick={()=>setConfirmRestore(true)}>Restore to this version</PrimaryButton>
+      </div>}
+    >
+      {confirmRestore?<div className="space-y-4 p-5">
+        <p className="text-lg font-semibold">Are you sure you want to restore AI settings to this version?</p>
+        <p className="text-sm text-cc-muted">Version {selectedVersion?.profile.version} will become the basis of a new active version. Current and later history will remain available.</p>
+      </div>:<div className="space-y-5 p-5">
+        <fieldset>
+          <legend className="mb-3 text-sm font-semibold">Select a previous version</legend>
+          <div className="space-y-2">{versions.map(version=><label key={version.key} className="flex cursor-pointer gap-3 rounded-xl border border-line bg-raised p-3 text-sm">
+            <input type="radio" name="ai-version" value={version.key} checked={selectedVersion?.key===version.key} onChange={()=>setSelectedVersion(version)} />
+            <span className="min-w-0"><span className="block font-semibold">Version {version.profile.version} · {new Date(version.createdAt).toLocaleString()}</span><span className="block text-cc-muted">{version.kind} · {version.summary}</span></span>
+          </label>)}</div>
+        </fieldset>
+        {selectedVersion&&<section aria-label="Settings changes" className="rounded-xl border border-line p-4">
+          <h3 className="font-semibold">Changes from current version {profile?.version}</h3>
+          {changedFields.length?<div className="mt-3 space-y-3">{changedFields.map(({key,label})=><div key={key} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 text-sm"><div><span className="block text-xs uppercase tracking-wide text-cc-muted">Current {label}</span><span className="break-words">{profile&&settingValue(profile[key])}</span></div><div><span className="block text-xs uppercase tracking-wide text-cc-muted">Selected {label}</span><span className="break-words">{settingValue(selectedVersion.profile[key])}</span></div></div>)}</div>:<p className="mt-3 text-sm text-cc-muted">This version has the same restorable presentation settings as the current version.</p>}
+        </section>}
+      </div>}
+    </Sheet>
   </>
 }

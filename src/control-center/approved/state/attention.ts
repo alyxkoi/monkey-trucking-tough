@@ -298,11 +298,13 @@ export function deriveAttention(input: {
       })
     })
 
-  // 7. A lead that went quiet.
+  // 7. A lead that went quiet. Conversation activity is derived from messages,
+  // not encoded as a separate lead status.
   input.leads
     .filter(
       (lead) =>
-        lead.status === 'TALKING' &&
+        lead.status === 'NEW' &&
+        lead.messages.some((message) => message.actor === 'salvador'||message.actor==='ai') &&
         !lead.needsSalvador &&
         at - lead.lastActivityAt > 2 * DAY &&
         !lead.quoteId,

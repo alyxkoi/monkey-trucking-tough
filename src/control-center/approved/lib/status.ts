@@ -8,7 +8,6 @@ import type { LeadStatus, QuoteStatus } from '@/control-center/approved/state/sa
  */
 export const LEAD_TONE: Record<LeadStatus, PillTone> = {
   NEW: 'ice',
-  TALKING: 'neutral',
   QUOTED: 'warn',
   WON: 'ok',
   LOST: 'idle',
@@ -16,7 +15,6 @@ export const LEAD_TONE: Record<LeadStatus, PillTone> = {
 
 export const LEAD_LABEL: Record<LeadStatus, string> = {
   NEW: 'New',
-  TALKING: 'Talking',
   QUOTED: 'Quoted',
   WON: 'Won',
   LOST: 'Lost',

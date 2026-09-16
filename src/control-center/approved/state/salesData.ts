@@ -17,7 +17,8 @@ import {
   type MaterialLine,
 } from './pricing'
 
-export type LeadStatus = 'NEW' | 'TALKING' | 'QUOTED' | 'WON' | 'LOST'
+export const ACTIVE_LEAD_WORKFLOW = ['NEW', 'QUOTED', 'WON', 'LOST'] as const
+export type LeadStatus = typeof ACTIVE_LEAD_WORKFLOW[number]
 export type QuoteStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'DECLINED'
 export type Actor = 'customer' | 'ai' | 'salvador' | 'system'
 
@@ -297,7 +298,7 @@ export const LEADS: Lead[] = [
   {
     id: 'lead-2',
     customerId: 'cust-2',
-    status: 'TALKING',
+    status: 'NEW',
     need: 'Pond, about half an acre, off FM 987',
     source: 'Facebook',
     createdAt: now - 4 * HOUR,
@@ -343,7 +344,7 @@ export const LEADS: Lead[] = [
   {
     id: 'lead-3',
     customerId: 'cust-7',
-    status: 'TALKING',
+    status: 'NEW',
     need: 'Material to fill a low area at the ranch',
     source: 'Word of mouth',
     createdAt: now - 2 * DAY,

@@ -64,4 +64,34 @@ describe('sandbox debugging and isolation',()=>{
     expect(screen.getAllByText('Google Routes HTTP 503.').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/4625 Virginia Ave/).length).toBeGreaterThan(1)
   })
+
+  it('keeps history read-only and requires selection, diff review and confirmation before restore',async()=>{
+    const previous={model:null,tone:'DIRECT',concise:false,review_enabled:true,version:2,last_review_at:null}
+    const historyStatus={...status,settings:{...status.settings,version:3},history:[{id:'history-2',created_at:'2026-09-16T15:00:00Z',kind:'SETTINGS',summary:'AI presentation settings updated.',before_settings:{...previous,version:1},after_settings:previous,findings:[]}]}
+    invoke.mockImplementation(async(_name,{body})=>({data:body.action==='status'?historyStatus:{settings:historyStatus.settings},error:null}))
+    render(<AiControlPanel/>);await screen.findByText('Version 3')
+    expect(screen.queryByRole('button',{name:'Restore previous settings'})).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button',{name:'Restore previous version'}))
+    expect(screen.getByRole('button',{name:'Restore to this version'})).toBeDisabled()
+    fireEvent.click(screen.getByLabelText(/Version 2/))
+    expect(screen.getByRole('region',{name:'Settings changes'})).toHaveTextContent('Current Tone')
+    expect(screen.getByRole('region',{name:'Settings changes'})).toHaveTextContent('Selected Tone')
+    fireEvent.click(screen.getByRole('button',{name:'Restore to this version'}))
+    expect(screen.getByText('Are you sure you want to restore AI settings to this version?')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button',{name:'Cancel'}))
+    expect(invoke.mock.calls.some(([,args])=>args.body.action==='rollback')).toBe(false)
+  })
+
+  it('restores only after explicit confirmation and requests a new audited rollback version',async()=>{
+    const previous={model:null,tone:'DIRECT',concise:false,review_enabled:true,version:2,last_review_at:null}
+    const historyStatus={...status,settings:{...status.settings,version:3},history:[{id:'history-2',created_at:'2026-09-16T15:00:00Z',kind:'SETTINGS',summary:'AI presentation settings updated.',before_settings:{...previous,version:1},after_settings:previous,findings:[]}]}
+    invoke.mockImplementation(async(_name,{body})=>({data:body.action==='status'?historyStatus:{settings:historyStatus.settings},error:null}))
+    render(<AiControlPanel/>);await screen.findByText('Version 3')
+    fireEvent.click(screen.getByRole('button',{name:'Restore previous version'}))
+    fireEvent.click(screen.getByLabelText(/Version 2/))
+    fireEvent.click(screen.getByRole('button',{name:'Restore to this version'}))
+    fireEvent.click(screen.getByRole('button',{name:'Confirm restore'}))
+    await waitFor(()=>expect(invoke.mock.calls.some(([,args])=>args.body.action==='rollback'&&args.body.history_id==='history-2'&&args.body.settings_side==='after'&&args.body.expected_version===3)).toBe(true))
+    expect(await screen.findByText('Version 2 settings restored as a new audited version.')).toBeInTheDocument()
+  })
 })

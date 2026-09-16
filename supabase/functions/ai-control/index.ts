@@ -30,9 +30,12 @@ Deno.serve(async req=>{
       if(role.error||!role.data)throw new HttpError(403,'Only an administrator can change the AI configuration')
       let values=input.settings
       if(input.action==='rollback'){
-        const entry=await service.from('ai_operation_history').select('before_settings').eq('id',input.history_id).single()
-        if(entry.error||!entry.data?.before_settings)throw new HttpError(400,'This entry has no settings to restore')
-        values=entry.data.before_settings
+        const settingsSide=input.settings_side??'before'
+        if(!['before','after'].includes(settingsSide))throw new HttpError(400,'Invalid settings snapshot')
+        const entry=await service.from('ai_operation_history').select('before_settings,after_settings').eq('id',input.history_id).single()
+        const snapshot=settingsSide==='after'?entry.data?.after_settings:entry.data?.before_settings
+        if(entry.error||!snapshot)throw new HttpError(400,'This entry has no settings to restore')
+        values=snapshot
       }
       if(!values||!['WARM','DIRECT','PROFESSIONAL'].includes(values.tone)||typeof values.concise!=='boolean'||typeof values.review_enabled!=='boolean')throw new HttpError(400,'Invalid presentation settings')
       const model=values.model||aiConfig().model
