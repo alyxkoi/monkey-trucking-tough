@@ -148,6 +148,13 @@
       "when": 1789583948343,
       "tag": "0020_sms_lifecycle_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789584007405,
+      "tag": "0021_transactional_quote_recipient",
+      "breakpoints": true
     }
   ]
 }
