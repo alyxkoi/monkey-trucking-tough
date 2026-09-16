@@ -9,15 +9,21 @@ function service(){return {from(table:string){
  const chain:any={then:(resolve:any)=>Promise.resolve({data:rows[table],error:null}).then(resolve)};for(const method of ['select','eq','limit','single'])chain[method]=()=>chain;return chain
 }}}
 const c=(body:string)=>({sender_type:'CUSTOMER',body}),a=(body:string)=>({sender_type:'AI',body})
-async function run(messages:any[],intent='NONE',scenario='LEAD',language='ENGLISH',form=''){
+async function run(messages:any[],intent='NONE',scenario='LEAD',language='ENGLISH',form='',financialHold=false){
  const text=messages.at(-1).body
  const decision={detected_language:language,customer_intent:'CUSTOMER_REQUEST',extracted_facts:[],known_facts:[],missing_facts:[],uncertain_facts:[],ai_may_continue:true,requires_human:false,escalation_reason:null,recommended_action:'ANSWER_CUSTOMER',draft_reply:'current customer request',confidence:'HIGH',deterministic_pricing_required:false,payment_claim_detected:false,
  dashboard_plan:{intent,source_text:text,confidence:'HIGH'},response_plan:{objective:'COLLECT',answers:[],comparison_keys:[],recommendation_key:'',acknowledgement:'got it.',next_question:'what can I help with?',required_tools:[],escalation_scope:'NONE',escalation_category:'NONE'}}
+ if(financialHold)Object.assign(decision,{requires_human:true,ai_may_continue:false,recommended_action:'MANUAL_REPLY',escalation_reason:'Accepted terms require staff review',response_plan:{...decision.response_plan,escalation_scope:'CONVERSATION',escalation_category:'FINANCIAL'}})
  vi.stubGlobal('fetch',vi.fn(async(url:string)=>new Response(JSON.stringify(url.includes('routes.googleapis.com')?{routes:[{distanceMeters:16093.44,duration:'900s'}],geocodingResults:{destination:{geocoderStatus:{},placeId:'fixture-pin'}}}:{status:'completed',model:'unchanged-model',output_text:JSON.stringify(decision)}))))
  return simulateConversation(service(),{messages,scenario,form},config)
 }
 afterEach(()=>vi.unstubAllGlobals())
 describe('full lifecycle sandbox using production engine',()=>{
+ it('acknowledges a protected change request even if the model over-escalates its financial authorization',async()=>{
+   const result=await run([c('I might need 5 more yards than I accepted')],'ORDER_CHANGE','ACCEPTED','ENGLISH','',true)
+   expect(result.reply).toContain('5 more yards');expect(result.blocked).toBeNull();expect(result.decision.dashboard_proposal.actions).toContain('ORDER_CHANGE')
+   expect(result.tool_results.quantity.yards).toBe(20);expect(result.database_changes).toBe(false)
+ })
  it('composes an accepted schedule request without raw plans or reintroduction',async()=>{
    const result=await run([c('hey can we change delivery to Friday around 10am?')],'SCHEDULE_CHANGE','ACCEPTED')
    expect(result.reply).toContain('team confirm');expect(result.reply).toContain('10:00');expect(result.reply).not.toMatch(/introduce|acknowledge|Monkey Trucking|current customer request/)

@@ -4,7 +4,7 @@ import { addressClarification, addressFromText, calculateDeliveryRoute, delivery
 import { assertCustomerText, composeConversationResponse, responsePlanSchema } from './conversation-response.ts'
 import { additionalYards, dashboardPlanSchema, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName } from './lifecycle.ts'
 
-export const PROMPT_VERSION = 'mt-ai-lifecycle-v11'
+export const PROMPT_VERSION = 'mt-ai-lifecycle-v11.1'
 
 const decisionSchema = {
   type: 'object',
@@ -540,6 +540,15 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       }
     }
     const preparedLifecycleReply=mode==='CONVERSATION'&&!forced?lifecycleReply(proposal,lifecycle,decision,pricing):null
+    // Request intake is not financial authorization. A server-composed receipt
+    // can continue while the actual protected change remains a staff action.
+    // Never release a dispute, explicit takeover, or genuinely uncertain claim.
+    if(preparedLifecycleReply&&!forced&&decision.confidence==='HIGH'&&!decision.uncertain_facts.length&&
+      proposal.actions.some((kind:string)=>['ORDER_CHANGE','ADDRESS_CHANGE','SCHEDULE_CHANGE'].includes(kind))&&
+      plan?.escalation_category==='FINANCIAL') {
+      plan.escalation_scope='SUBTASK';plan.escalation_category='OTHER'
+      decision.requires_human=false;decision.ai_may_continue=true;decision.escalation_reason=null;decision.recommended_action='ASK_NEXT_MISSING_FACT'
+    }
     if(plan&&!forced) {
       if(decision.ai_may_continue&&['MANUAL_REPLY','HOLD_FOR_SALVADOR','VERIFY_PAYMENT','NO_ACTION'].includes(decision.recommended_action)) {
         throw new Error('Autonomous decision selected a staff-only action.')
