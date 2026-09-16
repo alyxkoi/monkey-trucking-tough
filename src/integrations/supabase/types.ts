@@ -1514,11 +1514,18 @@ export type Database = {
           created_at: string
           created_by: string | null
           customer_id: string
+          delivery_address: string | null
+          handoff_ack_message_id: string | null
           human_takeover: boolean
           id: string
           last_contact_at: string | null
           lost_reason: string | null
           need: string
+          quote_confirmed_email: string | null
+          quote_requested_at: string | null
+          requested_delivery_date: string | null
+          requested_delivery_text: string | null
+          requested_delivery_time: string | null
           source: string
           status: string
           tracking_link_id: string | null
@@ -1530,11 +1537,18 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_id: string
+          delivery_address?: string | null
+          handoff_ack_message_id?: string | null
           human_takeover?: boolean
           id?: string
           last_contact_at?: string | null
           lost_reason?: string | null
           need: string
+          quote_confirmed_email?: string | null
+          quote_requested_at?: string | null
+          requested_delivery_date?: string | null
+          requested_delivery_text?: string | null
+          requested_delivery_time?: string | null
           source: string
           status?: string
           tracking_link_id?: string | null
@@ -1546,11 +1560,18 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_id?: string
+          delivery_address?: string | null
+          handoff_ack_message_id?: string | null
           human_takeover?: boolean
           id?: string
           last_contact_at?: string | null
           lost_reason?: string | null
           need?: string
+          quote_confirmed_email?: string | null
+          quote_requested_at?: string | null
+          requested_delivery_date?: string | null
+          requested_delivery_text?: string | null
+          requested_delivery_time?: string | null
           source?: string
           status?: string
           tracking_link_id?: string | null
@@ -1562,6 +1583,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_handoff_ack_message_id_fkey"
+            columns: ["handoff_ack_message_id"]
+            isOneToOne: false
+            referencedRelation: "lead_messages"
             referencedColumns: ["id"]
           },
           {
@@ -1773,6 +1801,8 @@ export type Database = {
         Row: {
           accepted_at: string | null
           address: string
+          ai_ready_at: string | null
+          confirmed_email: string | null
           created_at: string
           created_by: string | null
           custom_work_subtotal: number
@@ -1795,6 +1825,8 @@ export type Database = {
           materials_subtotal: number
           notes: string | null
           quote_number: string
+          requested_delivery_date: string | null
+          requested_delivery_time: string | null
           sent_at: string | null
           status: string
           tax_amount: number
@@ -1807,6 +1839,8 @@ export type Database = {
         Insert: {
           accepted_at?: string | null
           address?: string
+          ai_ready_at?: string | null
+          confirmed_email?: string | null
           created_at?: string
           created_by?: string | null
           custom_work_subtotal?: number
@@ -1829,6 +1863,8 @@ export type Database = {
           materials_subtotal?: number
           notes?: string | null
           quote_number: string
+          requested_delivery_date?: string | null
+          requested_delivery_time?: string | null
           sent_at?: string | null
           status?: string
           tax_amount?: number
@@ -1841,6 +1877,8 @@ export type Database = {
         Update: {
           accepted_at?: string | null
           address?: string
+          ai_ready_at?: string | null
+          confirmed_email?: string | null
           created_at?: string
           created_by?: string | null
           custom_work_subtotal?: number
@@ -1863,6 +1901,8 @@ export type Database = {
           materials_subtotal?: number
           notes?: string | null
           quote_number?: string
+          requested_delivery_date?: string | null
+          requested_delivery_time?: string | null
           sent_at?: string | null
           status?: string
           tax_amount?: number
@@ -2795,6 +2835,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      apply_ai_lifecycle: {
+        Args: {
+          p_expected_revision: number
+          p_lead_id: string
+          p_plan: Json
+          p_source_message_id: string
+        }
+        Returns: Json
+      }
       apply_ai_material_to_quote: {
         Args: {
           p_expected_revision: number
@@ -3168,6 +3217,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      finish_ai_handoff: {
+        Args: {
+          p_job_id: string
+          p_lease_token: string
+          p_spanish: boolean
+          p_template_id?: string
+        }
+        Returns: Json
+      }
       finish_communication_job: {
         Args: {
           p_body?: string
@@ -3234,6 +3292,36 @@ export type Database = {
       next_invoice_number: { Args: never; Returns: string }
       next_quote_number: { Args: never; Returns: string }
       next_ticket_number: { Args: never; Returns: string }
+      open_ai_staff_action: {
+        Args: {
+          p_details: Json
+          p_kind: string
+          p_lead_id: string
+          p_source: string
+        }
+        Returns: string
+      }
+      open_ai_staff_actions: {
+        Args: never
+        Returns: {
+          actor_id: string | null
+          actor_label: string | null
+          created_at: string
+          customer_id: string | null
+          entity_id: string | null
+          entity_type: string
+          event_type: string
+          id: string
+          metadata: Json
+          summary: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "activity_history"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       plan_communication_jobs: { Args: never; Returns: number }
       process_stripe_checkout_payment: {
         Args: {
@@ -3323,6 +3411,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      resolve_ai_staff_action: {
+        Args: { p_note: string; p_request_id: string }
+        Returns: undefined
       }
       resolve_inbound_sms_conversation: {
         Args: { p_phone: string }
