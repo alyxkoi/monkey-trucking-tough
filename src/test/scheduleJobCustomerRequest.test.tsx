@@ -22,7 +22,7 @@ const quote = (overrides: Partial<Quote> = {}): Quote => ({
   materialLines: [{ id: 'line-1', materialId: 'material-1', materialName: 'Limestone', isFullLoad: false, loads: 1, yards: 7, rateUsed: 95, lineTotal: 665 }],
   customLines: [], delivery: { mode: 'CUSTOM', customFee: 250 }, deliveryLoads: 1,
   taxRate: 8.25, taxOnDelivery: false, customWorkTax: 'NOT_TAXED',
-  snapshotTotals: { materials: 665, custom: 0, delivery: 250, deliveryPerLoad: 250, taxable: 665, tax: 54.86, total: 969.86, taxRate: 8.25, taxOnDelivery: false, customWorkTax: 'NOT_TAXED', customTaxed: false },
+  snapshotTotals: { materials: 665, custom: 0, delivery: 250, deliveryPerLoad: 250, taxable: 665, tax: 54.86, total: 969.86, taxRate: 8.25, customWorkTax: 'NOT_TAXED', customTaxed: false },
   createdAt: Date.now(), acceptedAt: Date.now(),
   ...overrides,
 })
