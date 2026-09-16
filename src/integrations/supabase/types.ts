@@ -3402,6 +3402,14 @@ export type Database = {
         Args: { p_group_ids: string[] }
         Returns: undefined
       }
+      reserve_inbound_opt_in: {
+        Args: {
+          p_lead_id: string
+          p_source_message_id: string
+          p_template_id: string
+        }
+        Returns: Json
+      }
       reserve_manual_sms: {
         Args: {
           p_actor_id: string
