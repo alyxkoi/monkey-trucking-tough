@@ -1,0 +1,1 @@
+alter function public.protect_material_catalog_key() set search_path = public, pg_temp;
