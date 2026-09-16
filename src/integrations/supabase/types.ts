@@ -2852,6 +2852,16 @@ export type Database = {
         Returns: boolean
       }
       ai_change_snapshot: { Args: { p_request_id: string }; Returns: Json }
+      apply_ai_lead_need: {
+        Args: {
+          p_expected_revision: number
+          p_lead_id: string
+          p_need: string
+          p_source_message_id: string
+          p_source_text: string
+        }
+        Returns: Json
+      }
       apply_ai_lifecycle: {
         Args: {
           p_expected_revision: number
