@@ -77,6 +77,10 @@ export type Quote = {
   status: QuoteStatus
   description: string
   address: string
+  /** Customer preference captured by the AI. This is not booked until staff saves the Job. */
+  requestedDeliveryDate?: string
+  requestedDeliveryTime?: string
+  requestedDeliveryText?: string
   materialLines: MaterialLine[]
   customLines: CustomLine[]
   delivery: DeliverySelection

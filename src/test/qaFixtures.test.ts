@@ -54,6 +54,26 @@ describe('Phase 06 deterministic QA fixture layer', () => {
     expect(data.ticketItems.find((row) => row.id === 'qa-ticket-item-flex-3')?.loads).toBe(3)
   })
 
+  it('carries the customer requested schedule from the accepted Quote or its source Lead', () => {
+    const data = createQaFixtureData(reference)
+    const quote = data.quotes.find((row) => Boolean(row.lead_id))!
+    const lead = data.leads.find((row) => row.id === quote.lead_id)!
+    lead.requested_delivery_date = '2026-09-22'
+    lead.requested_delivery_time = '18:30:00'
+    lead.requested_delivery_text = 'Tuesday between 6 and 8'
+
+    const fromLead = mapQuotes(data).find((row) => row.id === quote.id)!
+    expect(fromLead.requestedDeliveryDate).toBe('2026-09-22')
+    expect(fromLead.requestedDeliveryTime).toBe('18:30')
+    expect(fromLead.requestedDeliveryText).toBe('Tuesday between 6 and 8')
+
+    quote.requested_delivery_date = '2026-09-23'
+    quote.requested_delivery_time = '07:15:00'
+    const fromQuote = mapQuotes(data).find((row) => row.id === quote.id)!
+    expect(fromQuote.requestedDeliveryDate).toBe('2026-09-23')
+    expect(fromQuote.requestedDeliveryTime).toBe('07:15')
+  })
+
   it('derives Needs Attention from the underlying fixture records', () => {
     const data = createQaFixtureData(reference)
     const customers = mapCustomers(data)

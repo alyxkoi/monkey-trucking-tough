@@ -165,42 +165,48 @@ function quoteLine(row: ControlData['quoteItems'][number]): MaterialLine {
 export function mapQuotes(data: ControlData): Quote[] {
   return data.quotes
     .filter((row) => row.status !== 'VOID' && Boolean(row.lead_id))
-    .map((row) => ({
-      id: row.id,
-      number: row.quote_number,
-      leadId: row.lead_id as string,
-      customerId: row.customer_id,
-      status: row.status as QuoteStatus,
-      description: row.description,
-      address: row.address,
-      materialLines: data.quoteItems.filter((item) => item.quote_id === row.id && item.kind === 'MATERIAL').map(quoteLine),
-      customLines: data.quoteItems
-        .filter((item) => item.quote_id === row.id && item.kind === 'CUSTOM_WORK')
-        .map((item) => ({ id: item.id, label: item.description, amount: Number(item.line_total) })),
-      delivery: deliveryFromDatabase(row.delivery_type, row.delivery_miles),
-      deliveryLoads: row.delivery_load_count,
-      taxRate: Number(row.tax_rate),
-      taxOnDelivery: row.tax_applies_to_delivery,
-      customWorkTax: row.custom_work_tax_rule === 'EXEMPT' ? 'NOT_TAXED' : row.custom_work_tax_rule,
-      createdAt: requiredAt(row.created_at),
-      sentAt: at(row.sent_at),
-      acceptedAt: at(row.accepted_at),
-      declinedAt: at(row.declined_at),
-      jobId: data.jobs.find((job) => job.quote_id === row.id)?.id,
-      snapshotTotals: {
-        materials: Number(row.materials_subtotal),
-        custom: Number(row.custom_work_subtotal),
-        delivery: Number(row.delivery_total),
-        deliveryPerLoad: Number(row.delivery_fee_per_load),
-        taxable: Number(row.tax_amount) / (taxRateMultiplier(Number(row.tax_rate)) || 1),
-        tax: Number(row.tax_amount),
-        total: Number(row.grand_total),
+    .map((row) => {
+      const sourceLead = data.leads.find((lead) => lead.id === row.lead_id)
+      return {
+        id: row.id,
+        number: row.quote_number,
+        leadId: row.lead_id as string,
+        customerId: row.customer_id,
+        status: row.status as QuoteStatus,
+        description: row.description,
+        address: row.address,
+        requestedDeliveryDate: row.requested_delivery_date ?? sourceLead?.requested_delivery_date ?? undefined,
+        requestedDeliveryTime: (row.requested_delivery_time ?? sourceLead?.requested_delivery_time)?.slice(0, 5) || undefined,
+        requestedDeliveryText: sourceLead?.requested_delivery_text ?? undefined,
+        materialLines: data.quoteItems.filter((item) => item.quote_id === row.id && item.kind === 'MATERIAL').map(quoteLine),
+        customLines: data.quoteItems
+          .filter((item) => item.quote_id === row.id && item.kind === 'CUSTOM_WORK')
+          .map((item) => ({ id: item.id, label: item.description, amount: Number(item.line_total) })),
+        delivery: deliveryFromDatabase(row.delivery_type, row.delivery_miles),
+        deliveryLoads: row.delivery_load_count,
         taxRate: Number(row.tax_rate),
         taxOnDelivery: row.tax_applies_to_delivery,
         customWorkTax: row.custom_work_tax_rule === 'EXEMPT' ? 'NOT_TAXED' : row.custom_work_tax_rule,
-        customTaxed: row.custom_work_tax_rule === 'TAXED',
-      },
-    }))
+        createdAt: requiredAt(row.created_at),
+        sentAt: at(row.sent_at),
+        acceptedAt: at(row.accepted_at),
+        declinedAt: at(row.declined_at),
+        jobId: data.jobs.find((job) => job.quote_id === row.id)?.id,
+        snapshotTotals: {
+          materials: Number(row.materials_subtotal),
+          custom: Number(row.custom_work_subtotal),
+          delivery: Number(row.delivery_total),
+          deliveryPerLoad: Number(row.delivery_fee_per_load),
+          taxable: Number(row.tax_amount) / (taxRateMultiplier(Number(row.tax_rate)) || 1),
+          tax: Number(row.tax_amount),
+          total: Number(row.grand_total),
+          taxRate: Number(row.tax_rate),
+          taxOnDelivery: row.tax_applies_to_delivery,
+          customWorkTax: row.custom_work_tax_rule === 'EXEMPT' ? 'NOT_TAXED' : row.custom_work_tax_rule,
+          customTaxed: row.custom_work_tax_rule === 'TAXED',
+        },
+      }
+    })
 }
 
 function jobCategory(category: ControlData['jobs'][number]['category']): JobCategory {

@@ -18,6 +18,19 @@ import { quoteTotals, type Quote } from '@/control-center/approved/state/salesDa
 
 type Mode = 'TIMED' | 'ALL_DAY'
 
+const requestedDateLabel = (value: string) => {
+  const [year = 0, month = 1, day = 1] = value.split('-').map(Number)
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, day, 12)))
+}
+
+const requestedTimeLabel = (value: string) => {
+  const [hour = 0, minute = 0] = value.split(':').map(Number)
+  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' })
+    .format(new Date(Date.UTC(2000, 0, 1, hour, minute)))
+}
+
 /**
  * Schedule Job, and Reschedule when a job is passed in.
  *
@@ -69,9 +82,9 @@ export function ScheduleJobSheet({
     // actually called, rather than starting on an unrelated customer.
     setCustomerId(quote?.customerId ?? '')
     setCategory(quote && quote.customLines.length > 0 ? 'OTHER' : 'MATERIAL_DELIVERY')
-    setDate(defaultDate ?? dateKey(new Date()))
+    setDate(quote ? quote.requestedDeliveryDate ?? '' : defaultDate ?? dateKey(new Date()))
     setMode('TIMED')
-    setTime('08:00')
+    setTime(quote ? quote.requestedDeliveryTime ?? '' : '08:00')
     setAddress(quote?.address ?? '')
     setDescription(quote?.description ?? '')
     setNotes('')
@@ -82,7 +95,9 @@ export function ScheduleJobSheet({
 
   const customer = customerById(customerId)
   const agreedAmount = quote ? quoteTotals(quote).total : (job?.agreedAmount ?? 0)
-  const valid = Boolean(date) && Boolean(customerId) && description.trim().length > 0 && (Boolean(job) || address.trim().length > 0)
+  const valid = Boolean(date) && Boolean(customerId) && description.trim().length > 0
+    && (mode === 'ALL_DAY' || Boolean(time))
+    && (Boolean(job) || address.trim().length > 0)
 
   const submit = async () => {
     if (!valid) return
@@ -144,6 +159,22 @@ export function ScheduleJobSheet({
                   {usd(agreedAmount)}
                 </span>
               </div>
+              {(quote.requestedDeliveryDate || quote.requestedDeliveryText) && (
+                <div className="mt-3 border-t border-ice/20 pt-3">
+                  <div className="font-label text-[11px] font-semibold uppercase tracking-[0.14em] text-ice">
+                    Customer requested
+                  </div>
+                  {quote.requestedDeliveryDate && (
+                    <div className="mt-1 font-semibold text-ink">
+                      {requestedDateLabel(quote.requestedDeliveryDate)}
+                      {quote.requestedDeliveryTime ? ` at ${requestedTimeLabel(quote.requestedDeliveryTime)}` : ' · time not provided'}
+                    </div>
+                  )}
+                  {quote.requestedDeliveryText && (
+                    <div className="mt-1 text-[13px] text-cc-muted">“{quote.requestedDeliveryText}”</div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -168,7 +199,13 @@ export function ScheduleJobSheet({
           />
         )}
 
-        <TextField label="Date" type="date" value={date} onChange={setDate} />
+        <TextField
+          label="Date"
+          type="date"
+          value={date}
+          onChange={setDate}
+          hint={quote?.requestedDeliveryDate ? 'Prefilled from the customer request. Review before scheduling.' : undefined}
+        />
 
         <div>
           <span className="mb-2 block font-label text-[12px] font-semibold uppercase tracking-[0.16em] text-cc-muted">
@@ -184,7 +221,13 @@ export function ScheduleJobSheet({
             onChange={setMode}
           />
           {mode === 'TIMED' && (
-            <TextField className="mt-3" type="time" value={time} onChange={setTime} />
+            <TextField
+              className="mt-3"
+              type="time"
+              value={time}
+              onChange={setTime}
+              hint={quote && !quote.requestedDeliveryTime ? 'The customer did not provide an exact time. Choose one before scheduling.' : undefined}
+            />
           )}
         </div>
 
