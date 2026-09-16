@@ -49,7 +49,7 @@ Existing event-driven worker, revision/lease/idempotency controls, provider rout
 
 Regression coverage includes identity/email collisions, current-message/revision rejection, name collection, dates/timezone/clarification, email correction, quote preparation and invalidation, protected financial/calendar values, payment claims, returning transactions, single handoff acknowledgment, paused sandbox continuation, Overview destinations/removal, and unchanged communication/automation tests. Database tests execute the production migrations/RPCs in isolated PGlite transactions; provider/model responses are mocked in local engine regressions. Sandbox tests do not send real SMS or change production customers.
 
-## Rollout status
+## Initial rollout attempt
 
 - Implementation pushed to main as `3211ae0`.
 - Full regression suite: **450 passed across 56 files**.
@@ -59,9 +59,23 @@ Regression coverage includes identity/email collisions, current-message/revision
 - The current published site was intentionally preserved. Publishing the new frontend before its required RPC exists would break dashboard loading.
 - Direct deployment connector/credentials are not available in this session, and the Cloud function UI exposes logs/code viewing, not a deployment control.
 
-### Resume checklist
+### Deployment sequence followed on resume
 
 1. Restore/wait for Lovable credits and resume the already submitted deployment-only request. Apply the exact migration, then deploy ai-control, ai-draft and process-communications with shared dependencies. No source regeneration, customer mutations, SMS or email sends.
 2. Verify new columns, service-only/staff-only RPC grants, dispatch guard, realtime tables and unchanged automation/compliance settings with read-only SQL.
 3. Test the deployed model through isolated sandbox scenarios: name capture, quote/date/email flow, scheduled notes/change requests, paid returning work, and acknowledged handoff followed by a paused turn. Local model/provider mocks are not a substitute for this pending deployed verification.
 4. Publish via the existing project UI, then check production instructions, Overview/staff-action views, console and responsive layout. Record final deployment evidence here.
+
+## Completed deployment and publication
+
+Credits became available and the existing scoped request was resumed without any purchase or plan change. Managed deployment commit `9d7cc15` applied migration `0018_ai_lifecycle_actions.sql` and deployed `ai-control`, `ai-draft`, and `process-communications`. The managed migration matches the tested SQL statements; only comments and the runner-managed outer transaction wrapper differ. Generated Supabase types were refreshed; application source was not rewritten.
+
+Independent read-only production checks confirmed all 11 lifecycle columns, all five additional realtime tables, the exact acknowledgment dispatch guard, service-only write RPCs, and staff authorization inside the two authenticated action RPCs. Marketing approval remains false. Invoice, job, new-lead and quote follow-ups and human takeover remain ON. Reactivation, review and missed-call recovery retain their prior exact setup restrictions.
+
+Current main passed TypeScript, production build, and all **450 tests in 56 files** again after merging generated deployment files. Historical Lovable build-failure cards were investigated; the latest revision was selected and rebuilt locally before publication. The current basic scan showed two database warnings: authenticated SECURITY DEFINER functions (new authenticated functions enforce `is_admin_or_staff()`), and the unchanged invoker trigger `protect_material_catalog_key` without a fixed search path. No finding was ignored and no protection was weakened.
+
+Lovable confirmed **“Your website was updated.”** The live dashboard displays `mt-ai-lifecycle-v10`, the read-only effective instructions, and all six synthetic lifecycle choices, with the configured model unchanged. Live isolated sandbox checks confirmed unknown-name prompting and extraction, one human-handoff acknowledgment followed by a paused next turn, verified-route date recap, quote consent, email collection, and quote-ready preparation for staff send. Scheduled arrival used the synthetic job's actual date/time. No real customer records, quotes, jobs, payments, SMS or email were created by these sandbox checks. Persistent write/audit/duplicate behavior is covered by the isolated database regression tests, not claimed as a real-customer test.
+
+Published Overview and AI settings loaded with no console errors. Final deployed sandbox checks also passed for side-gate/code instructions, a Friday 9am schedule change explicitly held for staff review without changing the calendar, and a PAID customer requesting another delivery. The last scenario's displayed tool results confirmed stage PAID and action NEW_WORK against the synthetic quote, not an edit of historical terms.
+
+The published desktop instruction panel was visually inspected. A requested 390px browser override did not change the actual 1265px viewport, so this run does not claim a verified mobile screenshot; the override was reset. No release blocker remains. Existing marketing/review/voice setup restrictions are separate from this completed lifecycle release.
