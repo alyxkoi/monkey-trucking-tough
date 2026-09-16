@@ -1526,6 +1526,10 @@ export type Database = {
           requested_delivery_date: string | null
           requested_delivery_text: string | null
           requested_delivery_time: string | null
+          route_evidence_calculated_at: string | null
+          route_evidence_fingerprint: string | null
+          route_evidence_miles: number | null
+          route_evidence_place_id: string | null
           source: string
           status: string
           tracking_link_id: string | null
@@ -1549,6 +1553,10 @@ export type Database = {
           requested_delivery_date?: string | null
           requested_delivery_text?: string | null
           requested_delivery_time?: string | null
+          route_evidence_calculated_at?: string | null
+          route_evidence_fingerprint?: string | null
+          route_evidence_miles?: number | null
+          route_evidence_place_id?: string | null
           source: string
           status?: string
           tracking_link_id?: string | null
@@ -1572,6 +1580,10 @@ export type Database = {
           requested_delivery_date?: string | null
           requested_delivery_text?: string | null
           requested_delivery_time?: string | null
+          route_evidence_calculated_at?: string | null
+          route_evidence_fingerprint?: string | null
+          route_evidence_miles?: number | null
+          route_evidence_place_id?: string | null
           source?: string
           status?: string
           tracking_link_id?: string | null
@@ -3389,6 +3401,14 @@ export type Database = {
       reorder_tracking_link_groups: {
         Args: { p_group_ids: string[] }
         Returns: undefined
+      }
+      reserve_inbound_opt_in: {
+        Args: {
+          p_lead_id: string
+          p_source_message_id: string
+          p_template_id: string
+        }
+        Returns: Json
       }
       reserve_manual_sms: {
         Args: {
