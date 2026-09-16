@@ -2,9 +2,10 @@
 import { generateAiDraft, validateDecision, type AiConfig } from './ai-engine.ts'
 import { assertCustomerText, composeConversationResponse } from './conversation-response.ts'
 import { scheduledResponse } from './scheduled-response.ts'
+import { appendLeadMilestone } from './lifecycle.ts'
 
 export function autonomousReply(decision: any, pricing: any): string {
-  const reply = assertCustomerText(renderAutonomousReply(decision, pricing))
+  const reply = assertCustomerText(appendLeadMilestone(renderAutonomousReply(decision, pricing),decision.next_milestone_question??null))
   if (!decision.first_conversational_reply || /monkey trucking/i.test(reply)) return reply
   return `${decision.detected_language === 'SPANISH' ? 'hola, somos Monkey Trucking. ' : 'hi, this is Monkey Trucking. '}${reply}`
 }
@@ -110,7 +111,7 @@ export async function runCommunicationJob(service: any, config: AiConfig, templa
     const eligible = await service.rpc('communication_job_eligible', { p_job_id: job.id, p_lease_token: job.lease_token })
     if (eligible.error || eligible.data !== true) throw new Error('Communication job is no longer eligible')
     if (job.kind === 'AI_REPLY') {
-      const result = await generateAiDraft(service, { lead_id: job.lead_id }, null, config)
+      const result = await generateAiDraft(service, { lead_id: job.lead_id, resume_message_id: job.context?.resume_message_id ?? null }, null, config)
       if(result.decision.handoff_acknowledgement)handoff=result.decision.detected_language==='SPANISH'
       else text = autonomousReply(result.decision, result.tool_results.pricing)
     } else text = await scheduledText(service, job, config)

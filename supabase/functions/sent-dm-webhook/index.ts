@@ -3,6 +3,7 @@ import { complianceKeyword, normalizeSentDmStatus, normalizeUsE164 } from '../_s
 import { verifySignature } from '../_shared/sms-signature.ts'
 import { HttpError } from '../_shared/staff-auth.ts'
 import { kickCommunications } from '../_shared/communication-kick.ts'
+import { dispatchSms } from '../_shared/sms-dispatch.ts'
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { 'Content-Type': 'application/json' },
@@ -61,8 +62,36 @@ Deno.serve(async (req) => {
     p_error: null,
   })
   if (result.error) return json({ error: 'Webhook could not be committed; retry required' }, 503)
-  const jobId = typeof result.data?.result?.job_id === 'string' ? result.data.result.job_id : null
+  let inboundResult = result.data?.result
+  // sent.DM retries are normally acknowledged as duplicates. If the first
+  // attempt committed the inbound before the opt-in reservation completed,
+  // recover that durable context so the retry can finish the consent handoff.
+  if (isInbound && !inboundResult && result.data?.duplicate === true) {
+    const saved = await service.from('lead_messages')
+      .select('id,lead_id,customer_id,customers!inner(sms_double_opt_in_at,sms_opted_out_at)')
+      .eq('provider', 'SENT_DM')
+      .eq('provider_message_id', messageId)
+      .maybeSingle()
+    const customer = Array.isArray(saved.data?.customers) ? saved.data.customers[0] : saved.data?.customers
+    if (saved.data && !customer?.sms_double_opt_in_at && !customer?.sms_opted_out_at) {
+      inboundResult = {
+        message_id: saved.data.id,
+        lead_id: saved.data.lead_id,
+        customer_id: saved.data.customer_id,
+        needs_opt_in: true,
+      }
+    }
+  }
+  const jobId = typeof inboundResult?.job_id === 'string' ? inboundResult.job_id : null
   if (jobId) kickCommunications(url, key, { jobId })
+  if(isInbound&&inboundResult?.needs_opt_in===true) {
+    const templateId=Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID')
+    const apiKey=Deno.env.get('SENT_DM_API_KEY')
+    if(!templateId||!apiKey)return json({error:'Inbound was saved, but the approved opt-in template is not configured'},503)
+    const reserved=await service.rpc('reserve_inbound_opt_in',{p_lead_id:inboundResult.lead_id,p_source_message_id:inboundResult.message_id,p_template_id:templateId})
+    if(reserved.error)return json({error:'Inbound was saved, but the opt-in request could not be reserved'},503)
+    if(reserved.data?.id)await dispatchSms(service,{apiKey,profileId:Deno.env.get('SENT_DM_PROFILE_ID')},reserved.data.id).catch(()=>undefined)
+  }
   if(isInbound)console.info('sent.DM inbound timing',{
     messageId,jobId,
     provider_to_webhook_ms:Math.max(0,requestStarted-Date.parse(occurredAt)),

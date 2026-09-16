@@ -1526,6 +1526,10 @@ export type Database = {
           requested_delivery_date: string | null
           requested_delivery_text: string | null
           requested_delivery_time: string | null
+          route_evidence_calculated_at: string | null
+          route_evidence_fingerprint: string | null
+          route_evidence_miles: number | null
+          route_evidence_place_id: string | null
           source: string
           status: string
           tracking_link_id: string | null
@@ -1549,6 +1553,10 @@ export type Database = {
           requested_delivery_date?: string | null
           requested_delivery_text?: string | null
           requested_delivery_time?: string | null
+          route_evidence_calculated_at?: string | null
+          route_evidence_fingerprint?: string | null
+          route_evidence_miles?: number | null
+          route_evidence_place_id?: string | null
           source: string
           status?: string
           tracking_link_id?: string | null
@@ -1572,6 +1580,10 @@ export type Database = {
           requested_delivery_date?: string | null
           requested_delivery_text?: string | null
           requested_delivery_time?: string | null
+          route_evidence_calculated_at?: string | null
+          route_evidence_fingerprint?: string | null
+          route_evidence_miles?: number | null
+          route_evidence_place_id?: string | null
           source?: string
           status?: string
           tracking_link_id?: string | null

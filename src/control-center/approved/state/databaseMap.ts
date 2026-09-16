@@ -82,6 +82,7 @@ export function mapLeads(data: ControlData): Lead[] {
         text: message.body,
         deliveryStatus: message.delivery_status,
         providerStatus: message.provider_status,
+        kind: message.message_kind,
         sendError: message.send_error,
         escalation: message.sender_type === 'SYSTEM' && /salvador|human/i.test(message.body),
       }))
@@ -105,11 +106,27 @@ export function mapLeads(data: ControlData): Lead[] {
       : []
     const latestMessageAt = messages.reduce((latest, message) => Math.max(latest, message.at), 0)
     const latestResolutionAt=(data.activities??[]).filter(a=>a.entity_id===row.id&&a.event_type==='AI_ACTION_RESOLVED').reduce((latest,a)=>Math.max(latest,requiredAt(a.created_at)),0)
-    const lastCustomer = [...messages].reverse().find((message) => message.actor === 'customer')
+    const lastCustomer = [...messages].reverse().find((message) => message.actor === 'customer' && message.kind !== 'COMPLIANCE')
     const lastResponder = [...messages].reverse().find((message) =>
       (message.actor === 'salvador' || message.actor === 'ai')
       && !['FAILED', 'FILTERED', 'BLOCKED'].includes(message.deliveryStatus ?? ''),
     )
+    const customer = data.customers.find((entry) => entry.id === row.customer_id)
+    const auditAt = latestAiAudit ? requiredAt(latestAiAudit.created_at) : 0
+    const sendFailed = messages.some((message) => message.actor !== 'customer'
+      && (Boolean(message.sendError) || ['FAILED','FILTERED','BLOCKED'].includes(message.deliveryStatus ?? '')))
+    const unresolvedEscalation = messages.some((message) => message.escalation && message.at>latestResolutionAt && message.at>(lastResponder?.at??0))
+    const explicitHuman = row.human_takeover || Boolean(latestAiAudit && auditAt>latestResolutionAt && auditAt>=(lastResponder?.at??0)
+      && aiDecision?.requires_human === true && (row.human_takeover||!aiDecision?.global_pause_applied&&!aiDecision?.handoff_acknowledgement))
+    const aiFailed = sendFailed || unresolvedEscalation || Boolean(latestAiAudit && auditAt>latestResolutionAt && auditAt>=(lastResponder?.at??0) && latestAiAudit.status === 'FAILED')
+    const awaitingOptIn = Boolean(customer?.sms_consent_at && !customer.sms_double_opt_in_at && !customer.sms_opted_out_at)
+    const awaitingReply = Boolean(customer?.sms_double_opt_in_at && !customer.sms_opted_out_at
+      && lastCustomer && (!lastResponder || lastCustomer.at > lastResponder.at))
+    const conversationState: Lead['conversationState'] = explicitHuman ? 'HUMAN_REQUIRED'
+      : aiFailed ? 'AI_FAILED'
+        : awaitingOptIn ? 'AWAITING_OPT_IN'
+          : awaitingReply ? 'AI_PROCESSING'
+            : 'READY'
     return {
       id: row.id,
       customerId: row.customer_id,
@@ -119,12 +136,8 @@ export function mapLeads(data: ControlData): Lead[] {
       campaign: row.campaign ?? undefined,
       createdAt: requiredAt(row.created_at),
       lastActivityAt: Math.max(requiredAt(row.updated_at), latestMessageAt),
-      needsSalvador: Boolean(
-        messages.some((message) => message.sendError && message.actor !== 'customer') ||
-        messages.some((message) => message.escalation && message.at>latestResolutionAt && message.at>(lastResponder?.at??0)) ||
-        (latestAiAudit && requiredAt(latestAiAudit.created_at)>latestResolutionAt && requiredAt(latestAiAudit.created_at)>=(lastResponder?.at??0) && (latestAiAudit.status === 'FAILED' || aiDecision?.requires_human === true && (row.human_takeover||!aiDecision?.global_pause_applied&&!aiDecision?.handoff_acknowledgement))) ||
-        (lastCustomer && (!lastResponder || lastCustomer.at > lastResponder.at)),
-      ),
+      needsSalvador: conversationState === 'HUMAN_REQUIRED' || conversationState === 'AI_FAILED',
+      conversationState,
       aiPaused: row.human_takeover,
       notes: row.notes ?? '',
       lostReason: row.lost_reason ?? undefined,

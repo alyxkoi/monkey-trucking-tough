@@ -104,7 +104,8 @@ async function quoteEmail(service: any, quoteId: string, actorId: string | null,
     service.from('customers').select('id,name,email').eq('id', quote.customer_id).single(),
     service.from('quote_items').select('*').eq('quote_id', quote.id).order('created_at'),
   ])
-  if (!customer?.email) throw new ResponseError(422, 'Add a customer email address before sending this quote')
+  const recipient = String(quote.confirmed_email ?? '').trim().toLowerCase()
+  if (!recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) throw new ResponseError(422, 'Confirm the quote recipient email before sending this quote')
   const documentToken = await makeDocumentToken(service, 'QUOTE', quote.id, actorId)
   const url = `${SITE_ORIGIN}/quote/${documentToken.raw}`
   const materialItems = (items ?? []).filter((item: any) => item.kind === 'MATERIAL')
@@ -120,7 +121,7 @@ async function quoteEmail(service: any, quoteId: string, actorId: string | null,
     customWork: workItems.map((item: any) => ({ title: item.description })), quoteUrl: url,
     privacyUrl: `${SITE_ORIGIN}/privacy-policy`, termsUrl: `${SITE_ORIGIN}/terms`,
   })
-  return { customer, email, documentToken, dueAt: null }
+  return { customer, recipient, email, documentToken, dueAt: null }
 }
 
 async function invoiceEmail(service: any, invoiceId: string, actorId: string | null, resend: boolean) {
@@ -246,7 +247,7 @@ Deno.serve(async (req) => {
     if ('skipped' in prepared) return json(prepared)
 
     const log = await reserveLog(service, {
-      template, recordId, recipient: prepared.customer.email, customerId: prepared.customer.id,
+      template, recordId, recipient: 'recipient' in prepared ? prepared.recipient : prepared.customer.email, customerId: prepared.customer.id,
       tokenId: prepared.documentToken.id, idempotencyKey,
     })
     if (log.status === 'accepted_by_provider') return json({ success: true, idempotent: true, providerMessageId: log.provider_message_id })
@@ -260,7 +261,7 @@ Deno.serve(async (req) => {
 
     let providerMessageId: string
     try {
-      providerMessageId = await sendWithResend(resendKey, prepared.email, prepared.customer.email, idempotencyKey)
+      providerMessageId = await sendWithResend(resendKey, prepared.email, 'recipient' in prepared ? prepared.recipient : prepared.customer.email, idempotencyKey)
     } catch (error) {
       const summary = error instanceof Error ? error.message : 'Resend request failed'
       await service.from('email_send_log').update({ status: 'failed', error_message: summary.slice(0, 1000) }).eq('id', log.id)

@@ -22,6 +22,8 @@ export type Customer = {
   sms_double_opt_in_at?: string | null;
   sms_opted_out_at: string | null;
   sms_opt_out_source?: string | null;
+  sms_opt_in_requested_at?: string | null;
+  sms_opt_in_request_message_id?: string | null;
   is_active: boolean;
   last_activity_at: string;
   created_by: string | null;
@@ -35,6 +37,10 @@ export type Lead = {
   requested_delivery_text?: string | null;
   quote_requested_at?: string | null;
   quote_confirmed_email?: string | null;
+  route_evidence_fingerprint?: string | null;
+  route_evidence_miles?: number | null;
+  route_evidence_place_id?: string | null;
+  route_evidence_calculated_at?: string | null;
   id: string;
   customer_id: string;
   status: "NEW" | "ACTIVE" | "QUOTED" | "WON" | "LOST";

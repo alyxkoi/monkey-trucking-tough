@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
 import { isSimpleAcceptance, resolveConversationQuantity } from '../../supabase/functions/_shared/material-intelligence'
-import { calculateDeliveryRoute, deliveryForMiles, resolveDeliveryAddress } from '../../supabase/functions/_shared/route-intelligence'
+import { calculateDeliveryRoute, deliveryForMiles, resolveDeliveryAddress, routeEvidenceFingerprint } from '../../supabase/functions/_shared/route-intelligence'
 
 const material = {
   id: 'flexbase', name: 'Flexbase First Class 1" or 3"', full_load_yards: 20,
@@ -160,5 +160,14 @@ describe('material and route intelligence', () => {
       settings, enabled: true,
     })
     expect(result).toMatchObject({ status: 'ROUTE_CALCULATED', distance_miles: 15, cached: true })
+  })
+  it('reuses persistent lead evidence only while the address, origin and delivery settings match', async()=>{
+    const origin='7653 S FM 148, Kaufman, TX 75142',destination='123 Oak Road, Terrell, TX 75160'
+    const lead={route_evidence_fingerprint:routeEvidenceFingerprint(origin,destination,settings),route_evidence_miles:15,
+      route_evidence_place_id:'place-lead',route_evidence_calculated_at:new Date().toISOString()}
+    const reused=await calculateDeliveryRoute({messages:[{sender_type:'CUSTOMER',body:destination}],state:null,lead,quotes:[],settings,enabled:true,apiKey:'fixture'})
+    expect(reused).toMatchObject({status:'ROUTE_CALCULATED',distance_miles:15,cached:true,destination_place_id:'place-lead',diagnostics:{cache_source:'LEAD',provider_called:false}})
+    const changed=await calculateDeliveryRoute({messages:[{sender_type:'CUSTOMER',body:destination}],state:null,lead,quotes:[],settings:{...settings,delivery_tier_2_fee:999},enabled:true})
+    expect(changed).toMatchObject({status:'SETUP_REQUIRED'})
   })
 })

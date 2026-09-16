@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe,it,expect } from 'vitest'
-import { customerName,knownCustomerName,lifecycleContext,lifecycleProposal,lifecycleReply,resolveDeliveryPreference } from '../../supabase/functions/_shared/lifecycle'
+import { appendLeadMilestone,customerName,explicitFullRecap,knownCustomerName,leadMilestoneQuestion,lifecycleContext,lifecycleProposal,lifecycleReply,resolveDeliveryPreference } from '../../supabase/functions/_shared/lifecycle'
 import { activeAiInstructions,PROMPT_VERSION } from '../../supabase/functions/_shared/ai-engine'
 const now=new Date('2026-09-15T23:30:00Z')
 const lead={id:'lead'},quote={id:'q',lead_id:'lead',status:'ACCEPTED'},job={id:'j',quote_id:'q',status:'SCHEDULED',scheduled_date:'2026-09-20',scheduled_time:'09:00'}
@@ -35,6 +35,22 @@ describe('lifecycle projection and validated proposals',()=>{
   it('requires all ready facts and explicit quote consent',()=>{
     const p=proposal('yes',{lead:{...lead,requested_delivery_date:'2026-09-16',requested_delivery_time:'12:00',quote_requested_at:'now'},messages:[{sender_type:'AI',body:'send to mike@example.com?'},{sender_type:'CUSTOMER',body:'yes'}]})
     expect(p.ready).toBe(true);expect(proposal('yes').ready).toBe(false)
+  })
+  it('keeps quote-recipient email separate from an explicit profile update',()=>{
+    expect(proposal('send it to quote@example.com').confirmed_email).toBe('quote@example.com')
+    const contact=proposal('change my account email to profile@example.com',{decision:{...decision,dashboard_plan:{intent:'CONTACT',source_text:'change my account email to profile@example.com',confidence:'HIGH'}}})
+    expect(contact.email).toBe('profile@example.com');expect(contact.confirmed_email).toBeNull()
+  })
+  it('enforces one deterministic lead milestone after the useful answer',()=>{
+    const p=proposal('how much is gravel?')
+    const question=leadMilestoneQuestion({proposal:p,lifecycle:{reactive:false},pricing:{},route:{status:'NOT_READY'},quantity:{status:'NEEDS_QUANTITY',material_name:'Flexbase'},customer:{name:'Mike'},language:'ENGLISH'})
+    expect(appendLeadMilestone('Flexbase is available.',question)).toBe('Flexbase is available. how many yards of Flexbase do you need?')
+    expect(appendLeadMilestone('What address should we use?',question)).toBe('What address should we use?')
+  })
+  it('only permits a full recap when the customer actually asks for one',()=>{
+    expect(explicitFullRecap('what information do you have so far?')).toBe(true)
+    expect(explicitFullRecap('yes that is fine')).toBe(false)
+    expect(explicitFullRecap('change the address to 123 Oak Road')).toBe(false)
   })
   it('recaps date and moves toward quote/email confirmation',()=>{
     const p=proposal('tomorrow at noon');expect(lifecycleReply(p,{reactive:false},decision,pricing)).toMatch(/20 yards.*2026-09-16.*12:00.*send the quote/)

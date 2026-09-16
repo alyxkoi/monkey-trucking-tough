@@ -2,9 +2,9 @@
 import { isSimpleAcceptance, materialCandidates, resolveConversationQuantity, type QuantityResolution } from './material-intelligence.ts'
 import { addressClarification, addressFromText, calculateDeliveryRoute, deliveryForMiles, type RouteResult } from './route-intelligence.ts'
 import { assertCustomerText, composeConversationResponse, responsePlanSchema, sanitizeResponsePlanWording } from './conversation-response.ts'
-import { additionalYards, dashboardPlanSchema, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName } from './lifecycle.ts'
+import { additionalYards, appendLeadMilestone, dashboardPlanSchema, explicitFullRecap, leadMilestoneQuestion, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName } from './lifecycle.ts'
 
-export const PROMPT_VERSION = 'mt-ai-lifecycle-v12'
+export const PROMPT_VERSION = 'mt-ai-lifecycle-v13'
 
 const decisionSchema = {
   type: 'object',
@@ -422,7 +422,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     const contextStarted=Date.now()
     const [customerResult, messageResult, stateResult, quoteResult, jobResult, invoiceResult, paymentResult, materialResult, appResult, controlResult] = await Promise.all([
       service.from('customers').select('id,name,phone,email,notes,sms_consent_at,sms_consent_source,sms_double_opt_in_at,sms_opted_out_at').eq('id', customerId).single(),
-      leadId ? service.from('lead_messages').select('id,sender_type,body,created_at').eq('lead_id', leadId).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(80) : Promise.resolve({ data: [], error: null }),
+      leadId ? service.from('lead_messages').select('id,sender_type,body,message_kind,created_at').eq('lead_id', leadId).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(80) : Promise.resolve({ data: [], error: null }),
       leadId ? service.from('ai_conversation_state').select('*').eq('lead_id', leadId).maybeSingle() : Promise.resolve({ data: null, error: null }),
       service.from('quotes').select('*,quote_items(*)').eq('customer_id', customerId).eq('lead_id',leadId).order('created_at', { ascending: false }).limit(10),
       service.from('jobs').select('id,quote_id,status,category,scheduled_date,scheduled_time,address,description,agreed_amount,blocked_reason,notes,completed_at').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(30),
@@ -440,7 +440,11 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     // Form intake is context, never an outbound message or a current trigger.
     const intake = [lead?.service_type, lead?.delivery_address, lead?.address, lead?.need, lead?.description, lead?.message].filter(Boolean).join('. ')
     const toolMessages = intake ? [{ sender_type: 'CUSTOMER', body: intake }, ...messages] : messages
-    const latestCustomer = [...messages].reverse().find((item: any) => item.sender_type === 'CUSTOMER')
+    const actualLatestCustomer = [...messages].reverse().find((item: any) => item.sender_type === 'CUSTOMER')
+    const resumedCustomer = body.resume_message_id
+      ? messages.find((item:any)=>item.id===body.resume_message_id&&item.sender_type==='CUSTOMER'&&item.message_kind!=='COMPLIANCE')
+      : null
+    const latestCustomer = resumedCustomer ?? actualLatestCustomer
     const takeover = Boolean((lead ?? subject)?.human_takeover)
     const forcedReason = forcedEscalation(latestCustomer?.body ?? '', takeover)
     const customWorkRequested = forcedReason === 'Custom work pricing requires Salvador.'
@@ -454,7 +458,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     timings.context_ms=Date.now()-started
     const routeStarted=Date.now()
     const routeResult = await calculateDeliveryRoute({
-      messages: toolMessages, state: stateResult.data, quotes: quoteResult.data ?? [], settings: appResult.data,
+      messages: toolMessages, state: stateResult.data, lead, quotes: quoteResult.data ?? [], settings: appResult.data,
       enabled: controlResult.data.route_intelligence_enabled !== false,
       apiKey: config.googleMapsApiKey,
     })
@@ -480,6 +484,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       customer: customerResult.data,
       lead: lead ?? (mode === 'CONVERSATION' ? subject : null),
       conversation: messages,
+      resumed_customer_request: resumedCustomer?.body ?? null,
       existing_extracted_state: {...stateResult.data,known_facts:authoritativeFacts},
       recent_quotes: quoteResult.data ?? [], recent_jobs: jobResult.data ?? [],
       recent_invoices: invoiceResult.data ?? [], recent_verified_payments: paymentResult.data ?? [],
@@ -652,13 +657,19 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     decision.known_facts=currentFacts(decision.known_facts,quantity,route,toolMessages,customerResult.data)
     decision.first_conversational_reply = !lifecycle.reactive&&!messages.some((m: any) => ['AI','HUMAN'].includes(m.sender_type))
     const plan=decision.response_plan
+    if(plan&&!explicitFullRecap(latestCustomer?.body??'')&&Array.isArray(plan.answers)) {
+      const removedSummary=plan.answers.includes('SUMMARY')
+      plan.answers=plan.answers.filter((answer:string)=>answer!=='SUMMARY')
+      if(removedSummary&&!plan.answers.length&&/\b\d+(?:\.\d+)?\s*(?:yards?|tons?|yardas?|toneladas?)\b/i.test(latestCustomer?.body??''))plan.answers=['QUANTITY']
+      if(plan.objective==='SUMMARY')plan.objective=plan.answers.length?'ANSWER':'COLLECT'
+    }
     const priorCustom=authoritativeFacts.find((f:any)=>f.key==='custom_work_request')?.value
     const historicalCustom=toolMessages.some((m:any)=>m.sender_type==='CUSTOMER'&&forcedEscalation(m.body??'',false)==='Custom work pricing requires Salvador.')
     const hasCustom=customWorkRequested||plan?.escalation_category==='CUSTOM_WORK'||Boolean(priorCustom)||historicalCustom
     decision.current_custom_work_request=customWorkRequested
     decision.subtask_escalations=hasCustom?[{topic:'CUSTOM_WORK',reason:'Custom work pricing requires Salvador. Material and delivery may continue.'}]:[]
     if(hasCustom)decision.known_facts=upsertFact(decision.known_facts,'custom_work_request',priorCustom??'Custom work scope/pricing pending Salvador','CONVERSATION')
-    const proposal=lifecycleProposal({lead,customer:customerResult.data,messages,lifecycle,decision,pricing})
+    const proposal=lifecycleProposal({lead,customer:customerResult.data,messages,lifecycle,decision,pricing,requestMessage:latestCustomer})
     if(proposal.actions.includes('ORDER_CHANGE')) {
       const extra=additionalYards(latestCustomer?.body??'')
       const items=(lifecycle.quote?.quote_items??[]).filter((i:any)=>i.kind==='MATERIAL')
@@ -742,7 +753,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
           const compositionStarted=Date.now()
           const sanitized=sanitizeResponsePlanWording(plan,pricing.conversation.question_references??[])
           if(sanitized.length)timings.response_wording_sanitized=sanitized
-          decision.draft_reply=composeConversationResponse(decision,pricing)
+          decision.draft_reply=plan.answers?.length||plan.next_question?composeConversationResponse(decision,pricing):''
           timings.composition_ms=Date.now()-compositionStarted
         }
       }
@@ -752,6 +763,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     // Only server-rendered lifecycle statements may claim a dashboard change.
     // They are persisted below before the worker can reserve this response.
     if(mode==='CONVERSATION'&&!forced&&decision.ai_may_continue&&!decision.requires_human&&decision.confidence==='HIGH') {
+      const milestone=leadMilestoneQuestion({proposal,lifecycle,pricing,route,quantity,customer:customerResult.data,language:decision.detected_language})
       let reply=preparedLifecycleReply
       const policyReply=Boolean(reply)
       if(!reply&&!knownCustomerName(customerResult.data.name)&&!authoritativeFacts.some((f:any)=>f.key==='customer_name')&&!proposal.name&&!lifecycle.reactive&&decision.recommended_action!=='PROVIDE_STANDARD_PRICE'&&!latestIsAddressReply) {
@@ -759,6 +771,8 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
         if((decision.recommended_action==='ASK_NEXT_MISSING_FACT'||plan?.objective==='COLLECT'&&!plan?.answers?.length)&&!/[?？]/.test(latestCustomer?.body??''))reply=question
         if(decision.draft_reply.length+question.length<360&&!decision.draft_reply.includes('?'))reply=decision.draft_reply+' '+question
       }
+      if(!reply&&milestone&&decision.recommended_action==='PROVIDE_STANDARD_PRICE')decision.next_milestone_question=milestone
+      else if(!reply&&milestone)reply=appendLeadMilestone(decision.draft_reply,milestone)
       if(reply){reply=reply.replace(/(\d{4})-(\d{2})-(\d{2})/g,'$2/$3/$1');decision.lifecycle_reply=reply.charAt(0).toLowerCase()+reply.slice(1);decision.draft_reply=decision.lifecycle_reply;if(policyReply)decision.recommended_action='ASK_NEXT_MISSING_FACT'}
     }
     decision.handoff_acknowledgement=mode==='CONVERSATION'&&forced==='Customer requested a human.'

@@ -114,6 +114,8 @@ describe('transactional workflow safety', () => {
     expect(edge.indexOf('await sendWithResend')).toBeLessThan(edge.indexOf("service.rpc('finalize_customer_email_send'"))
     expect(edge).toContain("Deno.env.get('RESEND_API_KEY')")
     expect(edge).toContain("status: 'failed'")
+    expect(edge).toContain("quote.confirmed_email")
+    expect(edge).toContain("'recipient' in prepared ? prepared.recipient : prepared.customer.email")
     expect(appState).not.toContain("await updateQuote(id, { status: 'SENT'")
     expect(source('src/control-center/data.ts')).not.toContain('RESEND_API_KEY')
     expect(source('src/pages/CustomerDocument.tsx')).not.toContain('RESEND_API_KEY')

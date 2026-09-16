@@ -89,9 +89,11 @@ describe('Phase 06 deterministic QA fixture layer', () => {
 
     data.messages[1] = { ...data.messages[1], delivery_status: 'FAILED' }
     expect(mapLeads(data)[0].needsSalvador).toBe(true)
+    expect(mapLeads(data)[0].conversationState).toBe('AI_FAILED')
 
     data.messages = data.messages.slice(0,1)
-    expect(mapLeads(data)[0].needsSalvador).toBe(true)
+    expect(mapLeads(data)[0].needsSalvador).toBe(false)
+    expect(mapLeads(data)[0].conversationState).toBe('AI_PROCESSING')
   })
 
   it('reconciles the Collected hero with the sum of daily payment values', () => {

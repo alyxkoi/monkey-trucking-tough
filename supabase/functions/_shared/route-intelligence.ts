@@ -13,6 +13,7 @@ export type RouteResult = {
   cached?: boolean
   reason?: string
   resolved_at?: number
+  evidence_fingerprint?: string
   diagnostics?: RouteDiagnostics
 }
 
@@ -25,7 +26,7 @@ export type RouteDiagnostics = {
   provider_ms: number
   response_parse_ms: number
   total_ms: number
-  cache_source: 'MEMORY' | 'QUOTE' | null
+  cache_source: 'MEMORY' | 'LEAD' | 'QUOTE' | null
   error: string | null
 }
 
@@ -107,9 +108,14 @@ export function deliveryForMiles(miles: number, settings: any) {
   }
 }
 
+export function routeEvidenceFingerprint(origin:string,destination:string,settings:any) {
+  return JSON.stringify([origin.toLowerCase(),destination.toLowerCase(),Number(settings.delivery_tier_1_max_miles),Number(settings.delivery_tier_1_fee),Number(settings.delivery_tier_2_max_miles),Number(settings.delivery_tier_2_fee),Number(settings.delivery_tier_3_max_miles),Number(settings.delivery_tier_3_fee),Number(settings.delivery_overage_base_fee),Number(settings.delivery_overage_per_mile)])
+}
+
 export async function calculateDeliveryRoute(input: {
   messages: any[]
   state: any
+  lead?: any
   quotes: any[]
   settings: any
   enabled: boolean
@@ -134,13 +140,24 @@ export async function calculateDeliveryRoute(input: {
     return finish({ status: 'NEEDS_CLARIFICATION', origin, destination, reason: 'A city or ZIP is needed to distinguish the street.' })
   }
   const cacheStarted=Date.now()
-  const cacheKey=JSON.stringify([origin.toLowerCase(),destination.toLowerCase()])
+  const cacheKey=routeEvidenceFingerprint(origin,destination,input.settings)
   const recent=routeCache.get(cacheKey)
   if(!input.fetcher&&recent&&Date.now()-(recent.resolved_at??0)<ROUTE_TTL_MS) {
     const fee=deliveryForMiles(recent.distance_miles!,input.settings)
     diagnostics.cache_lookup_ms=Date.now()-cacheStarted;diagnostics.cache_source='MEMORY'
     const {diagnostics:_oldDiagnostics,...cachedRoute}=recent
-    return finish({...cachedRoute,origin,destination,delivery_type:fee?.type,delivery_fee_per_load:fee?.fee_per_load,cached:true})
+    return finish({...cachedRoute,origin,destination,delivery_type:fee?.type,delivery_fee_per_load:fee?.fee_per_load,evidence_fingerprint:cacheKey,cached:true})
+  }
+  const leadEvidence=input.lead
+  if(!input.fetcher&&leadEvidence?.route_evidence_fingerprint===cacheKey
+    && Number.isFinite(Number(leadEvidence.route_evidence_miles))
+    && Date.now()-Date.parse(leadEvidence.route_evidence_calculated_at)<30*24*60*60_000) {
+    const miles=Number(leadEvidence.route_evidence_miles)
+    const fee=deliveryForMiles(miles,input.settings)
+    diagnostics.cache_lookup_ms=Date.now()-cacheStarted;diagnostics.cache_source='LEAD'
+    return finish({status:'ROUTE_CALCULATED',origin,destination,distance_miles:miles,
+      destination_place_id:leadEvidence.route_evidence_place_id??null,duration_seconds:null,
+      delivery_type:fee?.type??null,delivery_fee_per_load:fee?.fee_per_load??null,evidence_fingerprint:cacheKey,cached:true})
   }
   const cached = input.quotes.find((quote) => quote.status === 'DRAFT'
     && quote.delivery_distance_source === 'GOOGLE_ROUTES'
@@ -154,7 +171,7 @@ export async function calculateDeliveryRoute(input: {
     distance_miles: Number(cached.delivery_miles), destination_place_id: cached.delivery_destination_place_id ?? null,
     duration_seconds: null, delivery_type: cached.delivery_type ?? null,
     delivery_fee_per_load: deliveryForMiles(Number(cached.delivery_miles), input.settings)?.fee_per_load ?? null,
-    cached: true,
+    evidence_fingerprint:cacheKey,cached: true,
   }) }
   if (!input.apiKey) { diagnostics.error='Google Routes is not connected.'; return finish({ status: 'SETUP_REQUIRED', origin, destination, reason: diagnostics.error }) }
 
@@ -204,6 +221,7 @@ export async function calculateDeliveryRoute(input: {
       destination_place_id: geocoded?.placeId ?? null,
       delivery_type: delivery?.type ?? null,
       delivery_fee_per_load: delivery?.fee_per_load ?? null,
+      evidence_fingerprint:cacheKey,
       resolved_at:Date.now(),
     }
     if(!input.fetcher){if(routeCache.size>=200)routeCache.delete(routeCache.keys().next().value!);routeCache.set(cacheKey,result)}

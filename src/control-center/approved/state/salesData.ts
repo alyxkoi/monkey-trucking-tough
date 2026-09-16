@@ -28,6 +28,7 @@ export type Message = {
   text: string
   deliveryStatus?: string
   providerStatus?: string | null
+  kind?: 'FREEFORM' | 'TEMPLATE' | 'INBOUND' | 'COMPLIANCE' | null
   sendError?: string | null
   /** Marks the moment the AI handed the conversation to a human. */
   escalation?: boolean
@@ -57,6 +58,7 @@ export type Lead = {
   lastActivityAt: number
   /** Urgency is separate from status. */
   needsSalvador: boolean
+  conversationState?: 'READY' | 'AWAITING_OPT_IN' | 'AI_PROCESSING' | 'AI_FAILED' | 'HUMAN_REQUIRED'
   /** A human reply pauses the active AI conversation. */
   aiPaused: boolean
   notes: string

@@ -4,6 +4,7 @@ import { sentDmInboundMessages } from '../_shared/sent-dm-conversations.ts'
 import { complianceKeyword } from '../_shared/sent-dm-domain.ts'
 import { workerAuthorized } from '../_shared/worker-auth.ts'
 import { reconcileAcceptedSms } from '../_shared/sms-reconcile.ts'
+import { dispatchSms } from '../_shared/sms-dispatch.ts'
 
 const BUSINESS_NUMBER = '+19453750877'
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -70,6 +71,13 @@ Deno.serve(async (req) => {
       if (jobId) {
         queued++
         kickCommunications(url, key, { jobId })
+      }
+      if(result.data?.result?.needs_opt_in===true) {
+        const templateId=Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID')
+        if(!templateId)throw new Error('Approved inbound opt-in template is not configured')
+        const reserved=await service.rpc('reserve_inbound_opt_in',{p_lead_id:result.data.result.lead_id,p_source_message_id:result.data.result.message_id,p_template_id:templateId})
+        if(reserved.error)throw new Error('Recovered inbound opt-in could not be reserved')
+        if(reserved.data?.id)await dispatchSms(service,{apiKey,profileId},reserved.data.id).catch(()=>undefined)
       }
     }
     const receipts=await reconcileAcceptedSms(service,{apiKey,profileId})

@@ -85,6 +85,7 @@ export function LeadDetail() {
       || needsSmsConfirmation
       || aiError,
   )
+  const smsConfirmationPending = Boolean(smsCustomer?.sms_opt_in_requested_at)
 
   const focusReply = () => {
     conversationRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -197,7 +198,18 @@ export function LeadDetail() {
       <AiStaffActions actions={(sourceData?.staffActions??[]).filter(action=>action.entity_id===lead.id)} onResolved={refresh}/>
 
       {lead.needsSalvador && (
-        <SalvadorNeeded line={latestAiAudit?.concise_rationale ?? 'This conversation needs your reply. The AI stopped rather than guess.'} />
+        <SalvadorNeeded line={lead.conversationState === 'AI_FAILED' ? 'The automated reply failed and needs review.' : latestAiAudit?.concise_rationale ?? 'This conversation needs your reply. The AI stopped rather than guess.'} />
+      )}
+      {lead.conversationState === 'AWAITING_OPT_IN' && (
+        <div role="status" className="rounded-xl border border-ice/25 bg-ice/5 px-5 py-4 text-sm">
+          <p className="font-semibold">Awaiting SMS opt-in</p>
+          <p className="mt-1 text-cc-muted">The customer inquiry is saved. Their original request will continue automatically after they reply YES.</p>
+        </div>
+      )}
+      {lead.conversationState === 'AI_PROCESSING' && (
+        <div role="status" className="rounded-xl border border-white/10 bg-white/[0.03] px-5 py-4 text-sm text-cc-muted">
+          Message received. The AI reply is processing.
+        </div>
       )}
       {customWorkPending && !lead.needsSalvador && (
         <div role="status" className="rounded-xl border border-ice/25 bg-ice/5 px-5 py-4 text-sm">
@@ -321,8 +333,8 @@ export function LeadDetail() {
                   {sourceData?.controlSettings?.sms_status === 'TESTING' && <p className="text-[13px] text-warn">SMS testing mode. Only approved test numbers can receive messages.</p>}
                   {needsSmsConfirmation && (
                     <div className="flex flex-wrap items-center gap-3">
-                      <p className="text-[13px] text-cc-muted">Initial consent recorded. AI sending requires SMS confirmation.</p>
-                      <SecondaryButton size="sm" disabled={!communicationReady || smsActionPending} onClick={() => void conversationAction('request-opt-in')}>Request SMS confirmation</SecondaryButton>
+                      <p className="text-[13px] text-cc-muted">{smsConfirmationPending ? 'Confirmation message sent. Waiting for the customer to reply YES.' : 'Initial consent recorded. AI sending requires SMS confirmation.'}</p>
+                      {!smsConfirmationPending && <SecondaryButton size="sm" disabled={!communicationReady || smsActionPending} onClick={() => void conversationAction('request-opt-in')}>Request SMS confirmation</SecondaryButton>}
                     </div>
                   )}
                   {aiError && (

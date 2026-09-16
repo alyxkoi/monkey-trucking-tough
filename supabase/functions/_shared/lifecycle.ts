@@ -13,6 +13,8 @@ Only validated server tools persist customer facts, eligible draft preparation, 
 Acknowledging a requested order/address/schedule change is safe intake, not financial authorization. Keep that staff approval as a subtask while acknowledging the exact request. Do not stop the whole conversation merely because accepted terms cannot be changed by AI. Actual disputes, negotiation, payment claims, uncertain claims and human takeover still stop autonomous sending.
 dashboard_plan contains intent and exact source wording from the latest customer text. When ambiguous, clarify before writing. Dates are resolved by the server in America/Chicago. Morning/afternoon without an exact time require a time clarification. A preference is not a booking.
 Quote readiness requires current deterministic material/route/pricing, requested date/time, explicit quote request and confirmed current email. Staff remains responsible for sending.
+When consent has just been confirmed, continue the saved pre-consent inquiry. YES is authorization, not the customer's service question.
+For a lead, answer the current question first and then ask exactly one natural next milestone question: name, material, quantity, destination, delivery preference, quote permission, then quote-recipient email. Do not end with a generic thank-you.
 Explicit human requests receive one brief acknowledgment through the guarded outbox; normal AI then pauses. Other global safety/financial escalations fail closed. Custom work remains an independent staff subtask.
 Existing consent, compliance, revision, duplicate, pricing and manual-override protections always win. Run only on customer/business events, due automations or explicit sandbox requests.`
 
@@ -74,10 +76,10 @@ export function resolveDeliveryPreference(text:string, now=new Date(), timezone=
   return {date,time,text:text.slice(0,200),needsClarification:ambiguous||!!date&&!time||!!time&&!date}
 }
 
-export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];lifecycle:any;decision:any;pricing:any;now?:Date;timezone?:string}) {
+export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];lifecycle:any;decision:any;pricing:any;requestMessage?:any;now?:Date;timezone?:string}) {
   const {lead,customer,messages,lifecycle,decision,pricing}=input
   const inbound=[...messages].reverse().find(m=>m.sender_type==='CUSTOMER')
-  const text=String(inbound?.body??'').trim()
+  const text=String(input.requestMessage?.body??inbound?.body??'').trim()
   const lastAi=[...messages].reverse().find(m=>m.sender_type==='AI')?.body??''
   const plan=decision.dashboard_plan
   const trustedPlan=plan?.confidence==='HIGH'&&typeof plan.source_text==='string'&&plan.source_text.trim()&&text.includes(plan.source_text)
@@ -94,10 +96,12 @@ export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];li
   const previousDate=priorPreference?.date??lead.requested_delivery_date
   const preference=dateRelevant?resolveDeliveryPreference(text,input.now,input.timezone,previousDate):null
   const quoteRequested=Boolean(lead.quote_requested_at)||intent==='QUOTE_REQUEST'&&/\b(quote|estimate|cotizacion|presupuesto|send it|mandala|enviala)\b/i.test(normal(text))||yes&&/\b(send.*quote|quote.*over|envi.*cotizaci|mand.*cotizaci)\b/i.test(lastAi)
-  const confirmedEmail=email??(yes&&customer.email&&lastAi.includes(customer.email)?customer.email:null)
+  const contactEmail=email&&intent==='CONTACT'?email:null
+  const quoteEmailPrompt=/\b(quote|estimate|cotizaci[oó]n|presupuesto|send|email|correo)\b/i.test(lastAi)
+  const confirmedEmail=email&&intent!=='CONTACT'&&(intent==='NONE'||['CONFIRM_EMAIL','QUOTE_REQUEST'].includes(intent)||quoteEmailPrompt)?email:(yes&&customer.email&&lastAi.includes(customer.email)?customer.email:null)
   const requestedDate=preference?.date??lead.requested_delivery_date
   const requestedTime=preference?.date&&preference.date!==lead.requested_delivery_date?preference.time:preference?.time??lead.requested_delivery_time
-  const emailConfirmed=confirmedEmail??(lead.quote_confirmed_email===customer.email?lead.quote_confirmed_email:null)
+  const emailConfirmed=confirmedEmail??lead.quote_confirmed_email??null
   const ready=!lifecycle.protected&&quoteRequested&&emailConfirmed&&requestedDate&&requestedTime&&!preference?.needsClarification&&pricing.status==='MATERIAL_CALCULATED'&&pricing.route?.status==='ROUTE_CALCULATED'&&Number.isFinite(pricing.grand_total)&&!decision.uncertain_facts?.length
   const note=intent==='JOB_NOTE'&&trustedPlan?plan.source_text.slice(0,500):/\b(gate code|back entrance|side gate|call me when|codigo.*porton|entrada trasera|llamame cuando)\b/i.test(normal(text))?text.slice(0,500):null
   const financialChange=lifecycle.protected&&(intent==='ORDER_CHANGE'||/\b(changed?|instead|actually|more|cambia|mejor|mas)\b/i.test(normal(text))&&/\b(yards?|tons?|material|address|yardas|toneladas|direccion)\b/i.test(normal(text)))
@@ -108,12 +112,44 @@ export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];li
   if(decision.payment_claim_detected)actions.push('PAYMENT_CLAIM')
   if(/complaint|Customer complaint/i.test(decision.escalation_reason??''))actions.push('COMPLAINT')
   if(lifecycle.stage==='PAID'&&intent==='NEW_WORK')actions.push('NEW_WORK')
-  return {source_message_id:inbound?.id,name,email,confirmed_email:confirmedEmail,quote_requested:quoteRequested,
+  return {source_message_id:inbound?.id,name,email:contactEmail,confirmed_email:confirmedEmail,quote_requested:quoteRequested,
     requested_date:preference?.date,requested_time:preference?.time,requested_text:preference?.text,
     job_note:financialChange?null:note,ready:Boolean(ready),actions,clarification:emails.length>1?'EMAIL':preference?.needsClarification?'DATE_TIME':plan?.confidence==='LOW'?'REQUEST':null,
-    intent,progress:yes||Boolean(email)||Boolean(preference)||intent==='QUOTE_REQUEST',context:{stage:lifecycle.stage,quote_id:lifecycle.quote?.id,job_id:lifecycle.job?.id,invoice_id:lifecycle.invoice?.id,request:text,requested_date:preference?.date,requested_time:preference?.time,pricing},
+    intent,progress:yes||Boolean(email)||Boolean(preference)||intent==='QUOTE_REQUEST',context:{stage:lifecycle.stage,quote_id:lifecycle.quote?.id,job_id:lifecycle.job?.id,invoice_id:lifecycle.invoice?.id,request:text,request_source_message_id:input.requestMessage?.id??inbound?.id,requested_date:preference?.date,requested_time:preference?.time,pricing,prior_delivery_address:lead.delivery_address},
     current:{name:name??knownCustomerName(customer.name),email:emailConfirmed,contact_email:customer.email,date:requestedDate,time:requestedTime},
   }
+}
+
+export function explicitFullRecap(text:string) {
+  return /\b(?:recap|summari[sz]e|what (?:information|details) do you have|what do you have (?:for|so far|me down for)|repas[oa]|resumen|qu[eé] (?:informaci[oó]n|datos) tiene)\b/i.test(text)
+}
+
+export function leadMilestoneQuestion(input:{proposal:any;lifecycle:any;pricing:any;route:any;quantity:any;customer:any;language:string}) {
+  const {proposal,lifecycle,pricing,route,quantity,customer}=input
+  if(lifecycle.reactive||proposal.clarification||proposal.actions?.some((a:string)=>['HUMAN_REQUEST','COMPLAINT','PAYMENT_CLAIM'].includes(a)))return null
+  const es=input.language==='SPANISH'
+  const choose=(en:string,sp:string)=>es?sp:en
+  if(!knownCustomerName(proposal.current?.name??customer?.name))return choose('what name should I put on the request?','qué nombre pongo en la solicitud?')
+  if(quantity?.status!=='RESOLVED') {
+    return quantity?.material_name
+      ? choose(`how many yards of ${String(quantity.material_name).replace(/[—–-]/g,' ')} do you need?`,`cuántas yardas de ${String(quantity.material_name).replace(/[—–-]/g,' ')} necesita?`)
+      : choose('what material and how many yards do you need?','qué material y cuántas yardas necesita?')
+  }
+  if(!route?.destination)return choose('what is the exact delivery address?','cuál es la dirección exacta de entrega?')
+  if(!proposal.current?.date)return choose('what delivery date and time work best for you?','qué fecha y hora de entrega le funcionan mejor?')
+  if(!proposal.current?.time)return choose('what time works best that day?','qué hora le funciona mejor ese día?')
+  if(!proposal.quote_requested)return choose('would you like me to prepare the quote for Salvador to review and send?','quiere que prepare la cotización para que Salvador la revise y la envíe?')
+  if(!proposal.current?.email)return proposal.current?.contact_email
+    ? choose(`should we send the quote to ${proposal.current.contact_email}?`,`enviamos la cotización a ${proposal.current.contact_email}?`)
+    : choose('what email should we send the quote to?','a qué correo enviamos la cotización?')
+  if(pricing?.route?.status!=='ROUTE_CALCULATED')return null
+  return null
+}
+
+export function appendLeadMilestone(reply:string,question:string|null) {
+  const clean=String(reply??'').trim()
+  if(!question||/[?？]\s*$/.test(clean)||clean.toLowerCase().includes(question.toLowerCase()))return clean
+  return `${clean}${clean?' ':''}${question}`.trim()
 }
 
 export function lifecycleReply(proposal:any,lifecycle:any,decision:any,pricing:any) {
@@ -131,6 +167,11 @@ export function lifecycleReply(proposal:any,lifecycle:any,decision:any,pricing:a
   if(proposal.job_note&&lifecycle.job)return choose('got it, I added that instruction for the crew.','listo, agregué esa instrucción para el equipo.')
   if(proposal.intent==='ARRIVAL'&&lifecycle.job)return choose(`your current schedule is ${lifecycle.job.scheduled_date}${lifecycle.job.scheduled_time?` at ${lifecycle.job.scheduled_time.slice(0,5)}`:'. an exact arrival time has not been set'}.`,`su horario actual es ${lifecycle.job.scheduled_date}${lifecycle.job.scheduled_time?` a las ${lifecycle.job.scheduled_time.slice(0,5)}`:'. todavía no hay hora exacta de llegada'}.`)
   if(lifecycle.reactive)return null
+  if(proposal.context?.prior_delivery_address&&pricing?.route?.destination
+    && String(proposal.context.prior_delivery_address).trim().toLowerCase()!==String(pricing.route.destination).trim().toLowerCase()
+    && /\b(address|direcci[oó]n)\b|\d{1,6}\s+\S+/i.test(proposal.context.request??'')) {
+    return choose(`got it, I changed the delivery address to ${pricing.route.destination}.`,`listo, cambié la dirección de entrega a ${pricing.route.destination}.`)
+  }
   if(proposal.ready&&proposal.progress)return choose(`your quote is prepared for Salvador to review and send to ${proposal.current.email}. the delivery time is a request until the team confirms.`,`su cotización está preparada para que Salvador la revise y envíe a ${proposal.current.email}. el horario es una solicitud hasta que el equipo confirme.`)
   if(proposal.quote_requested&&proposal.progress&&pricing.status==='MATERIAL_CALCULATED'&&!proposal.current.email)return proposal.current.contact_email?choose(`I have ${proposal.current.contact_email} on file. is that where you want us to send it?`,`tengo ${proposal.current.contact_email}. ahí quiere que enviemos la cotización?`):choose('what email should we send the quote to?','a qué correo enviamos la cotización?')
   if(proposal.requested_date&&proposal.current.time&&pricing.status==='MATERIAL_CALCULATED'&&pricing.route?.status==='ROUTE_CALCULATED') {

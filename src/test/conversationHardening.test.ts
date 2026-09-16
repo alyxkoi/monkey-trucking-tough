@@ -203,8 +203,9 @@ describe('shared production conversation orchestration',()=>{
     expect(result.reply).toContain('What delivery date works for you?')
     expect(result.reply).not.toContain('confirmed')
   })
-  it('still fails closed when unsafe model wording leaves no useful response',async()=>{
-    await expect(run([customer('18 yards commercial')],{acknowledgement:'Delivery is $1.',next_question:''})).rejects.toThrow('Unverified business assertion')
+  it('drops unsafe model wording when a deterministic next milestone is available',async()=>{
+    const result=await run([customer('18 yards commercial')],{acknowledgement:'Delivery is $1.',next_question:''})
+    expect(result.reply).toContain('your name');expect(result.reply).not.toContain('$1')
   })
   it('rejects unknown material identities',async()=>{
     await expect(run([customer('18 yards commercial')],{objective:'COMPARE',comparison_keys:['made-up']})).rejects.toThrow('unknown catalog identity')

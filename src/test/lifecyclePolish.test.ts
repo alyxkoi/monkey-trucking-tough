@@ -29,7 +29,7 @@ describe('lifecycle behavior classes',()=>{
    vi.stubGlobal('fetch',fetcher)
    const input={messages:[{sender_type:'CUSTOMER',body:'867 Cache Road, Test TX 75001'}],state:null,quotes:[],enabled:true,apiKey:'fixture',settings:{company_address:'Yard',delivery_tier_1_max_miles:20,delivery_tier_1_fee:100}}
    expect(await calculateDeliveryRoute(input)).toMatchObject({status:'ROUTE_CALCULATED',delivery_fee_per_load:100})
-   expect(await calculateDeliveryRoute({...input,settings:{...input.settings,delivery_tier_1_fee:200}})).toMatchObject({cached:true,delivery_fee_per_load:200})
-   expect(fetcher).toHaveBeenCalledTimes(1)
+   expect(await calculateDeliveryRoute({...input,settings:{...input.settings,delivery_tier_1_fee:200}})).toMatchObject({status:'ROUTE_CALCULATED',delivery_fee_per_load:200})
+   expect(fetcher).toHaveBeenCalledTimes(2)
  })
 })
