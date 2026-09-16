@@ -9,7 +9,8 @@ ACCEPTED/SCHEDULING: collect requested delivery details, not new qualification. 
 SCHEDULED/IN_PROGRESS: react to the customer. Arrival answers use the actual calendar. Gate/access instructions may become job notes. Date, quantity, material and address changes are staff requests, never silent calendar/financial edits.
 COMPLETED/PAYMENT/PAID: use real invoice and payment records; a customer claim is not a confirmed payment. Do not keep selling the completed order.
 RETURNING: new work belongs to a fresh lead linked to the same phone/customer, never an alteration of a historical quote.
-Only validated server tools persist customer facts, eligible draft preparation, notes and staff action events. Name/email never identify or merge customers.
+Only validated server tools persist customer facts, eligible draft preparation, notes and staff action events. Name/email never identify or merge customers. A normal first customer email collected during qualification becomes durable profile contact data when it is non-conflicting. An explicitly alternate recipient for this Quote stays document-scoped unless the customer also requests a profile update.
+A clear material and yard request is a material-delivery lead by default unless the customer explicitly requests pickup or custom service work. Later explicit clarification replaces the lead-card need while the transaction is still unprotected.
 Acknowledging a requested order/address/schedule change is safe intake, not financial authorization. Keep that staff approval as a subtask while acknowledging the exact request. Do not stop the whole conversation merely because accepted terms cannot be changed by AI. Actual disputes, negotiation, payment claims, uncertain claims and human takeover still stop autonomous sending.
 dashboard_plan contains intent and exact source wording from the latest customer text. When ambiguous, clarify before writing. Dates are resolved by the server in America/Chicago. Morning/afternoon without an exact time require a time clarification. A preference is not a booking.
 Quote readiness requires current deterministic material/route/pricing, requested date/time, explicit quote request and confirmed current email. Staff remains responsible for sending.
@@ -41,6 +42,35 @@ export function customerName(text:string, asked=false) {
   const prefix=/\b(?:my name is|me llamo|mi nombre es|this is|soy)\s+([\p{L}][\p{L}'’]*(?:\s+[\p{L}][\p{L}'’]*){0,3})(?=[,.!?]|\s+(?:and|y|i need|necesito)\b|$)/iu
   const name=text.match(prefix)?.[1]??(asked&&/^[\p{L}][\p{L}'’]*(?:\s+[\p{L}][\p{L}'’]*){0,3}[.!]?$/u.test(text.trim())?text.trim().replace(/[.!]$/,''):null)
   return name&&!/\b(need|want|gravel|ready|yes|no|hola|thanks|necesito|quiero|listo|too|much|expensive|cheap|confusing|wrong|correct|great|good|fine|bad|a|the)\b/i.test(name)&&name.length<=80?name:null
+}
+
+export const LEAD_NEEDS=['material-delivery','material-pickup','driveway','pond','dirt-grading','land-clearing'] as const
+export type LeadNeed=typeof LEAD_NEEDS[number]
+
+/**
+ * Project the useful lead-card category from the same customer transcript and
+ * deterministic material resolution already used by the conversation engine.
+ * A later explicit clarification wins; incidental phrases such as "for my
+ * driveway" do not turn a material order into custom driveway work.
+ */
+export function leadNeedFromConversation(messages:any[], quantity:any) {
+  let resolved:{need:LeadNeed;source_message_id:string|null;source_text:string}|null=null
+  for(const message of messages) {
+    if(message.sender_type!=='CUSTOMER')continue
+    const text=String(message.body??'').trim()
+    const value=normal(text)
+    let need:LeadNeed|null=null
+    if(/\b(?:build|install|repair|fix|redo|regrade|grade|work on)\b.{0,35}\b(?:driveway|private road|entrance)\b|\b(?:driveway|private road|entrance)\b.{0,35}\b(?:installation|repair|work|grading|regrading)\b/i.test(value))need='driveway'
+    else if(/\b(?:build|dig|excavate|repair|reshape|clean out)\b.{0,35}\bpond\b|\bpond\b.{0,35}\b(?:construction|excavation|repair|work|drainage)\b/i.test(value))need='pond'
+    else if(/\b(?:dirt work|grading|grade (?:the|my|our)|site prep|level (?:the|my|our))\b/i.test(value))need='dirt-grading'
+    else if(/\b(?:land clearing|brush clearing|clear (?:the|my|our) (?:land|lot|property|brush))\b/i.test(value))need='land-clearing'
+    else if(/\b(?:pick\s*up|pick it up|pickup|collect it|haul it myself|come get it)\b/i.test(value))need='material-pickup'
+    else if(/\b(?:deliver|delivery|drop(?:ped)? off|bring it)\b/i.test(value))need='material-delivery'
+    else if(/\b\d+(?:\.\d+)?\s*(?:yards?|yardas?)\b/i.test(value)
+      && (quantity?.status==='RESOLVED'||/\b(?:flexbase|crushed concrete|limestone|gravel|sand|select fill|native gravel|millings|decomposed granite|base)\b/i.test(value)))need='material-delivery'
+    if(need)resolved={need,source_message_id:message.id??null,source_text:text.slice(0,500)}
+  }
+  return resolved
 }
 
 const dayNames=['sunday','monday','tuesday','wednesday','thursday','friday','saturday']
@@ -96,8 +126,17 @@ export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];li
   const previousDate=priorPreference?.date??lead.requested_delivery_date
   const preference=dateRelevant?resolveDeliveryPreference(text,input.now,input.timezone,previousDate):null
   const quoteRequested=Boolean(lead.quote_requested_at)||intent==='QUOTE_REQUEST'&&/\b(quote|estimate|cotizacion|presupuesto|send it|mandala|enviala)\b/i.test(normal(text))||yes&&/\b(send.*quote|quote.*over|envi.*cotizaci|mand.*cotizaci)\b/i.test(lastAi)
-  const contactEmail=email&&intent==='CONTACT'?email:null
   const quoteEmailPrompt=/\b(quote|estimate|cotizaci[oó]n|presupuesto|send|email|correo)\b/i.test(lastAi)
+  const existingEmail=String(customer.email??'').trim().toLowerCase()
+  const explicitQuoteOnly=Boolean(email)&&intent!=='CONTACT'&&(
+    /\b(?:another|different|alternate)\s+(?:email|address|correo)\b/i.test(text)
+    ||/\b(?:this quote|this estimate|esta cotizaci[oó]n|este presupuesto)\b/i.test(text)
+    ||Boolean(existingEmail&&email!.toLowerCase()!==existingEmail)
+  )
+  // A normal first email supplied while qualifying the lead becomes durable
+  // customer contact data. Explicit alternate document recipients stay scoped
+  // to this Quote and never overwrite the profile.
+  const contactEmail=email&&!explicitQuoteOnly?email:null
   const confirmedEmail=email&&intent!=='CONTACT'&&(intent==='NONE'||['CONFIRM_EMAIL','QUOTE_REQUEST'].includes(intent)||quoteEmailPrompt)?email:(yes&&customer.email&&lastAi.includes(customer.email)?customer.email:null)
   const requestedDate=preference?.date??lead.requested_delivery_date
   const requestedTime=preference?.date&&preference.date!==lead.requested_delivery_date?preference.time:preference?.time??lead.requested_delivery_time
@@ -112,7 +151,9 @@ export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];li
   if(decision.payment_claim_detected)actions.push('PAYMENT_CLAIM')
   if(/complaint|Customer complaint/i.test(decision.escalation_reason??''))actions.push('COMPLAINT')
   if(lifecycle.stage==='PAID'&&intent==='NEW_WORK')actions.push('NEW_WORK')
+  const leadNeed=!lifecycle.protected?leadNeedFromConversation(messages,pricing?.quantity):null
   return {source_message_id:inbound?.id,name,email:contactEmail,confirmed_email:confirmedEmail,quote_requested:quoteRequested,
+    lead_need:leadNeed?.need??null,lead_need_source_message_id:leadNeed?.source_message_id??null,lead_need_source_text:leadNeed?.source_text??null,
     requested_date:preference?.date,requested_time:preference?.time,requested_text:preference?.text,
     job_note:financialChange?null:note,ready:Boolean(ready),actions,clarification:emails.length>1?'EMAIL':preference?.needsClarification?'DATE_TIME':plan?.confidence==='LOW'?'REQUEST':null,
     intent,progress:yes||Boolean(email)||Boolean(preference)||intent==='QUOTE_REQUEST',context:{stage:lifecycle.stage,quote_id:lifecycle.quote?.id,job_id:lifecycle.job?.id,invoice_id:lifecycle.invoice?.id,request:text,request_source_message_id:input.requestMessage?.id??inbound?.id,requested_date:preference?.date,requested_time:preference?.time,pricing,prior_delivery_address:lead.delivery_address},

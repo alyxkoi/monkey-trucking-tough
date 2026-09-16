@@ -93,6 +93,20 @@ function aiService(failingTable?:string,takeoverOnRecheck=false,initialTakeover=
   return {from,calls,updates,rpc:vi.fn(async()=>({data:{status:'APPLIED',ready:false},error:null}))}
 }
 describe('shared production AI safety',()=>{
+  it('persists the deterministic lead-card need through the guarded lifecycle RPC',async()=>{
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)}))))
+    const service=aiService(undefined,false,false,{
+      lead_messages:[{id:'material-request',sender_type:'CUSTOMER',body:'how much for 32 yards of flexbase?',created_at:'2026-09-13'}],
+      materials:[{id:'base',catalog_key:'mat-4',name:'Flexbase',full_load_yards:20,full_load_price:720,price_per_yard:38,tons_per_cubic_yard:1.4}],
+      app_settings:{company_address:'7653 S FM 148',company_city_state_zip:'Kaufman, TX 75142',tax_enabled:false,tax_rate:0,tax_applies_to_delivery:false},
+      control_center_settings:{ai_english:true,ai_spanish:true,route_intelligence_enabled:true,route_status:'READY'},
+    })
+    await generateAiDraft(service,{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model'})
+    expect(service.rpc).toHaveBeenCalledWith('apply_ai_lead_need',{
+      p_lead_id:'lead',p_expected_revision:1,p_source_message_id:'material-request',
+      p_need:'material-delivery',p_source_text:'how much for 32 yards of flexbase?',
+    })
+  })
   it('supplies authoritative current takeover state and separates material-only pricing from unapproved delivery',async()=>{
     const fetcher=vi.fn(async()=>new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)})))
     vi.stubGlobal('fetch',fetcher)

@@ -162,6 +162,13 @@
       "when": 1789586100000,
       "tag": "0022_public_quote_acceptance",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1789588800000,
+      "tag": "0023_customer_email_and_lead_need",
+      "breakpoints": true
     }
   ]
 }

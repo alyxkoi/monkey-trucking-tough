@@ -4,7 +4,7 @@ import { addressClarification, addressFromText, calculateDeliveryRoute, delivery
 import { assertCustomerText, composeConversationResponse, responsePlanSchema, sanitizeResponsePlanWording } from './conversation-response.ts'
 import { additionalYards, appendLeadMilestone, dashboardPlanSchema, explicitFullRecap, leadMilestoneQuestion, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName } from './lifecycle.ts'
 
-export const PROMPT_VERSION = 'mt-ai-lifecycle-v13'
+export const PROMPT_VERSION = 'mt-ai-lifecycle-v14'
 
 const decisionSchema = {
   type: 'object',
@@ -811,10 +811,20 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     if (mode === 'CONVERSATION' && leadId && typeof service.rpc === 'function') {
       if((decision.ai_may_continue&&!decision.requires_human&&decision.confidence==='HIGH'&&!proposal.clarification)||proposal.actions.length) {
         const lifecycleStarted=Date.now()
-        const applied=await service.rpc('apply_ai_lifecycle',{p_lead_id:leadId,p_expected_revision:lead.conversation_revision+(decision.global_pause_applied?1:0),p_source_message_id:proposal.source_message_id,p_plan:{...proposal,write_allowed:decision.ai_may_continue&&!decision.requires_human&&decision.confidence==='HIGH'&&!decision.uncertain_facts.length}})
+        const expectedRevision=lead.conversation_revision+(decision.global_pause_applied?1:0)
+        const applied=await service.rpc('apply_ai_lifecycle',{p_lead_id:leadId,p_expected_revision:expectedRevision,p_source_message_id:proposal.source_message_id,p_plan:{...proposal,write_allowed:decision.ai_may_continue&&!decision.requires_human&&decision.confidence==='HIGH'&&!decision.uncertain_facts.length}})
         timings.lifecycle_apply_ms=Date.now()-lifecycleStarted
         if(applied.error||!['APPLIED','ALREADY_APPLIED'].includes(applied.data?.status))throw new Error(applied.error?.message??'Lifecycle update could not be safely applied. Nothing will be sent.')
         quoteApplication.lifecycle=applied.data
+        if(proposal.lead_need&&proposal.lead_need_source_message_id&&proposal.lead_need_source_text) {
+          const needApplied=await service.rpc('apply_ai_lead_need',{
+            p_lead_id:leadId,p_expected_revision:expectedRevision,
+            p_source_message_id:proposal.lead_need_source_message_id,
+            p_need:proposal.lead_need,p_source_text:proposal.lead_need_source_text,
+          })
+          if(needApplied.error||!['APPLIED','ALREADY_APPLIED'].includes(needApplied.data?.status))throw new Error(needApplied.error?.message??'Lead need could not be safely updated. Nothing will be sent.')
+          quoteApplication.lead_need=needApplied.data
+        }
         if(proposal.ready&&!applied.data.ready){decision.lifecycle_reply=decision.detected_language==='SPANISH'?'Salvador revisará los detalles protegidos antes de preparar su cotización.':'Salvador will review the protected details before preparing your quote.';decision.lifecycle_reply=decision.lifecycle_reply.charAt(0).toLowerCase()+decision.lifecycle_reply.slice(1);decision.draft_reply=decision.lifecycle_reply}
       }
     }

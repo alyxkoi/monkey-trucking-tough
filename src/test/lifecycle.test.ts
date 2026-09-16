@@ -41,6 +41,21 @@ describe('lifecycle projection and validated proposals',()=>{
     const contact=proposal('change my account email to profile@example.com',{decision:{...decision,dashboard_plan:{intent:'CONTACT',source_text:'change my account email to profile@example.com',confidence:'HIGH'}}})
     expect(contact.email).toBe('profile@example.com');expect(contact.confirmed_email).toBeNull()
   })
+  it('promotes a normal first quote email but keeps an explicit alternate recipient quote-only',()=>{
+    const normalEmail=proposal('mike@example.com',{customer:{name:'Mike',email:null},messages:[{id:'ai',sender_type:'AI',body:'what email should we send the quote to?'},{id:'m',sender_type:'CUSTOMER',body:'mike@example.com'}]})
+    expect(normalEmail.email).toBe('mike@example.com');expect(normalEmail.confirmed_email).toBe('mike@example.com')
+    const alternate=proposal('send this quote to alternate@example.com',{messages:[{id:'m',sender_type:'CUSTOMER',body:'send this quote to alternate@example.com'}]})
+    expect(alternate.email).toBeNull();expect(alternate.confirmed_email).toBe('alternate@example.com')
+  })
+  it('classifies material delivery and lets later pickup or service clarification replace it',()=>{
+    const quantity={status:'RESOLVED',material_name:'Flexbase',yards:32}
+    const delivery=proposal('how much for 32 yards of flexbase?',{pricing:{...pricing,quantity},messages:[{id:'first',sender_type:'CUSTOMER',body:'how much for 32 yards of flexbase?'}]})
+    expect(delivery.lead_need).toBe('material-delivery')
+    const pickup=proposal('actually I will pick it up',{pricing:{...pricing,quantity},messages:[{id:'first',sender_type:'CUSTOMER',body:'how much for 32 yards of flexbase?'},{id:'pickup',sender_type:'CUSTOMER',body:'actually I will pick it up'}]})
+    expect(pickup.lead_need).toBe('material-pickup');expect(pickup.lead_need_source_message_id).toBe('pickup')
+    const driveway=proposal('I actually need you to regrade my driveway',{pricing:{...pricing,quantity},messages:[{id:'first',sender_type:'CUSTOMER',body:'how much for 32 yards of flexbase?'},{id:'service',sender_type:'CUSTOMER',body:'I actually need you to regrade my driveway'}]})
+    expect(driveway.lead_need).toBe('driveway')
+  })
   it('enforces one deterministic lead milestone after the useful answer',()=>{
     const p=proposal('how much is gravel?')
     const question=leadMilestoneQuestion({proposal:p,lifecycle:{reactive:false},pricing:{},route:{status:'NOT_READY'},quantity:{status:'NEEDS_QUANTITY',material_name:'Flexbase'},customer:{name:'Mike'},language:'ENGLISH'})

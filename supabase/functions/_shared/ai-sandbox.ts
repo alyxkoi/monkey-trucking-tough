@@ -20,7 +20,7 @@ export async function simulateConversation(service: any, input: any, config: AiC
   ])
   if ([materials,app,control].some(r=>r.error)) throw new Error('Test configuration could not be loaded')
   const rows: Record<string, any> = {
-    leads: { id:syntheticId, customer_id:syntheticId, human_takeover:Boolean(input.takeover)||input.messages.some((m:any)=>m.sender_type==='HUMAN'||m.sender_type==='AI'&&/^(got it, I will have Salvador take a look at this\.|claro, le aviso a Salvador para que revise su mensaje\.)$/.test(m.body)), conversation_revision:1, description:String(input.form ?? '').slice(0,2000) },
+    leads: { id:syntheticId, customer_id:syntheticId, human_takeover:Boolean(input.takeover)||input.messages.some((m:any)=>m.sender_type==='HUMAN'||m.sender_type==='AI'&&/^(got it, I will have Salvador take a look at this\.|claro, le aviso a Salvador para que revise su mensaje\.)$/.test(m.body)), conversation_revision:1, need:'Inbound SMS conversation', description:String(input.form ?? '').slice(0,2000) },
     customers: { id:syntheticId,name:'Test customer' },
     lead_messages: input.messages.map((m:any,i:number)=>({...m,id:String(i),created_at:new Date(Date.now()+i).toISOString()})).reverse(),
     ai_conversation_state: { known_facts:[],missing_facts:[],uncertain_facts:[] },
@@ -43,6 +43,7 @@ export async function simulateConversation(service: any, input: any, config: AiC
     const proposal=lifecycleProposal({lead:rows.leads,customer:rows.customers,messages:prefix,lifecycle:lifecycleContext(rows.leads,rows.quotes,rows.jobs,rows.invoices,rows.payments),decision:{},pricing:{}})
     if(proposal.email)rows.customers.email=proposal.email
     if(proposal.confirmed_email)rows.leads.quote_confirmed_email=proposal.confirmed_email
+    if(proposal.lead_need)rows.leads.need=proposal.lead_need
     if(proposal.quote_requested)rows.leads.quote_requested_at=new Date().toISOString()
     if(proposal.requested_date&&!proposal.clarification){rows.leads.requested_delivery_date=proposal.requested_date;rows.leads.requested_delivery_time=proposal.requested_time}
   }
