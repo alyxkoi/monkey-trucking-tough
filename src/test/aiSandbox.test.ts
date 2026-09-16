@@ -50,7 +50,7 @@ describe('production engine sandbox isolation',()=>{
     vi.stubGlobal('fetch',fetcher)
     const result=await simulateConversation(db,{form:'I need 10 tons of flexbase',messages:[{sender_type:'CUSTOMER',body:'839 S Good Latimer Expy\nDallas, TX 75226\nUnited States'}]},config)
     expect(result.tool_results.route.status).toBe('ROUTE_CALCULATED')
-    expect(result.tool_results.quantity.yards).toBe(8.5)
+    expect(result.tool_results.quantity.yards).toBe(9)
     expect(result.reply).toContain('Monkey Trucking')
     expect(result.reply).not.toMatch(/extra yard|reserve|buffer/)
     expect(result).toMatchObject({send_allowed:false,database_changes:false,model:'actual-test-model'})

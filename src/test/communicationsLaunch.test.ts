@@ -24,7 +24,7 @@ describe('customer communications launch contracts', () => {
     expect(engine).toContain('ask how many yards the customer needs')
     expect(engine).toContain('continue the order in yards after the customer accepts it')
     expect(material).toContain('const COVERAGE_BUFFER_YARDS = 1')
-    expect(material).toContain('roundUpToHalfYard(rawYards + COVERAGE_BUFFER_YARDS)')
+    expect(material).toContain('roundUpToWholeYard(rawYards + COVERAGE_BUFFER_YARDS)')
   })
 
   it('activates only covered transactional rules from a fresh timestamp', () => {

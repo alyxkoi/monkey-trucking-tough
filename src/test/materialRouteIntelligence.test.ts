@@ -41,7 +41,7 @@ describe('material and route intelligence', () => {
   })
 
   it('retains aliases after renaming the stable asphalt catalog record', () => {
-    expect(resolveConversationQuantity([{sender_type:'CUSTOMER',body:'10 tons of millings'}],[{...material,catalog_key:'mat-6',name:'Millings Asphalt 1/2"'}])).toMatchObject({status:'RESOLVED',yards:8.5})
+    expect(resolveConversationQuantity([{sender_type:'CUSTOMER',body:'10 tons of millings'}],[{...material,catalog_key:'mat-6',name:'Millings Asphalt 1/2"'}])).toMatchObject({status:'RESOLVED',yards:9})
   })
 
   it('combines a city answer with the preceding street rather than losing it', () => {
@@ -59,7 +59,7 @@ describe('material and route intelligence', () => {
     expect(result).toMatchObject({
       status: 'RESOLVED', input_unit: 'TONS', input_value: 10,
       raw_yards: 10 / 1.4, estimated_yards: 7.1,
-      coverage_buffer_yards: 1, recommended_yards: 8.5, yards: 8.5,
+      coverage_buffer_yards: 1, recommended_yards: 9, yards: 9,
       tons_per_cubic_yard: 1.4,
     })
   })
@@ -144,7 +144,7 @@ describe('material and route intelligence', () => {
     const result = await calculateDeliveryRoute({
       messages: [{ sender_type: 'CUSTOMER', body: '123 Oak Road, Terrell, TX 75160' }],
       state: null,
-      quotes: [{ status: 'DRAFT', address: '123 Oak Road, Terrell, TX 75160', delivery_distance_source: 'GOOGLE_ROUTES', delivery_miles: 15, delivery_origin: '7653 S FM 148, Kaufman, TX 75142', delivery_destination_place_id: 'place-1' }],
+      quotes: [{ status: 'DRAFT', address: '123 Oak Road, Terrell, TX 75160', delivery_distance_source: 'GOOGLE_ROUTES', delivery_distance_calculated_at:new Date().toISOString(), delivery_miles: 15, delivery_origin: '7653 S FM 148, Kaufman, TX 75142', delivery_destination_place_id: 'place-1' }],
       settings, enabled: true,
     })
     expect(result).toMatchObject({ status: 'ROUTE_CALCULATED', distance_miles: 15, cached: true })

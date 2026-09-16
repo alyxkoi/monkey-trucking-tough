@@ -5,7 +5,7 @@ Use lifecycle.stage and its scoped quote/job/invoice, never another transaction 
 LEAD/QUOTING: answer useful questions, collect missing specifications and name naturally. Known names are not asked again.
 QUOTE_READY: offer the quote, confirm the exact email, then prepare an eligible draft for staff Review & Send. Never send or accept a quote yourself.
 QUOTE_SENT: respond to questions; do not restart qualification or offer the same quote again.
-ACCEPTED/SCHEDULING: collect requested delivery details, not new qualification.
+ACCEPTED/SCHEDULING: collect requested delivery details, not new qualification. These and later stages are established relationships: never reintroduce Monkey Trucking merely because the supplied transcript is empty.
 SCHEDULED/IN_PROGRESS: react to the customer. Arrival answers use the actual calendar. Gate/access instructions may become job notes. Date, quantity, material and address changes are staff requests, never silent calendar/financial edits.
 COMPLETED/PAYMENT/PAID: use real invoice and payment records; a customer claim is not a confirmed payment. Do not keep selling the completed order.
 RETURNING: new work belongs to a fresh lead linked to the same phone/customer, never an alteration of a historical quote.
@@ -102,7 +102,7 @@ export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];li
   const financialChange=lifecycle.protected&&(intent==='ORDER_CHANGE'||/\b(changed?|instead|actually|more|cambia|mejor|mas)\b/i.test(normal(text))&&/\b(yards?|tons?|material|address|yardas|toneladas|direccion)\b/i.test(normal(text)))
   const actions:string[]=[]
   if(financialChange)actions.push(/address|direccion/i.test(normal(text))?'ADDRESS_CHANGE':'ORDER_CHANGE')
-  if(lifecycle.job&&preference&&!preference.needsClarification)actions.push('SCHEDULE_CHANGE')
+  if(lifecycle.protected&&preference&&!preference.needsClarification)actions.push('SCHEDULE_CHANGE')
   if(decision.current_custom_work_request)actions.push('CUSTOM_WORK')
   if(decision.payment_claim_detected)actions.push('PAYMENT_CLAIM')
   if(/complaint|Customer complaint/i.test(decision.escalation_reason??''))actions.push('COMPLAINT')
@@ -110,7 +110,7 @@ export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];li
   return {source_message_id:inbound?.id,name,email,confirmed_email:confirmedEmail,quote_requested:quoteRequested,
     requested_date:preference?.date,requested_time:preference?.time,requested_text:preference?.text,
     job_note:financialChange?null:note,ready:Boolean(ready),actions,clarification:emails.length>1?'EMAIL':preference?.needsClarification?'DATE_TIME':plan?.confidence==='LOW'?'REQUEST':null,
-    intent,progress:yes||Boolean(email)||Boolean(preference)||intent==='QUOTE_REQUEST',context:{stage:lifecycle.stage,quote_id:lifecycle.quote?.id,job_id:lifecycle.job?.id,invoice_id:lifecycle.invoice?.id,request:text,pricing},
+    intent,progress:yes||Boolean(email)||Boolean(preference)||intent==='QUOTE_REQUEST',context:{stage:lifecycle.stage,quote_id:lifecycle.quote?.id,job_id:lifecycle.job?.id,invoice_id:lifecycle.invoice?.id,request:text,requested_date:preference?.date,requested_time:preference?.time,pricing},
     current:{name:name??knownCustomerName(customer.name),email:emailConfirmed,contact_email:customer.email,date:requestedDate,time:requestedTime},
   }
 }
@@ -120,7 +120,13 @@ export function lifecycleReply(proposal:any,lifecycle:any,decision:any,pricing:a
   const choose=(en:string,sp:string)=>es?sp:en
   if(proposal.clarification)return choose(proposal.clarification==='EMAIL'?'which exact email should we use?':proposal.clarification==='DATE_TIME'?'what exact date and time should I note, including morning or afternoon?':'could you clarify exactly what you would like changed?',proposal.clarification==='EMAIL'?'cuál correo exacto debemos usar?':proposal.clarification==='DATE_TIME'?'qué fecha y hora exactas prefiere, por la mañana o por la tarde?':'puede aclarar exactamente qué quiere cambiar?')
   if(proposal.actions.includes('NEW_WORK'))return choose('we can help with another project. what material and how many yards do you need?','podemos ayudarle con otro proyecto. qué material y cuántas yardas necesita?')
+  if(proposal.actions.includes('SCHEDULE_CHANGE'))return choose(`got it, ${proposal.requested_date} around ${proposal.requested_time}. I'll have the team confirm that time. your current schedule stays the same until then.`,`anotado, ${proposal.requested_date} alrededor de las ${proposal.requested_time}. el equipo confirmará esa hora. su horario actual sigue igual mientras tanto.`)
+  if(proposal.actions.includes('ORDER_CHANGE')) {
+    const extra=additionalYards(proposal.context.request)
+    if(extra)return choose(`got it, you may need ${extra} more yards. I'll have Salvador review the updated amount and price. your current order stays the same until that's confirmed.`,`anotado, puede necesitar ${extra} yardas más. Salvador revisará la cantidad y el precio. su pedido actual sigue igual hasta que se confirme.`)
+  }
   if(proposal.actions.some((a:string)=>['ORDER_CHANGE','ADDRESS_CHANGE','SCHEDULE_CHANGE'].includes(a)))return choose('got it, I have your change request for Salvador to review. the current order and schedule stay unchanged until the team confirms.','ya tengo su solicitud para que Salvador la revise. el pedido y horario actuales siguen iguales hasta que el equipo confirme.')
+  if(proposal.email&&proposal.intent==='CONTACT')return choose(`got it, I updated your email to ${proposal.email}.`,`listo, actualicé su correo a ${proposal.email}.`)
   if(proposal.job_note&&lifecycle.job)return choose('got it, I added that instruction for the crew.','listo, agregué esa instrucción para el equipo.')
   if(proposal.intent==='ARRIVAL'&&lifecycle.job)return choose(`your current schedule is ${lifecycle.job.scheduled_date}${lifecycle.job.scheduled_time?` at ${lifecycle.job.scheduled_time.slice(0,5)}`:'. an exact arrival time has not been set'}.`,`su horario actual es ${lifecycle.job.scheduled_date}${lifecycle.job.scheduled_time?` a las ${lifecycle.job.scheduled_time.slice(0,5)}`:'. todavía no hay hora exacta de llegada'}.`)
   if(lifecycle.reactive)return null
@@ -131,4 +137,11 @@ export function lifecycleReply(proposal:any,lifecycle:any,decision:any,pricing:a
     return choose(`I have ${pricing.yards} yards of ${material}, ${pricing.route.destination}, requested for ${proposal.current.date} at ${proposal.current.time}. would you like us to send the quote over?`,`tengo ${pricing.yards} yardas de ${material}, ${pricing.route.destination}, para solicitar el ${proposal.current.date} a las ${proposal.current.time}. quiere que enviemos la cotización?`)
   }
   return null
+}
+
+// An increment is not a replacement quantity. Keep it separate from accepted terms.
+export function additionalYards(text:string):number|null {
+  const match=text.match(/\b(\d+(?:\.\d+)?)\s+(?:more|additional|extra)\s+yards?\b|\b(\d+(?:\.\d+)?)\s+yardas?\s+(?:más|mas|adicionales)\b/i)
+  const value=Number(match?.[1]??match?.[2])
+  return Number.isFinite(value)&&value>0&&value<=10000?value:null
 }

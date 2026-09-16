@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { isSimpleAcceptance, materialCandidates, resolveConversationQuantity, type QuantityResolution } from './material-intelligence.ts'
 import { addressClarification, addressFromText, calculateDeliveryRoute, deliveryForMiles, type RouteResult } from './route-intelligence.ts'
-import { composeConversationResponse, responsePlanSchema } from './conversation-response.ts'
-import { dashboardPlanSchema, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName } from './lifecycle.ts'
+import { assertCustomerText, composeConversationResponse, responsePlanSchema } from './conversation-response.ts'
+import { additionalYards, dashboardPlanSchema, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName } from './lifecycle.ts'
 
-export const PROMPT_VERSION = 'mt-ai-lifecycle-v10'
+export const PROMPT_VERSION = 'mt-ai-lifecycle-v11'
 
 const decisionSchema = {
   type: 'object',
@@ -169,13 +169,15 @@ export function activeAiInstructions(config: Pick<AiConfig,'tone'|'concise'>) {
   return `${instructions}\n${compositionInstructions}\n${LIFECYCLE_POLICY}\nApproved presentation preferences: ${JSON.stringify({tone:config.tone??'WARM',concise:config.concise!==false})}. These affect wording only, never business rules.`
 }
 
-async function requestAiDecision(baseUrl: string, apiKey: string, model: string, context: any, allowDeterministicDraftFallback: boolean) {
+async function requestAiDecision(baseUrl: string, apiKey: string, model: string, context: any, allowDeterministicDraftFallback: boolean, timings:any) {
+  const deadline=Date.now()+40_000
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    timings.model_attempts=attempt+1
     let aiResponse: Response
     try {
       aiResponse = await fetch(`${baseUrl.replace(/\/$/, '')}/responses`, {
         method: 'POST',
-        signal: AbortSignal.timeout(45_000),
+        signal: AbortSignal.timeout(Math.max(1,Math.min(25_000,deadline-Date.now()))),
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model, store: false, instructions: activeAiInstructions(context.presentation_preferences), max_output_tokens: 3000,
@@ -205,6 +207,7 @@ async function requestAiDecision(baseUrl: string, apiKey: string, model: string,
       throw new Error('AI response was incomplete; no reply is eligible to send.')
     }
 
+    timings.provider_usage=responseBody.usage??null
     const text = outputText(responseBody).trim()
     if (!text) {
       if (attempt === 0) continue
@@ -286,6 +289,7 @@ function currentFacts(previous:any[], quantity:QuantityResolution, route:RouteRe
 export type AiConfig = { apiKey: string; baseUrl: string; model: string; googleMapsApiKey?: string; tone?: string; concise?: boolean; version?: number }
 export async function generateAiDraft(service: any, body: any, actorId: string | null, config: AiConfig, options: { sandbox?: boolean } = {}) {
   const started = Date.now()
+  const timings:any={model_attempts:0}
   let leadId: string | null = null
   let customerId: string | null = null
   let automationRuleId: string | null = null
@@ -331,7 +335,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       service.from('customers').select('id,name,phone,email,notes,sms_consent_at,sms_consent_source,sms_double_opt_in_at,sms_opted_out_at').eq('id', customerId).single(),
       leadId ? service.from('lead_messages').select('id,sender_type,body,created_at').eq('lead_id', leadId).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(80) : Promise.resolve({ data: [], error: null }),
       leadId ? service.from('ai_conversation_state').select('*').eq('lead_id', leadId).maybeSingle() : Promise.resolve({ data: null, error: null }),
-      service.from('quotes').select('*').eq('customer_id', customerId).eq('lead_id',leadId).order('created_at', { ascending: false }).limit(10),
+      service.from('quotes').select('*,quote_items(*)').eq('customer_id', customerId).eq('lead_id',leadId).order('created_at', { ascending: false }).limit(10),
       service.from('jobs').select('id,quote_id,status,category,scheduled_date,scheduled_time,address,description,agreed_amount,blocked_reason,notes,completed_at').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(30),
       service.from('invoices').select('id,job_id,quote_id,invoice_number,status,amount,due_at,disputed,dispute_note,payment_claimed_at,payment_claim_note').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(30),
       service.from('payments').select('invoice_id,amount,method,received_at,voided_at,confirmed_by').eq('customer_id', customerId).order('received_at', { ascending: false }).limit(100),
@@ -351,7 +355,12 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     const forcedReason = forcedEscalation(latestCustomer?.body ?? '', takeover)
     const customWorkRequested = forcedReason === 'Custom work pricing requires Salvador.'
     const forced = customWorkRequested ? null : forcedReason
-    const quantity = resolveConversationQuantity(toolMessages, materialResult.data ?? [], stateResult.data)
+    let quantity = resolveConversationQuantity(toolMessages, materialResult.data ?? [], stateResult.data)
+    const acceptedItems=lifecycle.protected?(lifecycle.quote?.quote_items??[]).filter((i:any)=>i.kind==='MATERIAL'):[]
+    const acceptedMaterial=acceptedItems.length===1?(materialResult.data??[]).find((m:any)=>m.id===acceptedItems[0].material_id):null
+    if(acceptedMaterial&&Number(acceptedItems[0].yards)>0)quantity={status:'RESOLVED',material_id:acceptedMaterial.id,material_name:acceptedMaterial.name,material_catalog_key:acceptedMaterial.catalog_key,input_unit:'YARDS',input_value:Number(acceptedItems[0].yards),yards:Number(acceptedItems[0].yards)}
+    timings.context_ms=Date.now()-started
+    const routeStarted=Date.now()
     const route = await calculateDeliveryRoute({
       messages: toolMessages, state: stateResult.data, quotes: quoteResult.data ?? [], settings: appResult.data,
       enabled: controlResult.data.route_intelligence_enabled !== false,
@@ -365,6 +374,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
         full_load_price:Number(material.full_load_price),full_load_yards:Number(material.full_load_yards),
         current_quantity_total:q?(materialTool(messages,[material],appResult.data,{quantity:q,route}) as any).material_total:null}
     })
+    timings.route_ms=Date.now()-routeStarted
     const context = {
       mode, automation_rule_id: automationRuleId, subject,
       lifecycle,
@@ -437,8 +447,17 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
         draft_reply: repeatingClarification ? '' : clarification,
         confidence: 'HIGH', deterministic_pricing_required: false, payment_claim_detected: false,
       }
+    } else if(!forced&&!lifecycle.reactive&&latestIsAddressReply&&
+      (/^\s*\d{5}(?:-\d{4})?\s*$/.test(latestCustomer.body)||addressFromText(latestCustomer.body)===String(latestCustomer.body).trim().replace(/^(?:my (?:delivery )?address is|the address is)\s+/i,''))&&
+      ['ROUTE_CALCULATED','UNAVAILABLE'].includes(route.status)) {
+      const language=clarificationLanguage(messages.filter((m:any)=>m.sender_type==='CUSTOMER').map((m:any)=>m.body).join(' '))
+      const priced=route.status==='ROUTE_CALCULATED'&&pricing.status==='MATERIAL_CALCULATED'
+      const reply=route.status==='UNAVAILABLE'?(language==='SPANISH'?'ya tengo su dirección. la verificación de entrega no está disponible ahora; no hace falta repetirla.':'I have your address. delivery verification is temporarily unavailable; no need to send it again.'):(language==='SPANISH'?'ya tengo su dirección de entrega. qué material y cuántas yardas necesita?':'I have your delivery address. what material and how many yards do you need?')
+      decision={detected_language:language,customer_intent:'DELIVERY_ADDRESS_RECEIVED',extracted_facts:[],known_facts:authoritativeFacts,missing_facts:[],uncertain_facts:[],ai_may_continue:true,requires_human:false,escalation_reason:null,recommended_action:priced?'PROVIDE_STANDARD_PRICE':'ASK_NEXT_MISSING_FACT',draft_reply:reply,confidence:'HIGH',deterministic_pricing_required:priced,payment_claim_detected:false}
+      timings.deterministic_address_reply=true
     } else {
-      const modelResult = await requestAiDecision(baseUrl, apiKey, model, context, canUseVerifiedRouteFallback)
+      const modelStarted=Date.now()
+      const modelResult = await requestAiDecision(baseUrl, apiKey, model, context, canUseVerifiedRouteFallback,timings).finally(()=>{timings.model_ms=Date.now()-modelStarted})
       responseBody = modelResult.responseBody
       decision = modelResult.decision
     }
@@ -501,7 +520,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       decision.draft_reply = decision.draft_reply.charAt(0).toLowerCase() + decision.draft_reply.slice(1)
     }
     decision.known_facts=currentFacts(decision.known_facts,quantity,route,toolMessages,customerResult.data)
-    decision.first_conversational_reply = !messages.some((m: any) => ['AI','HUMAN'].includes(m.sender_type))
+    decision.first_conversational_reply = !lifecycle.reactive&&!messages.some((m: any) => ['AI','HUMAN'].includes(m.sender_type))
     const plan=decision.response_plan
     const priorCustom=authoritativeFacts.find((f:any)=>f.key==='custom_work_request')?.value
     const historicalCustom=toolMessages.some((m:any)=>m.sender_type==='CUSTOMER'&&forcedEscalation(m.body??'',false)==='Custom work pricing requires Salvador.')
@@ -510,6 +529,16 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     decision.subtask_escalations=hasCustom?[{topic:'CUSTOM_WORK',reason:'Custom work pricing requires Salvador. Material and delivery may continue.'}]:[]
     if(hasCustom)decision.known_facts=upsertFact(decision.known_facts,'custom_work_request',priorCustom??'Custom work scope/pricing pending Salvador','CONVERSATION')
     const proposal=lifecycleProposal({lead,customer:customerResult.data,messages,lifecycle,decision,pricing})
+    if(proposal.actions.includes('ORDER_CHANGE')) {
+      const extra=additionalYards(latestCustomer?.body??'')
+      const items=(lifecycle.quote?.quote_items??[]).filter((i:any)=>i.kind==='MATERIAL')
+      const item=items.length===1?items[0]:null
+      const material=item?(materialResult.data??[]).find((m:any)=>m.id===item.material_id):null
+      if(extra&&material&&Number(item.yards)>0) {
+        const proposedQuantity:QuantityResolution={status:'RESOLVED',material_id:material.id,material_name:material.name,input_unit:'YARDS',input_value:Number(item.yards)+extra,yards:Number(item.yards)+extra}
+        Object.assign(proposal.context,{additional_yards:extra,accepted_yards:Number(item.yards),proposed_pricing:materialTool(messages,[material],appResult.data,{quantity:proposedQuantity,route}),proposal_requires_staff_approval:true})
+      }
+    }
     const preparedLifecycleReply=mode==='CONVERSATION'&&!forced?lifecycleReply(proposal,lifecycle,decision,pricing):null
     if(plan&&!forced) {
       if(decision.ai_may_continue&&['MANUAL_REPLY','HOLD_FOR_SALVADOR','VERIFY_PAYMENT','NO_ACTION'].includes(decision.recommended_action)) {
@@ -531,7 +560,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
         decision.recommended_action='MANUAL_REPLY'
         decision.escalation_reason=decision.escalation_reason||`Conversation review required: ${plan.escalation_category}`
       }
-      if(decision.ai_may_continue&&!decision.requires_human&&decision.recommended_action!=='COLLECT_RESCHEDULE_PREFERENCE') {
+      if(decision.ai_may_continue&&!decision.requires_human) {
         decision.recommended_action='ANSWER_CUSTOMER'
         const selected=plan.comparison_keys?.length?catalogPricing.filter((m:any)=>plan.comparison_keys.includes(m.catalog_key)||plan.comparison_keys.includes(m.id)):[]
         if(selected.length!==(new Set(plan.comparison_keys??[])).size)throw new Error('Response references an unknown catalog identity.')
@@ -556,6 +585,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
           'mat-10':['driveways, base and drainage','entradas, base y drenaje'],
         }
         pricing.conversation={
+          customer_request:latestCustomer?.body??'',
           customer_name:known('customer_name'),material_name:quantity.material_name,quantity_yards:quantity.yards,address:route.destination,
           service_requests:hasCustom?['custom work pricing pending Salvador']:[],
           approximate:quantity.input_unit==='TONS',
@@ -579,7 +609,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     if(mode==='CONVERSATION'&&!forced&&decision.ai_may_continue&&!decision.requires_human&&decision.confidence==='HIGH') {
       let reply=preparedLifecycleReply
       const policyReply=Boolean(reply)
-      if(!reply&&!knownCustomerName(customerResult.data.name)&&!proposal.name&&!lifecycle.reactive&&decision.recommended_action!=='PROVIDE_STANDARD_PRICE'&&!latestIsAddressReply) {
+      if(!reply&&!knownCustomerName(customerResult.data.name)&&!authoritativeFacts.some((f:any)=>f.key==='customer_name')&&!proposal.name&&!lifecycle.reactive&&decision.recommended_action!=='PROVIDE_STANDARD_PRICE'&&!latestIsAddressReply) {
         const question=decision.detected_language==='SPANISH'?'cómo se llama para empezar su solicitud?':'what is your name so I can get this started for you?'
         if((decision.recommended_action==='ASK_NEXT_MISSING_FACT'||plan?.objective==='COLLECT'&&!plan?.answers?.length)&&!/[?？]/.test(latestCustomer?.body??''))reply=question
         if(decision.draft_reply.length+question.length<360&&!decision.draft_reply.includes('?'))reply=decision.draft_reply+' '+question
@@ -611,8 +641,10 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     }
 
     decision.explain_conversion = /\b\d+(?:\.\d+)?\s*(?:tons?|toneladas?)\b/i.test(latestCustomer?.body ?? '')
-    decision.first_conversational_reply = !messages.some((m: any) => ['AI','HUMAN'].includes(m.sender_type))
-    if (options.sandbox) return { decision, draft: null, tool_results: { pricing, quantity, route, lifecycle, proposed_changes:proposal }, model: responseBody?.model ?? model, profile_version: config.version, sandbox: true }
+    decision.first_conversational_reply = !lifecycle.reactive&&!messages.some((m: any) => ['AI','HUMAN'].includes(m.sender_type))
+    if(decision.ai_may_continue&&!decision.requires_human)assertCustomerText(decision.draft_reply)
+    timings.total_ms=Date.now()-started
+    if (options.sandbox) return { decision, draft: null, tool_results: { pricing, quantity, route, lifecycle, proposed_changes:proposal,timings }, model: responseBody?.model ?? model, profile_version: config.version, sandbox: true }
 
     const quoteApplication: Record<string, unknown> = {}
     if (mode === 'CONVERSATION' && leadId && typeof service.rpc === 'function') {
@@ -633,7 +665,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       evaluation_type: mode, customer_id: customerId, lead_id: leadId, automation_rule_id: automationRuleId,
       model_id: responseBody?.model ?? (responseBody ? model : null), prompt_version: PROMPT_VERSION, language: decision.detected_language,
       decision, concise_rationale: rationale, status: 'SUCCESS', latency_ms: Date.now() - started,
-      tool_results: { pricing, quantity, route, quote_application: quoteApplication, model_call_skipped: responseBody == null }, actor_id: actorId,
+      tool_results: { pricing, quantity, route, quote_application: quoteApplication, model_call_skipped: responseBody == null,timings }, actor_id: actorId,
     }).select('id').single()
     if (audit.error) throw new Error('AI audit log could not be saved.')
     const draft = await service.from('ai_drafts').insert({
@@ -656,7 +688,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       await service.from('ai_audit_logs').insert({
         evaluation_type: automationRuleId ? 'AUTOMATION_DRY_RUN' : 'CONVERSATION', customer_id: customerId,
         lead_id: leadId, automation_rule_id: automationRuleId, prompt_version: PROMPT_VERSION,
-        status: 'FAILED', latency_ms: Date.now() - started, tool_results: {}, error_code: 'AI_GENERATION_FAILED',
+        status: 'FAILED', latency_ms: Date.now() - started, tool_results: {timings}, error_code: 'AI_GENERATION_FAILED',
         error_message: message.slice(0, 500), actor_id: actorId,
       })
     }

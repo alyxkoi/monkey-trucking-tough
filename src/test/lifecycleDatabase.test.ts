@@ -19,7 +19,7 @@ beforeAll(async()=>{
  await db.exec(base.match(/insert into public\.automation_rules[\s\S]*?on conflict \(id\) do nothing;/)![0])
  for(const file of ['20260913090000_sent_dm_sms_transport','20260913170000_durable_sms_pipeline','20260913171000_sms_consent_and_inbox','20260913172000_communication_worker','20260914190000_initial_response_and_reschedule_intake','20260915010000_ai_material_and_route_intelligence'])await db.exec(read(file))
  await db.exec(`create table ai_audit_logs(id uuid primary key default gen_random_uuid(),created_at timestamptz default now(),status text);`)
- for(const file of ['20260915120000_ai_control_audit','20260915193000_followup_completion','20260915201500_outbound_receipt_reconciliation','20260915220000_ai_lifecycle_actions'])await db.exec(read(file))
+ for(const file of ['20260915120000_ai_control_audit','20260915193000_followup_completion','20260915201500_outbound_receipt_reconciliation','20260915220000_ai_lifecycle_actions','20260916120000_approved_change_confirmations'])await db.exec(read(file))
 },30000)
 afterAll(async()=>{await db?.close()})
 async function fixture(body='my name is Mike'){
@@ -30,6 +30,45 @@ async function fixture(body='my name is Mike'){
 }
 async function transaction(fn:()=>Promise<void>){await db.exec('begin');try{await fn()}finally{await db.exec('rollback')}}
 describe.sequential('executed lifecycle write transactions',()=>{
+ it('approves the saved modified schedule, reserves once and keeps staff takeover',()=>transaction(async()=>{
+   const a=await fixture('can we move it to Friday at 10am?')
+   const actor='00000000-0000-0000-0000-000000000001'
+   await db.exec(`create or replace function auth.uid() returns uuid language sql as 'select ''${actor}''::uuid';insert into user_roles values('${actor}','admin');update control_center_settings set sms_status='READY',business_number='+19453750877';update communication_runtime set business_start_hour=0,business_end_hour=23,business_days=array[1,2,3,4,5,6,7]`)
+   const [q]=await query("insert into quotes(quote_number,customer_id,lead_id,status,grand_total) values('APPROVE',$1,$2,'ACCEPTED',900) returning *",[a.c.id,a.l.id])
+   const [j]=await query("insert into jobs(customer_id,quote_id,category,scheduled_date,scheduled_time,address,description,agreed_amount) values($1,$2,'MATERIAL_DELIVERY',current_date+5,'14:00','123 Oak','Delivery',900) returning *",[a.c.id,q.id])
+   const id=await rpc('open_ai_staff_action',[a.l.id,a.m.id,'SCHEDULE_CHANGE',{quote_id:q.id,job_id:j.id,requested_time:'10:00'}])
+   const saved=await rpc('preview_ai_change_approval',[id]);expect(saved.time).toBe('02:00 PM')
+   const result=await rpc('decide_ai_staff_action',[id,'Approved saved time','APPROVED',saved])
+   expect(await rpc('decide_ai_staff_action',[id,'Double click','APPROVED',saved])).toEqual(result)
+   const outbox=await query('select * from sms_outbox');expect(outbox).toHaveLength(1)
+   const [message]=await query('select body from lead_messages where id=$1',[result.message_id]);expect(message.body).toContain('02:00 PM');expect(message.body).not.toContain('10:00')
+   expect((await query('select human_takeover from leads where id=$1',[a.l.id]))[0].human_takeover).toBe(true)
+   const claim=await rpc('claim_sms',[result.message_id]);expect(await rpc('authorize_sms_dispatch',[result.message_id,claim.lease_token])).toBeTruthy()
+ }))
+ it.each(['REJECTED','CANCELLED','HANDLED'])('never sends a %s change request',outcome=>transaction(async()=>{
+   const a=await fixture();const id=await rpc('open_ai_staff_action',[a.l.id,a.m.id,'ORDER_CHANGE',{}])
+   await rpc('decide_ai_staff_action',[id,'Reviewed request',outcome,null]);expect(await query('select * from sms_outbox')).toHaveLength(0)
+   await db.exec('savepoint retry');await expect(rpc('decide_ai_staff_action',[id,'Try approval','APPROVED',{}])).rejects.toThrow('already resolved');await db.exec('rollback to savepoint retry')
+ }))
+ it('rejects stale approval previews and cancels changed approved values before sending',()=>transaction(async()=>{
+   const a=await fixture();const actor='00000000-0000-0000-0000-000000000001'
+   await db.exec(`create or replace function auth.uid() returns uuid language sql as 'select ''${actor}''::uuid';insert into user_roles values('${actor}','admin');update control_center_settings set sms_status='READY',business_number='+19453750877';update communication_runtime set business_start_hour=0,business_end_hour=23,business_days=array[1,2,3,4,5,6,7]`)
+   const [q]=await query("insert into quotes(quote_number,customer_id,lead_id,status,grand_total) values('QUANTITY',$1,$2,'ACCEPTED',900) returning *",[a.c.id,a.l.id])
+   await query("insert into quote_items(quote_id,kind,description,yards,line_total) values($1,'MATERIAL','Flexbase',25,900)",[q.id])
+   const id=await rpc('open_ai_staff_action',[a.l.id,a.m.id,'ORDER_CHANGE',{quote_id:q.id,request:'5 more yards'}])
+   const before=await rpc('preview_ai_change_approval',[id]);await query('update quote_items set yards=30 where quote_id=$1',[q.id])
+   await db.exec('savepoint stale');await expect(rpc('decide_ai_staff_action',[id,'Approved','APPROVED',before])).rejects.toThrow('Saved details changed');await db.exec('rollback to savepoint stale')
+   const current=await rpc('preview_ai_change_approval',[id]);const result=await rpc('decide_ai_staff_action',[id,'Approved','APPROVED',current])
+   expect((await query('select body from lead_messages where id=$1',[result.message_id]))[0].body).toContain('30 yards')
+   await query('update quote_items set yards=35 where quote_id=$1',[q.id])
+   const claim=await rpc('claim_sms',[result.message_id]);expect(await rpc('authorize_sms_dispatch',[result.message_id,claim.lease_token])).toBeNull()
+   expect((await query('select state from sms_outbox'))[0].state).toBe('CANCELLED')
+ }))
+ it('keeps email acknowledgments behind a successful controlled write',()=>transaction(async()=>{
+   const a=await fixture('update my email to treytest@gmail.com')
+   expect(await a.apply({email:'treytest@gmail.com'})).toMatchObject({status:'APPLIED'})
+   expect((await query('select email from customers where id=$1',[a.c.id]))[0].email).toBe('treytest@gmail.com')
+ }))
  it('updates by customer ID, does not merge first names and audits once',()=>transaction(async()=>{
    const a=await fixture(),b=await fixture();await a.apply({name:'Mike'});await b.apply({name:'Mike'});await a.apply({name:'Mike'})
    expect((await query("select count(*)::int n from customers where name='Mike'"))[0].n).toBe(2)

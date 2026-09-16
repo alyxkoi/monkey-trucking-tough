@@ -12,7 +12,13 @@ export type RouteResult = {
   delivery_fee_per_load?: number | null
   cached?: boolean
   reason?: string
+  resolved_at?: number
 }
+
+// Server-owned, short-lived cache only. Never accept route evidence from the
+// sandbox browser. Recompute fees from current settings on every use.
+const routeCache=new Map<string,RouteResult>()
+const ROUTE_TTL_MS=5*60_000
 
 export function addressFromText(text: string) {
   // Keep pasted street / city / ZIP lines together. A street suffix, not an
@@ -55,7 +61,7 @@ export function resolveDeliveryAddress(messages: any[], state: any, quotes: any[
   if (typeof stateAddress === 'string' && stateAddress.trim()) {
     return withPostalCode(latestCity ? `${stateAddress.trim()}, ${latestCity}` : stateAddress.trim(), latestPostalCode ?? (typeof statePostalCode === 'string' ? statePostalCode.trim() : null))
   }
-  const draftAddress = quotes.find((quote) => quote.status === 'DRAFT' && String(quote.address ?? '').trim())?.address
+  const draftAddress = quotes.find((quote) => ['DRAFT','SENT','ACCEPTED'].includes(quote.status) && String(quote.address ?? '').trim())?.address
   return typeof draftAddress === 'string' ? withPostalCode(draftAddress.trim(), latestPostalCode) : null
 }
 
@@ -100,11 +106,18 @@ export async function calculateDeliveryRoute(input: {
   if (/\b(?:road|rd|street|st|avenue|ave|lane|ln|drive|dr|highway|hwy|expressway|expy|parkway|pkwy|boulevard|blvd|court|ct|circle|cir|trail|trl|way|fm|cr)\.?\s*(?:\d{1,4})?$/i.test(destination)) {
     return { status: 'NEEDS_CLARIFICATION', origin, destination, reason: 'A city or ZIP is needed to distinguish the street.' }
   }
+  const cacheKey=JSON.stringify([origin.toLowerCase(),destination.toLowerCase()])
+  const recent=routeCache.get(cacheKey)
+  if(!input.fetcher&&recent&&Date.now()-(recent.resolved_at??0)<ROUTE_TTL_MS) {
+    const fee=deliveryForMiles(recent.distance_miles!,input.settings)
+    return {...recent,origin,destination,delivery_type:fee?.type,delivery_fee_per_load:fee?.fee_per_load,cached:true}
+  }
   const cached = input.quotes.find((quote) => quote.status === 'DRAFT'
     && quote.delivery_distance_source === 'GOOGLE_ROUTES'
+    && Date.now()-Date.parse(quote.delivery_distance_calculated_at)<24*60*60_000
     && String(quote.address ?? '').trim().toLowerCase() === destination.toLowerCase()
-    && (!quote.delivery_origin || quote.delivery_origin === origin)
-    && Number.isFinite(Number(quote.delivery_miles)))
+    && quote.delivery_origin === origin
+    && quote.delivery_miles!=null&&Number.isFinite(Number(quote.delivery_miles)))
   if (cached) return {
     status: 'ROUTE_CALCULATED', origin: cached.delivery_origin || origin, destination,
     distance_miles: Number(cached.delivery_miles), destination_place_id: cached.delivery_destination_place_id ?? null,
@@ -146,14 +159,17 @@ export async function calculateDeliveryRoute(input: {
     const seconds = Number(String(body?.routes?.[0]?.duration ?? '').replace(/s$/, ''))
     const distanceMiles = distanceMeters / 1609.344
     const delivery = deliveryForMiles(distanceMiles, input.settings)
-    return {
+    const result:RouteResult = {
       status: 'ROUTE_CALCULATED', origin, destination, distance_meters: distanceMeters,
       distance_miles: distanceMiles,
       duration_seconds: Number.isFinite(seconds) ? seconds : null,
       destination_place_id: geocoded?.placeId ?? null,
       delivery_type: delivery?.type ?? null,
       delivery_fee_per_load: delivery?.fee_per_load ?? null,
+      resolved_at:Date.now(),
     }
+    if(!input.fetcher){if(routeCache.size>=200)routeCache.delete(routeCache.keys().next().value!);routeCache.set(cacheKey,result)}
+    return result
   } catch {
     return { status: 'UNAVAILABLE', origin, destination, reason: 'Google Routes could not be reached.' }
   }

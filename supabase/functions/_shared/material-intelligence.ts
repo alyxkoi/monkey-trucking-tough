@@ -76,7 +76,7 @@ function lastQuantity(text: string) {
 
 const COVERAGE_BUFFER_YARDS = 1
 const roundToTenthYard = (value: number) => Math.round(value * 10) / 10
-const roundUpToHalfYard = (value: number) => Math.ceil(value * 2) / 2
+const roundUpToWholeYard = (value: number) => Math.ceil(value)
 
 export function resolveConversationQuantity(messages: any[], materials: any[], state?:any): QuantityResolution {
   const facts=Array.isArray(state?.known_facts)?state.known_facts:[]
@@ -154,7 +154,7 @@ export function resolveConversationQuantity(messages: any[], materials: any[], s
   }
   const rawYards = quantity.value / factor
   const estimatedYards = roundToTenthYard(rawYards)
-  const recommendedYards = roundUpToHalfYard(rawYards + COVERAGE_BUFFER_YARDS)
+  const recommendedYards = roundUpToWholeYard(rawYards + COVERAGE_BUFFER_YARDS)
   return {
     status: 'RESOLVED', ...identity,
     input_unit: 'TONS', input_value: quantity.value, raw_yards: rawYards,

@@ -21,6 +21,17 @@ const clean=(value:unknown)=>String(value??'').replace(/[—–-]/g,' ').replace
 const amount=(n:number)=>Number(n).toLocaleString('en-US',{maximumFractionDigits:1})
 const productLabel=(m:any)=>({'mat-1':'commercial clean','mat-3':'3x4 crushed concrete','mat-4':'flexbase'} as Record<string,string>)[m.catalog_key]??clean(m.name)
 
+export function assertCustomerText(text:string) {
+  if(!text.trim()||/\b(?:response_plan|dashboard_plan|tool_results|system prompt|chain of thought)\b|\b(?:introduce Monkey Trucking|acknowledge the|tell the customer|ask the customer|respond (?:with|by)|compose (?:a|the) (?:reply|response))\b/i.test(text))throw new Error('Internal response instructions are not customer text.')
+  return text
+}
+
+export function requestedService(text:string,es:boolean) {
+  const topics=[[/driveway|entrada/i,'driveways','trabajo de entradas'],[/private road|camino privado/i,'private roads','caminos privados'],[/pond|estanque/i,'pond work','estanques'],[/dirt work|earthwork|trabajo de tierra/i,'dirt work','trabajo de tierra']] as const
+  const matched=topics.filter(([pattern])=>pattern.test(text)).map(([,en,sp])=>es?sp:en)
+  return matched.length?(es?'sí, hacemos ':'yes, we do ')+matched.join(es?' y ':' and ')+'.':(es?'qué tipo de trabajo necesita?':'what kind of work do you need?')
+}
+
 export function validateResponsePlan(plan:any, references:string[]=[]) {
   if(!plan||!['ANSWER','EXPLAIN','COMPARE','SUMMARY','COLLECT'].includes(plan.objective)
     ||!Array.isArray(plan.answers)||plan.answers.length>6
@@ -60,7 +71,7 @@ export function composeConversationResponse(decision:any,pricing:any) {
   const answerSet=new Set(plan.answers)
   // No model amounts, product descriptions, policy or arithmetic is rendered.
   for(const answer of answerSet) {
-    if(answer==='SERVICE_SCOPE')pieces.push(es?'sí, hacemos entradas, caminos privados, estanques y trabajo de tierra.':'yes, we do driveways, private roads, ponds and dirt work.')
+    if(answer==='SERVICE_SCOPE')pieces.push(requestedService(c.customer_request??'',es))
     if(answer==='INSTALLATION_SCOPE')pieces.push(es?'este cálculo cubre material y entrega, no el trabajo de instalación. Salvador cotiza ese trabajo por separado.':'this estimate covers material and delivery, not installation work. Salvador prices that work separately.')
     if(answer==='PRODUCT_OPTIONS') {
       const options=c.options??[]
@@ -85,7 +96,7 @@ export function composeConversationResponse(decision:any,pricing:any) {
     }
     if(answer==='DELIVERY') {
       if(routed&&Number.isFinite(pricing.delivery_miles))pieces.push(es?`la entrega cuesta ${money(pricing.delivery_total)} porque son aproximadamente ${amount(pricing.delivery_miles)} millas desde nuestro patio y ${pricing.delivery_loads} ${pricing.delivery_loads===1?'carga':'cargas'}.`:`delivery is ${money(pricing.delivery_total)} because it is about ${amount(pricing.delivery_miles)} miles from our yard and ${pricing.delivery_loads} ${pricing.delivery_loads===1?'load':'loads'}.`)
-      else pieces.push(es?'necesito verificar la ruta y las cargas antes de explicar el costo de entrega.':'I need the verified route and load count before I can explain the delivery cost.')
+      else pieces.push(c.address?(es?'ya tengo su dirección. la verificación de entrega no está disponible ahora; no hace falta repetirla.':'I have your address. delivery verification is temporarily unavailable; no need to send it again.'):(es?'necesito la dirección de entrega para verificar el costo.':'I need the delivery address to verify the delivery cost.'))
     }
     if(answer==='SUMMARY') {
       const values=[c.customer_name,Number.isFinite(yards)&&yards>0?`${amount(yards)} ${es?'yardas':'yards'}${name?` ${es?'de':'of'} ${name}`:''}`:name,c.address,...(c.service_requests??[])].filter(Boolean).map(clean)
@@ -109,9 +120,10 @@ export function composeConversationResponse(decision:any,pricing:any) {
   const acknowledgement=clean(plan.acknowledgement)
   if(acknowledgement&&!answerSet.has('QUANTITY'))pieces.unshift(acknowledgement)
   const question=clean(plan.next_question)
-  if(question)pieces.push(question)
+  const repeatsAddress=c.address&&/\b(address|direcci[oó]n)\b/i.test(question)&&pricing.route?.status!=='NEEDS_CLARIFICATION'
+  if(question&&!repeatsAddress)pieces.push(question)
   if(!pieces.length)throw new Error('Response plan contains no useful answer or next question.')
   const reply=pieces.join(' ').replace(/\s+/g,' ').trim()
   if(reply.length>(decision.first_conversational_reply?392:420))throw new Error('Composed reply exceeds the approved SMS length; shorten the response plan.')
-  return reply.charAt(0).toLowerCase()+reply.slice(1)
+  return assertCustomerText(reply.charAt(0).toLowerCase()+reply.slice(1))
 }

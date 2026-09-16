@@ -728,6 +728,8 @@ async function runRpc<T>(name: string, args: Record<string, unknown>): Promise<T
 export function resolveAiStaffAction(requestId: string, note: string) {
   return runRpc<void>('resolve_ai_staff_action',{p_request_id:requestId,p_note:note});
 }
+export const previewAiChangeApproval=(requestId:string)=>runRpc<Record<string,unknown>>('preview_ai_change_approval',{p_request_id:requestId});
+export const decideAiStaffAction=(requestId:string,note:string,outcome:'APPROVED'|'REJECTED',expected?:Record<string,unknown>)=>runRpc<Record<string,unknown>>('decide_ai_staff_action',{p_request_id:requestId,p_note:note,p_outcome:outcome,p_expected:expected??null});
 
 export type NewLeadInput = {
   name: string;

@@ -130,12 +130,12 @@ describe('shared production AI safety',()=>{
       ...decision,
       recommended_action:'PROVIDE_STANDARD_PRICE',
       draft_reply:'the estimate is ready.',
-      known_facts:[{key:'material',value:'Limestone'},{key:'quantity_yards',value:'8.5'}],
+      known_facts:[{key:'material',value:'Limestone'},{key:'quantity_yards',value:'9'}],
     }
     const reply=autonomousReply(priced,pricing)
-    expect(reply).toContain('recommend approximately 8.5 yards')
+    expect(reply).toContain('recommend approximately 9 yards')
     expect(reply).not.toMatch(/extra yard|reserve|buffer|7\.1/)
-    expect(reply).toContain('material for 8.5 yards')
+    expect(reply).toContain('material for 9 yards')
   })
   it('distinguishes missing intake details from conflicting facts without weakening uncertainty guards',async()=>{
     const fetcher=vi.fn(async()=>new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)})))
@@ -249,9 +249,9 @@ describe('shared production AI safety',()=>{
     expect(result.decision).toMatchObject({ai_may_continue:true,requires_human:false,recommended_action:'PROVIDE_STANDARD_PRICE',deterministic_pricing_required:true})
     expect(result.decision.known_facts).toContainEqual(expect.objectContaining({key:'delivery_address',value:'4625 Virginia Ave, Dallas, TX 75204'}))
     expect(result.decision.uncertain_facts).toEqual([])
-    expect(result.tool_results).toMatchObject({quantity:{estimated_yards:7.1,recommended_yards:8.5},route:{status:'ROUTE_CALCULATED',distance_miles:10}})
+    expect(result.tool_results).toMatchObject({quantity:{estimated_yards:7.1,recommended_yards:9},route:{status:'ROUTE_CALCULATED',distance_miles:10}})
     expect(service.rpc).toHaveBeenCalledTimes(1)
-    expect(service.rpc).toHaveBeenCalledWith('apply_ai_lifecycle',expect.objectContaining({p_plan:expect.objectContaining({context:expect.objectContaining({pricing:expect.objectContaining({material_id:'limestone',yards:8.5,route:expect.objectContaining({destination:'4625 Virginia Ave, Dallas, TX 75204',distance_miles:10})})})})}))
+    expect(service.rpc).toHaveBeenCalledWith('apply_ai_lifecycle',expect.objectContaining({p_plan:expect.objectContaining({context:expect.objectContaining({pricing:expect.objectContaining({material_id:'limestone',yards:9,route:expect.objectContaining({destination:'4625 Virginia Ave, Dallas, TX 75204',distance_miles:10})})})})}))
     expect(autonomousReply(result.decision,result.tool_results.pricing)).toContain('the estimated total is')
     expect(autonomousReply(result.decision,result.tool_results.pricing)).not.toContain('with tax')
   })
@@ -272,7 +272,7 @@ describe('shared production AI safety',()=>{
       control_center_settings:{ai_english:true,ai_spanish:true,route_intelligence_enabled:true,route_status:'READY'},
     })
     const result=await generateAiDraft(service,{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model',googleMapsApiKey:'maps-key'})
-    expect(result.decision).toMatchObject({requires_human:false,ai_may_continue:true,recommended_action:'ANSWER_CUSTOMER'})
+    expect(result.decision).toMatchObject({requires_human:false,ai_may_continue:true,recommended_action:'PROVIDE_STANDARD_PRICE'})
     expect(result.decision.subtask_escalations).toHaveLength(1)
     expect(service.updates).toEqual([])
     expect(service.rpc).toHaveBeenCalledWith('apply_ai_lifecycle',expect.objectContaining({p_lead_id:'lead',p_expected_revision:1,p_plan:expect.objectContaining({context:expect.objectContaining({pricing:expect.objectContaining({material_id:'base',yards:28,route:expect.objectContaining({destination:'4625 Virginia Ave, Dallas, TX 75204',distance_miles:10})})})})}))

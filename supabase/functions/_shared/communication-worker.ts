@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { generateAiDraft, validateDecision, type AiConfig } from './ai-engine.ts'
-import { composeConversationResponse } from './conversation-response.ts'
+import { assertCustomerText, composeConversationResponse } from './conversation-response.ts'
 import { scheduledResponse } from './scheduled-response.ts'
 
 export function autonomousReply(decision: any, pricing: any): string {
-  const reply = renderAutonomousReply(decision, pricing)
+  const reply = assertCustomerText(renderAutonomousReply(decision, pricing))
   if (!decision.first_conversational_reply || /monkey trucking/i.test(reply)) return reply
   return `${decision.detected_language === 'SPANISH' ? 'hola, somos Monkey Trucking. ' : 'hi, this is Monkey Trucking. '}${reply}`
 }

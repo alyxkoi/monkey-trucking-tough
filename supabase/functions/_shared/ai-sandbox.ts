@@ -31,6 +31,7 @@ export async function simulateConversation(service: any, input: any, config: AiC
   if(scenario!=='LEAD') {
     rows.customers.name='Sandbox customer';rows.customers.email='sandbox@example.test'
     rows.quotes=[{id:'sandbox-quote',lead_id:syntheticId,customer_id:syntheticId,status:scenario==='QUOTE_SENT'?'SENT':'ACCEPTED',description:'Sandbox delivery',address:'123 Fixture Road',grand_total:500}]
+    if(materials.data?.[0])rows.quotes[0].quote_items=[{id:'sandbox-item',kind:'MATERIAL',material_id:materials.data[0].id,description:materials.data[0].name,yards:20,line_total:500}]
     if(['SCHEDULED','COMPLETED','PAID'].includes(scenario))rows.jobs=[{id:'sandbox-job',quote_id:'sandbox-quote',status:scenario==='SCHEDULED'?'SCHEDULED':'COMPLETED',scheduled_date:'2026-10-01',scheduled_time:'09:00',notes:'',address:'123 Fixture Road'}]
     if(scenario==='PAID'){rows.invoices=[{id:'sandbox-invoice',job_id:'sandbox-job',quote_id:'sandbox-quote',status:'PAID',amount:500}];rows.payments=[{invoice_id:'sandbox-invoice',amount:500,confirmed_by:'sandbox-staff'}]}
   }

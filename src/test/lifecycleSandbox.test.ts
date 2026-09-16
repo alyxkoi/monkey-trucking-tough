@@ -18,6 +18,27 @@ async function run(messages:any[],intent='NONE',scenario='LEAD',language='ENGLIS
 }
 afterEach(()=>vi.unstubAllGlobals())
 describe('full lifecycle sandbox using production engine',()=>{
+ it('composes an accepted schedule request without raw plans or reintroduction',async()=>{
+   const result=await run([c('hey can we change delivery to Friday around 10am?')],'SCHEDULE_CHANGE','ACCEPTED')
+   expect(result.reply).toContain('team confirm');expect(result.reply).toContain('10:00');expect(result.reply).not.toMatch(/introduce|acknowledge|Monkey Trucking|current customer request/)
+   expect(result.decision.dashboard_proposal.actions).toContain('SCHEDULE_CHANGE')
+ })
+ it('acknowledges an increment while protecting accepted order terms',async()=>{
+   const result=await run([c('also I might need 5 more yards than I accepted')],'ORDER_CHANGE','ACCEPTED')
+   expect(result.reply).toContain('5 more yards');expect(result.reply).toContain('current order stays the same');expect(result.database_changes).toBe(false)
+   expect(result.tool_results.proposed_changes.context).toMatchObject({accepted_yards:20,additional_yards:5,proposed_pricing:{yards:25,material_total:910},proposal_requires_staff_approval:true})
+   expect(result.tool_results.quantity.yards).toBe(20)
+ })
+ it('confirms the exact email in the reactive lifecycle',async()=>{
+   const result=await run([c('update my email to treytest@gmail.com')],'CONTACT','ACCEPTED')
+   expect(result.reply).toBe('got it, I updated your email to treytest@gmail.com.')
+   expect(result.decision.dashboard_proposal.email).toBe('treytest@gmail.com')
+ })
+ it('skips the model for a verified plain address after material intake',async()=>{
+   const result=await run([c('123 Oak Road, Kaufman TX 75142')],'NONE','LEAD','ENGLISH','20 yards flexbase')
+   expect(result.tool_results.timings).toMatchObject({model_attempts:0,deterministic_address_reply:true})
+   expect(result.reply).toContain('estimated total');expect(result.reply).not.toContain('what material')
+ })
  it('asks unknown names, extracts the answer and never writes a real customer',async()=>{
    const first=await run([c('hello')]);expect(first.reply).toContain('name')
    const next=await run([c('hello'),a('what is your name?'),c('Mike')],'CONTACT')
