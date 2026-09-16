@@ -2835,6 +2835,11 @@ export type Database = {
         }
         Returns: undefined
       }
+      ai_change_confirmation_current: {
+        Args: { p_guard: Json }
+        Returns: boolean
+      }
+      ai_change_snapshot: { Args: { p_request_id: string }; Returns: Json }
       apply_ai_lifecycle: {
         Args: {
           p_expected_revision: number
@@ -3124,6 +3129,15 @@ export type Database = {
         }
         Returns: string
       }
+      decide_ai_staff_action: {
+        Args: {
+          p_expected?: Json
+          p_note: string
+          p_outcome: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -3323,6 +3337,10 @@ export type Database = {
         }
       }
       plan_communication_jobs: { Args: never; Returns: number }
+      preview_ai_change_approval: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
       process_stripe_checkout_payment: {
         Args: {
           p_amount_cents: number

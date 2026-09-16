@@ -134,6 +134,13 @@
       "when": 1789525867805,
       "tag": "0018_ai_lifecycle_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789574143369,
+      "tag": "0019_approved_change_confirmations",
+      "breakpoints": true
     }
   ]
 }
