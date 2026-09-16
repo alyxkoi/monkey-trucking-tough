@@ -186,8 +186,27 @@ describe('shared production conversation orchestration',()=>{
     expect(second.reply).toContain('10 yards')
     expect(second.reply).not.toMatch(/30|Commercial/)
   })
-  it('rejects model-invented business assertions and unknown material IDs',async()=>{
-    await expect(run([customer('18 yards commercial')],{acknowledgement:'Delivery is $1.'})).rejects.toThrow('Unverified business assertion')
+  it('drops model-invented conversational wording while preserving a safe follow-up',async()=>{
+    const result=await run([customer('my name is Mike, I need 18 yards commercial')],{acknowledgement:'Delivery is $1.'})
+    expect(result.reply).toContain('what is the delivery address?')
+    expect(result.reply).not.toContain('$1')
+    expect(result.tool_results.diagnostics.timings.response_wording_sanitized).toEqual(['acknowledgement'])
+  })
+  it('keeps a simple acceptance moving when model glue repeats deterministic yards',async()=>{
+    const result=await run([
+      customer('my name is Mike, I need 10 tons flexbase delivered to 424 Kent Dr 75149'),
+      ai('approximately 9 yards. would you like to proceed with the recommended yard amount?'),
+      customer('yes'),
+    ],{answers:['QUANTITY'],acknowledgement:'great, 9 yards is confirmed.',next_question:'What delivery date works for you?'})
+    expect(result.blocked).toBeNull()
+    expect(result.reply).toContain('9 yards of Flexbase First Class')
+    expect(result.reply).toContain('What delivery date works for you?')
+    expect(result.reply).not.toContain('confirmed')
+  })
+  it('still fails closed when unsafe model wording leaves no useful response',async()=>{
+    await expect(run([customer('18 yards commercial')],{acknowledgement:'Delivery is $1.',next_question:''})).rejects.toThrow('Unverified business assertion')
+  })
+  it('rejects unknown material identities',async()=>{
     await expect(run([customer('18 yards commercial')],{objective:'COMPARE',comparison_keys:['made-up']})).rejects.toThrow('unknown catalog identity')
   })
   it('fails closed when a refresh still has no valid tool result',async()=>{

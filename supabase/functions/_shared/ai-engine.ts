@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { isSimpleAcceptance, materialCandidates, resolveConversationQuantity, type QuantityResolution } from './material-intelligence.ts'
 import { addressClarification, addressFromText, calculateDeliveryRoute, deliveryForMiles, type RouteResult } from './route-intelligence.ts'
-import { assertCustomerText, composeConversationResponse, responsePlanSchema } from './conversation-response.ts'
+import { assertCustomerText, composeConversationResponse, responsePlanSchema, sanitizeResponsePlanWording } from './conversation-response.ts'
 import { additionalYards, dashboardPlanSchema, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName } from './lifecycle.ts'
 
 export const PROMPT_VERSION = 'mt-ai-lifecycle-v12'
@@ -738,7 +738,13 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
           product_guidance_es:options.some((m:any)=>m.catalog_key==='mat-1')&&options.some((m:any)=>m.catalog_key==='mat-3')?'commercial clean es para entradas y base compactable; 3x4 para base grande, drenaje y estabilización.':'',
           refresh:{material:true,route:route.status,cached_route:route.cached===true},
         }
-        if(!preparedLifecycleReply){const compositionStarted=Date.now();decision.draft_reply=composeConversationResponse(decision,pricing);timings.composition_ms=Date.now()-compositionStarted}
+        if(!preparedLifecycleReply){
+          const compositionStarted=Date.now()
+          const sanitized=sanitizeResponsePlanWording(plan,pricing.conversation.question_references??[])
+          if(sanitized.length)timings.response_wording_sanitized=sanitized
+          decision.draft_reply=composeConversationResponse(decision,pricing)
+          timings.composition_ms=Date.now()-compositionStarted
+        }
       }
     }
     decision.lifecycle=lifecycle.stage

@@ -56,10 +56,33 @@ export function validateResponsePlan(plan:any, references:string[]=[]) {
   return null
 }
 
+export function sanitizeResponsePlanWording(plan:any, references:string[]=[]) {
+  const originalError=validateResponsePlan(plan,references)
+  if(!['Unverified business assertion in response wording.','The next question must be a question, not a business assertion.'].includes(originalError??''))return []
+  // The model is allowed to choose conversational glue, but not business
+  // facts. Drop only the unsafe free-form field while preserving any safe
+  // server-rendered answer blocks or follow-up question. If nothing useful
+  // remains, validation still fails closed below.
+  const sanitized={...plan,acknowledgement:'',next_question:''}
+  const removed:string[]=[]
+  for(const key of ['acknowledgement','next_question']) {
+    const value=plan[key]
+    if(typeof value!=='string'||!value.trim())continue
+    const candidate={...sanitized,[key]:value}
+    if(validateResponsePlan(candidate,references))removed.push(key)
+    else sanitized[key]=value
+  }
+  const useful=Boolean(sanitized.acknowledgement?.trim()||sanitized.next_question?.trim()||sanitized.answers?.length)
+  if(!useful||validateResponsePlan(sanitized,references))return []
+  Object.assign(plan,sanitized)
+  return removed
+}
+
 export function composeConversationResponse(decision:any,pricing:any) {
   const plan=decision.response_plan
   const c=pricing?.conversation
   if(!c)throw new Error('Current conversation facts are unavailable.')
+  sanitizeResponsePlanWording(plan,c.question_references??[])
   const invalid=validateResponsePlan(plan,c.question_references??[])
   if(invalid)throw new Error(invalid)
   const es=decision.detected_language==='SPANISH'
