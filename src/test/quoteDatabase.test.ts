@@ -12,9 +12,11 @@ beforeAll(async () => {
   await db.exec(`
     create role anon;
     create role authenticated;
+    create role service_role;
     create schema auth;
     create function auth.uid() returns uuid language sql as 'select null::uuid';
     create function auth.jwt() returns jsonb language sql as 'select ''{}''::jsonb';
+    create function auth.role() returns text language sql stable as 'select ''service_role''::text';
     create function public.is_admin_or_staff() returns boolean language sql as 'select true';
     create function public.next_quote_number() returns text language sql as 'select ''Q1001''::text';
 
@@ -45,7 +47,17 @@ beforeAll(async () => {
       tax_rate numeric not null,
       tax_applies_to_delivery boolean not null,
       custom_work_tax_rule text not null,
+      accepted_at timestamptz,
+      updated_at timestamptz not null default now(),
       created_at timestamptz not null default now()
+    );
+    create table public.customer_document_tokens (
+      id uuid primary key,
+      token_hash text not null unique,
+      document_type text not null,
+      quote_id uuid,
+      revoked_at timestamptz,
+      accepted_at timestamptz
     );
     create table public.activity_history (
       customer_id uuid not null,
@@ -63,6 +75,10 @@ beforeAll(async () => {
   `)
   await db.exec(readFileSync(
     'supabase/migrations/20260914231500_fix_create_quote_draft_ambiguous_id.sql',
+    'utf8',
+  ))
+  await db.exec(readFileSync(
+    'supabase/migrations/20260916170000_public_quote_acceptance.sql',
     'utf8',
   ))
 }, 30_000)
@@ -86,5 +102,35 @@ describe.sequential('quote draft database action', () => {
     expect((await db.query<{ count: number }>('select count(*)::int as count from public.quotes')).rows[0].count).toBe(1)
     expect((await db.query<{ status: string }>('select status from public.leads where id = $1', [leadId])).rows[0].status).toBe('QUOTED')
     expect((await db.query<{ count: number }>('select count(*)::int as count from public.activity_history')).rows[0].count).toBe(1)
+  })
+
+  it('accepts a sent Quote atomically and stays idempotent on repeat confirmation', async () => {
+    await db.exec(`
+      insert into public.quotes (
+        id, quote_number, customer_id, status, description, address,
+        delivery_load_count, tax_rate, tax_applies_to_delivery, custom_work_tax_rule
+      ) values (
+        '00000000-0000-4000-8000-000000000001', 'Q1004', '${customerId}', 'SENT',
+        'Limestone delivery', '4625 Virginia Ave, Dallas, TX 75204', 1, 8.25, false, 'EXEMPT'
+      );
+      insert into public.customer_document_tokens (id, token_hash, document_type, quote_id)
+      values ('00000000-0000-4000-8000-000000000003', 'secure-hash', 'QUOTE', '00000000-0000-4000-8000-000000000001');
+    `)
+
+    const first = await db.query<{ status: string; accepted_at: Date }>("select status, accepted_at from public.accept_public_quote('secure-hash')")
+    const second = await db.query<{ status: string; accepted_at: Date }>("select status, accepted_at from public.accept_public_quote('secure-hash')")
+    const state = await db.query<{ status: string; quote_accepted: Date; token_accepted: Date; events: number }>(`
+      select q.status, q.accepted_at quote_accepted, t.accepted_at token_accepted,
+        (select count(*)::int from public.activity_history where event_type='ACCEPTED') events
+      from public.quotes q join public.customer_document_tokens t on t.quote_id=q.id
+      where q.id='00000000-0000-4000-8000-000000000001'
+    `)
+
+    expect(first.rows[0].status).toBe('ACCEPTED')
+    expect(first.rows[0].accepted_at).toBeTruthy()
+    expect(second.rows[0].status).toBe('ACCEPTED')
+    expect(second.rows[0].accepted_at).toEqual(first.rows[0].accepted_at)
+    expect(state.rows[0]).toMatchObject({ status: 'ACCEPTED', events: 1 })
+    expect(state.rows[0].quote_accepted).toEqual(state.rows[0].token_accepted)
   })
 })

@@ -120,7 +120,16 @@ Deno.serve(async (req) => {
     if (action === 'ACCEPT') {
       if (documentType !== 'QUOTE') return json({ error: 'Only quotes can be accepted' }, 400)
       const { data, error } = await service.rpc('accept_public_quote', { p_token_hash: hash })
-      if (error) return json({ error: error.message.includes('available') ? error.message : 'This quote cannot be accepted right now.' }, 409)
+      if (error) {
+        console.error('quote acceptance failed', {
+          quoteId: token.quote_id,
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        })
+        return json({ error: error.message.includes('available') ? error.message : 'This quote cannot be accepted right now.' }, 409)
+      }
       return json({ success: true, quote: data?.[0] ?? data })
     }
 

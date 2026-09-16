@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { useParams } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
@@ -64,23 +64,46 @@ export function PublicQuote() {
   const [loading, setLoading] = useState(true)
   const [confirming, setConfirming] = useState(false)
   const [accepting, setAccepting] = useState(false)
+  const acceptanceInFlight = useRef(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     const { data, error } = await supabase.functions.invoke('customer-document', { body: { action: 'VIEW', documentType: 'QUOTE', token } })
-    if (error || !data?.available || data.document?.type !== 'QUOTE') setMessage(data?.message ?? 'This link is no longer available.')
-    else setDocument(data.document)
+    if (error || !data?.available || data.document?.type !== 'QUOTE') {
+      setMessage(data?.message ?? 'This link is no longer available.')
+      setDocument(null)
+    } else {
+      setMessage('')
+      setDocument(data.document)
+    }
     setLoading(false)
   }, [token])
   useEffect(() => { void load() }, [load])
 
   const accept = async () => {
+    if (acceptanceInFlight.current) return
+    acceptanceInFlight.current = true
     setAccepting(true)
-    const { data, error } = await supabase.functions.invoke('customer-document', { body: { action: 'ACCEPT', documentType: 'QUOTE', token } })
-    if (error || !data?.success) setMessage(data?.error ?? 'This quote cannot be accepted right now. Please try again.')
-    else await load()
-    setAccepting(false)
-    setConfirming(false)
+    setMessage('')
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-document', { body: { action: 'ACCEPT', documentType: 'QUOTE', token } })
+      const acceptedQuote = data?.quote
+      if (error || !data?.success || acceptedQuote?.status !== 'ACCEPTED' || !acceptedQuote?.accepted_at) {
+        setMessage(data?.error ?? 'This quote cannot be accepted right now. Please try again.')
+        return
+      }
+      setDocument((current) => current ? {
+        ...current,
+        status: acceptedQuote.status,
+        acceptedAt: acceptedQuote.accepted_at,
+      } : current)
+      setConfirming(false)
+    } catch {
+      setMessage('This quote cannot be accepted right now. Please try again.')
+    } finally {
+      acceptanceInFlight.current = false
+      setAccepting(false)
+    }
   }
 
   if (loading) return <Loading />
@@ -88,14 +111,24 @@ export function PublicQuote() {
   const accepted = document.status === 'ACCEPTED'
   return (
     <DocumentShell>
-      <div className="text-center"><p className="text-[11px] font-bold uppercase tracking-[.2em] text-[#8FCBFF]">Quote {document.number}</p><h1 className="mt-2 text-4xl font-black uppercase tracking-[-.04em] sm:text-5xl">Your quote</h1><p className="mt-3 text-sm text-[#9b9da3]">Prepared for {document.customerName}</p></div>
-      <section className="mt-7 rounded-2xl border border-white/10 bg-[#15161a] p-6 text-center sm:p-8"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#8a8d94]">Total quote</p><p className="mt-1 text-5xl font-black tracking-[-.05em] sm:text-6xl">{money(document.totals.total)}</p><p className="mt-3 text-xs text-[#70737a]">Created {date(document.createdAt)}</p></section>
-      {accepted && <div className="mt-5 rounded-xl border border-[#78D69A]/30 bg-[#78D69A] px-5 py-4 text-center font-extrabold uppercase tracking-[.12em] text-[#0B0D0C]">Quote accepted</div>}
+      <div className="text-center"><p className="text-[11px] font-bold uppercase tracking-[.2em] text-[#8FCBFF]">Quote {document.number}</p><h1 className="mt-2 text-4xl font-black uppercase tracking-[-.04em] sm:text-5xl">{accepted ? 'Quote accepted' : 'Your quote'}</h1><p className="mt-3 text-sm text-[#9b9da3]">Prepared for {document.customerName}</p></div>
+      {accepted ? (
+        <section aria-live="polite" className="mt-7 rounded-2xl border border-[#78D69A]/35 bg-[#78D69A] p-7 text-center text-[#0B0D0C] sm:p-9">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#0B0D0C] text-2xl font-black text-[#78D69A]" aria-hidden="true">✓</div>
+          <p className="mt-4 text-[11px] font-black uppercase tracking-[.18em] text-[#183120]">Acceptance confirmed</p>
+          <p className="mt-2 text-4xl font-black tracking-[-.04em]">{money(document.totals.total)}</p>
+          <p className="mx-auto mt-4 max-w-md text-sm font-semibold leading-relaxed text-[#21422B]">Thank you. Monkey Trucking received your acceptance and will contact you to confirm scheduling.</p>
+          <p className="mt-3 text-xs font-semibold text-[#31563B]">Accepted {date(document.acceptedAt)}</p>
+        </section>
+      ) : (
+        <section className="mt-7 rounded-2xl border border-white/10 bg-[#15161a] p-6 text-center sm:p-8"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#8a8d94]">Total quote</p><p className="mt-1 text-5xl font-black tracking-[-.05em] sm:text-6xl">{money(document.totals.total)}</p><p className="mt-3 text-xs text-[#70737a]">Created {date(document.createdAt)}</p></section>
+      )}
       <section className="mt-7"><h2 className="text-xl font-bold">What’s included</h2><p className="mt-1 text-sm text-[#7f8289]">{document.description}</p><div className="mt-4 rounded-2xl border border-white/10 bg-[#121316] px-5">{document.items.map((item) => <DetailRow key={item.id} label={item.kind === 'CUSTOM_WORK' ? 'Work' : 'Material'} value={<span>{item.description}<small className="mt-1 block font-normal text-[#8e9198]">{[item.yards != null ? `${Number(item.yards)} yd` : '', item.loads != null ? `${item.loads} load${item.loads === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')} · {money(item.line_total)}</small></span>} />)}{document.delivery && <DetailRow label="Delivery" value={<span>{document.delivery.miles != null ? `${document.delivery.miles} miles` : 'Delivery'}<small className="mt-1 block font-normal text-[#8e9198]">{document.delivery.loads} load{document.delivery.loads === 1 ? '' : 's'} · {money(document.delivery.total)}</small></span>} />}{document.address && <DetailRow label="Job site" value={document.address} />}</div></section>
       <section className="mt-6 rounded-2xl border border-white/10 bg-[#15161a] px-5"><DetailRow label="Material" value={money(document.totals.materials)} />{document.totals.customWork > 0 && <DetailRow label="Custom work" value={money(document.totals.customWork)} />} {document.delivery && <DetailRow label="Delivery" value={money(document.delivery.total)} />}<DetailRow label={`Tax ${formatTaxRate(Number(document.totals.taxRate))}`} value={money(document.totals.tax)} /><DetailRow label="Total" value={<strong className="text-xl">{money(document.totals.total)}</strong>} /></section>
       {document.notes && <section className="mt-6 rounded-2xl border border-white/10 bg-[#121316] p-5"><h2 className="text-xs font-bold uppercase tracking-[.16em] text-[#8FCBFF]">Notes</h2><p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#c3c4c0]">{document.notes}</p></section>}
-      {!accepted && !confirming && <button type="button" onClick={() => setConfirming(true)} className="mt-7 min-h-12 w-full rounded-xl bg-[#ff003c] px-6 py-4 text-sm font-extrabold uppercase tracking-[.1em] text-white transition hover:bg-[#d90033]">Accept quote</button>}
-      {!accepted && confirming && <section className="mt-7 rounded-2xl border border-[#ff003c]/40 bg-[#15161a] p-5 text-center"><p className="font-bold">Accept quote for {money(document.totals.total)}?</p><p className="mt-2 text-sm text-[#9b9da3]">This confirms that you approve this quote. Monkey Trucking will contact you to schedule the work.</p><div className="mt-5 grid gap-3 sm:grid-cols-2"><button type="button" disabled={accepting} onClick={() => setConfirming(false)} className="min-h-12 rounded-xl border border-white/15 px-5 font-bold">Not yet</button><button type="button" disabled={accepting} onClick={() => void accept()} className="min-h-12 rounded-xl bg-[#ff003c] px-5 font-extrabold uppercase tracking-[.08em] text-white disabled:opacity-60">{accepting ? 'Accepting…' : 'Confirm acceptance'}</button></div></section>}
+      {message && <p role="alert" className="mt-5 rounded-xl border border-[#ff003c]/25 bg-[#ff003c]/10 px-4 py-3 text-center text-sm text-[#ffc2d0]">{message}</p>}
+      {!accepted && !confirming && <button type="button" onClick={() => { setMessage(''); setConfirming(true) }} className="mt-7 min-h-12 w-full rounded-xl bg-[#ff003c] px-6 py-4 text-sm font-extrabold uppercase tracking-[.1em] text-white transition hover:bg-[#d90033] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8FCBFF]">Accept quote</button>}
+      {!accepted && confirming && <section className="mt-7 rounded-2xl border border-[#ff003c]/40 bg-[#15161a] p-5 text-center"><p className="font-bold">Accept quote for {money(document.totals.total)}?</p><p className="mt-2 text-sm text-[#9b9da3]">This confirms that you approve this quote. Monkey Trucking will contact you to schedule the work.</p><div className="mt-5 grid gap-3 sm:grid-cols-2"><button type="button" disabled={accepting} onClick={() => setConfirming(false)} className="min-h-12 rounded-xl border border-white/15 px-5 font-bold disabled:cursor-wait disabled:opacity-60">Not yet</button><button type="button" disabled={accepting} onClick={() => void accept()} className="min-h-12 rounded-xl bg-[#ff003c] px-5 font-extrabold uppercase tracking-[.08em] text-white disabled:cursor-wait disabled:opacity-60">{accepting ? 'Accepting…' : 'Confirm acceptance'}</button></div></section>}
     </DocumentShell>
   )
 }
