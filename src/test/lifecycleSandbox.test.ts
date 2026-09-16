@@ -28,6 +28,7 @@ describe('full lifecycle sandbox using production engine',()=>{
    const result=await run([c('hey can we change delivery to Friday around 10am?')],'SCHEDULE_CHANGE','ACCEPTED')
    expect(result.reply).toContain('team confirm');expect(result.reply).toContain('10:00');expect(result.reply).not.toMatch(/introduce|acknowledge|Monkey Trucking|current customer request/)
    expect(result.decision.dashboard_proposal.actions).toContain('SCHEDULE_CHANGE')
+   expect(result.tool_results.diagnostics).toMatchObject({lifecycle_stage:'SCHEDULING',escalation:{requires_human:false,ai_may_continue:true}})
  })
  it('acknowledges an increment while protecting accepted order terms',async()=>{
    const result=await run([c('also I might need 5 more yards than I accepted')],'ORDER_CHANGE','ACCEPTED')
@@ -58,7 +59,7 @@ describe('full lifecycle sandbox using production engine',()=>{
    expect(result.decision.dashboard_proposal.ready).toBe(true);expect(result.reply).toContain('Salvador to review and send');expect(result.send_allowed).toBe(false)
  })
  it('answers arrival from actual schedule and accepts access notes',async()=>{
-   const arrival=await run([c('what time are you coming?')],'ARRIVAL','SCHEDULED');expect(arrival.reply).toContain('09:00')
+   const arrival=await run([c('what time are you coming?')],'ARRIVAL','SCHEDULED');expect(arrival.reply).toContain('09:00');expect(arrival.tool_results.diagnostics.lifecycle_stage).toBe('SCHEDULED')
    const note=await run([c('use the side gate, code 5521')],'JOB_NOTE','SCHEDULED');expect(note.decision.dashboard_proposal.job_note).toContain('5521');expect(note.reply).toContain('instruction')
  })
  it('keeps accepted corrections as review requests, not accepted quote edits',async()=>{

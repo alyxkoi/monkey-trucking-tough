@@ -132,6 +132,18 @@ describe('material and route intelligence', () => {
     expect(fetcher).toHaveBeenCalledOnce()
   })
 
+  it('reports the exact provider failure and stage timings without losing the resolved address', async () => {
+    const result=await calculateDeliveryRoute({
+      messages:[{sender_type:'CUSTOMER',body:'deliver to 123 Oak Road, Terrell, TX 75160'}],
+      state:null,quotes:[],settings,enabled:true,apiKey:'fixture',
+      fetcher:vi.fn(async()=>new Response('{}',{status:503})) as typeof fetch,
+    })
+    expect(result).toMatchObject({status:'UNAVAILABLE',destination:'123 Oak Road, Terrell, TX 75160'})
+    expect(result.diagnostics).toMatchObject({address_source:'MESSAGE',provider_called:true,provider_http_status:503,error:'Google Routes HTTP 503.'})
+    expect(result.diagnostics?.total_ms).toBeGreaterThanOrEqual(0)
+    expect(result.diagnostics?.provider_ms).toBeGreaterThanOrEqual(0)
+  })
+
   it('does not estimate mileage without an exact address or a provider key', async () => {
     expect(await calculateDeliveryRoute({ messages: [], state: null, quotes: [], settings, enabled: true })).toMatchObject({ status: 'NOT_READY' })
     expect(await calculateDeliveryRoute({

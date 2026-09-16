@@ -65,6 +65,7 @@ export function composeConversationResponse(decision:any,pricing:any) {
   const es=decision.detected_language==='SPANISH'
   const ready=pricing.status==='MATERIAL_CALCULATED'
   const routed=ready&&Number.isFinite(pricing.delivery_total)&&Number.isFinite(pricing.grand_total)
+  const routePending=Boolean(c.address)&&['UNAVAILABLE','SETUP_REQUIRED','OFF'].includes(pricing.route?.status)
   const name=clean(pricing.material_name||c.material_name)
   const yards=Number(pricing.yards??c.quantity_yards)
   const pieces:string[]=[]
@@ -91,12 +92,13 @@ export function composeConversationResponse(decision:any,pricing:any) {
           if(!detail||!Number.isFinite(c.full_load_price)||!Number.isFinite(c.price_per_yard))throw new Error('Current material rate details are unavailable.')
           pieces.push(`${detail}: ${money(pricing.material_total)} ${es?'de material':'for material'}.`)
         }else if(routed)pieces.push(es?`${money(pricing.material_total)} de material y ${money(pricing.delivery_total)} de entrega${pricing.tax_total>0?`, más ${money(pricing.tax_total)} de impuestos`:''}. total estimado: ${money(pricing.grand_total)}.`:`${money(pricing.material_total)} for material and ${money(pricing.delivery_total)} for delivery${pricing.tax_total>0?`, plus ${money(pricing.tax_total)} tax`:''}. estimated total: ${money(pricing.grand_total)}.`)
+        else if(routePending)pieces.push(es?`el subtotal del material para ${amount(yards)} yardas de ${name} es ${money(pricing.material_total)}. la entrega y el total final siguen pendientes mientras verificamos la ruta. ya tengo la dirección y no necesita enviarla otra vez.`:`the material subtotal for ${amount(yards)} yards of ${name} is ${money(pricing.material_total)}. delivery and the final total are still pending while we verify the route. I have the address, so you do not need to send it again.`)
         else pieces.push(es?`${amount(yards)} yardas de ${name} salen en ${money(pricing.material_total)} de material. ${pricing.tax_applicable===false?'la entrega se calcula por separado.':'la entrega y los impuestos se calculan por separado.'}`:`${amount(yards)} yards of ${name} comes to ${money(pricing.material_total)} for material. ${pricing.tax_applicable===false?'delivery is calculated separately.':'delivery and tax are calculated separately.'}`)
       }else pieces.push(es?'puedo calcularlo al confirmar el material y la cantidad.':'I can calculate that once the material and quantity are confirmed.')
     }
     if(answer==='DELIVERY') {
       if(routed&&Number.isFinite(pricing.delivery_miles))pieces.push(es?`la entrega cuesta ${money(pricing.delivery_total)} porque son aproximadamente ${amount(pricing.delivery_miles)} millas desde nuestro patio y ${pricing.delivery_loads} ${pricing.delivery_loads===1?'carga':'cargas'}.`:`delivery is ${money(pricing.delivery_total)} because it is about ${amount(pricing.delivery_miles)} miles from our yard and ${pricing.delivery_loads} ${pricing.delivery_loads===1?'load':'loads'}.`)
-      else pieces.push(c.address?(es?'ya tengo su dirección. la verificación de entrega no está disponible ahora; no hace falta repetirla.':'I have your address. delivery verification is temporarily unavailable; no need to send it again.'):(es?'necesito la dirección de entrega para verificar el costo.':'I need the delivery address to verify the delivery cost.'))
+      else if(!(routePending&&answerSet.has('PRICE')))pieces.push(c.address?(es?'ya tengo su dirección. la verificación de entrega no está disponible ahora; no hace falta repetirla.':'I have your address. delivery verification is temporarily unavailable; no need to send it again.'):(es?'necesito la dirección de entrega para verificar el costo.':'I need the delivery address to verify the delivery cost.'))
     }
     if(answer==='SUMMARY') {
       const values=[c.customer_name,Number.isFinite(yards)&&yards>0?`${amount(yards)} ${es?'yardas':'yards'}${name?` ${es?'de':'of'} ${name}`:''}`:name,c.address,...(c.service_requests??[])].filter(Boolean).map(clean)

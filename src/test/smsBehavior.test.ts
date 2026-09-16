@@ -219,8 +219,13 @@ describe('shared production AI safety',()=>{
       .mockImplementationOnce(firstAttempt)
       .mockResolvedValueOnce(new Response(JSON.stringify({status:'completed',output_text:JSON.stringify(decision)})))
     vi.stubGlobal('fetch',fetcher)
-    await generateAiDraft(aiService(),{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model'})
+    const result=await generateAiDraft(aiService(),{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model'})
     expect(fetcher).toHaveBeenCalledTimes(2)
+    const openAiCalls=(result.tool_results.diagnostics.tool_calls as Array<{name:string;attempt:number;status:string;retried:boolean}>).filter(tool=>tool.name==='openai.responses')
+    expect(openAiCalls).toMatchObject([
+      {attempt:1,retried:true},
+      {attempt:2,status:'SUCCESS',retried:false},
+    ])
   })
   it('does not retry a valid business-rule escalation',async()=>{
     const escalation={...decision,ai_may_continue:false,requires_human:true,recommended_action:'MANUAL_REPLY',draft_reply:'',escalation_reason:'customer requested a human'}
@@ -254,6 +259,39 @@ describe('shared production AI safety',()=>{
     expect(service.rpc).toHaveBeenCalledWith('apply_ai_lifecycle',expect.objectContaining({p_plan:expect.objectContaining({context:expect.objectContaining({pricing:expect.objectContaining({material_id:'limestone',yards:9,route:expect.objectContaining({destination:'4625 Virginia Ave, Dallas, TX 75204',distance_miles:10})})})})}))
     expect(autonomousReply(result.decision,result.tool_results.pricing)).toContain('the estimated total is')
     expect(autonomousReply(result.decision,result.tool_results.pricing)).not.toContain('with tax')
+  })
+  it('keeps a ZIP-completed address and material subtotal when Google routing is temporarily unavailable',async()=>{
+    const fetcher=vi.fn(async(url:string)=>url.includes('routes.googleapis.com')
+      ? new Response('{}',{status:503})
+      : Promise.reject(new Error('The deterministic fallback must skip OpenAI.')))
+    vi.stubGlobal('fetch',fetcher)
+    const service=aiService(undefined,false,false,{
+      lead_messages:[
+        {id:'zip',sender_type:'CUSTOMER',body:'75204',created_at:'2026-09-13T03:00:00Z'},
+        {id:'ask',sender_type:'AI',body:'what is the ZIP code?',created_at:'2026-09-13T02:30:00Z'},
+        {id:'address',sender_type:'CUSTOMER',body:'My address is 4626 Virginia Ave, Dallas, TX',created_at:'2026-09-13T02:00:00Z'},
+        {id:'quantity',sender_type:'CUSTOMER',body:'10 tons of limestone',created_at:'2026-09-13T01:00:00Z'},
+      ],
+      materials:[{id:'limestone',name:'Limestone 1"-1 1/2"',full_load_yards:20,full_load_price:1700,price_per_yard:95,tons_per_cubic_yard:1.4}],
+      app_settings:{company_address:'7653 S FM 148',company_city_state_zip:'Kaufman, TX 75142',tax_enabled:false,tax_rate:0,tax_applies_to_delivery:false},
+      control_center_settings:{ai_english:true,ai_spanish:true,route_intelligence_enabled:true,route_status:'READY'},
+    })
+    const result=await generateAiDraft(service,{lead_id:'lead'},'actor',{apiKey:'fixture',baseUrl:'https://example.test',model:'existing-model',googleMapsApiKey:'maps-key'})
+    const reply=autonomousReply(result.decision,result.tool_results.pricing)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(result.decision).toMatchObject({requires_human:false,ai_may_continue:true,recommended_action:'PROVIDE_STANDARD_PRICE'})
+    expect(result.decision.known_facts).toContainEqual(expect.objectContaining({key:'delivery_address',value:'4626 Virginia Ave, Dallas, TX 75204'}))
+    expect(result.decision.missing_facts.join(' ')).not.toMatch(/address|zip|postal/i)
+    expect(reply).toContain('material subtotal')
+    expect(reply).toContain('delivery and the final total are still pending')
+    expect(reply).toContain('do not need to send it again')
+    expect(reply).not.toMatch(/what is|send.*address/i)
+    expect(result.tool_results.diagnostics).toMatchObject({
+      lifecycle_stage:'LEAD',
+      route:{status:'UNAVAILABLE',address:'4626 Virginia Ave, Dallas, TX 75204',address_source:'MESSAGE',http_status:503,error:'Google Routes HTTP 503.'},
+      escalation:{requires_human:false,ai_may_continue:true},
+      exact_tool_errors:['Google Routes HTTP 503.'],
+    })
   })
   it('uses corrected quantities and never treats customer mileage as approved delivery pricing',()=>{
     const pricing=materialTool([{sender_type:'CUSTOMER',body:'10 yards of flexbase 20 miles away'},{sender_type:'CUSTOMER',body:'make that 15 yards'}],

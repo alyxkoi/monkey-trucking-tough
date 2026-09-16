@@ -40,6 +40,12 @@ function renderAutonomousReply(decision: any, pricing: any): string {
         ? `${converted ? `recomiendo aproximadamente ${converted.recommendedYards} yardas. ` : ''}el material cuesta $${amount}. la entrega para ${pricing.delivery_loads} ${pricing.delivery_loads===1?'carga':'cargas'} cuesta $${delivery}. el total estimado${pricing.tax_total>0?' con impuestos':''} es $${total}.`
         : `${converted ? `i recommend approximately ${converted.recommendedYards} yards. ` : ''}the material is $${amount}. delivery for ${pricing.delivery_loads} ${pricing.delivery_loads===1?'load':'loads'} is $${delivery}. the estimated total${pricing.tax_total>0?' with tax':''} is $${total}.`
     }
+    const routePending=addressKnown&&['UNAVAILABLE','SETUP_REQUIRED','OFF'].includes(pricing.route?.status)
+    if(routePending) {
+      return decision.detected_language === 'SPANISH'
+        ? `${converted ? `recomiendo aproximadamente ${converted.recommendedYards} yardas. ` : ''}el subtotal del material para ${pricing.yards} yardas de ${material} es $${amount}. la entrega y el total final siguen pendientes mientras verificamos la ruta. ya tengo la dirección y no necesita enviarla otra vez.`
+        : `${converted ? `i recommend approximately ${converted.recommendedYards} yards. ` : ''}the material subtotal for ${pricing.yards} yards of ${material} is $${amount}. delivery and the final total are still pending while we verify the route. I have the address, so you do not need to send it again.`
+    }
     return decision.detected_language === 'SPANISH'
       ? `${converted ? `recomiendo aproximadamente ${converted.recommendedYards} yardas. ` : ''}el material para ${pricing.yards} yardas de ${material} cuesta $${amount}. ${pricing.tax_applicable===false?'la entrega se confirma por separado.':'la entrega y los impuestos se confirman por separado.'}${addressKnown?'':' cuál es la dirección exacta de entrega.'}`
       : `${converted ? `i recommend approximately ${converted.recommendedYards} yards. ` : ''}the material for ${pricing.yards} yards of ${material} is $${amount}. ${pricing.tax_applicable===false?'delivery is confirmed separately.':'delivery and tax are confirmed separately.'}${addressKnown?'':' what is the exact delivery address.'}`

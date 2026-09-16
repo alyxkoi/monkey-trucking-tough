@@ -8,7 +8,65 @@ type Profile = { model: string | null; tone: string; concise: boolean; review_en
 type Entry = { id: string; created_at: string; kind: string; summary: string; before_settings: Profile | null; findings: { code: string; count: number; recommendation: string }[] }
 type Message = { sender_type: 'CUSTOMER' | 'AI'; body: string }
 type Status = { settings: Profile; history: Entry[]; configured_model: string; provider: string; prompt_version: string; active_instructions?:string; context_message_limit: number; maps_key_configured: boolean; immutable_rules: string[]; recent_runs: { model_id: string | null; status: string; latency_ms: number; created_at: string }[] }
-type Simulation = { reply: string | null; blocked: string | null; model: string; session_id:string; decision: { known_facts: {key:string;value:string}[];missing_facts:string[];recommended_action:string;subtask_escalations?:{topic:string;reason:string}[] }; tool_results: unknown }
+type Fact = {key:string;value:string}
+type ToolCall = {name:string;status:string;duration_ms:number;http_status?:number|null;source?:string;cache_source?:string|null;reason?:string|null;error?:string|null;attempt?:number;retried?:boolean}
+type Diagnostics = {
+  lifecycle_stage:string
+  known_facts:Fact[]
+  missing_facts:string[]
+  tool_calls:ToolCall[]
+  route:{status:string;address:string|null;address_source:string;provider_called:boolean;http_status:number|null;cache_source:string|null;error:string|null}
+  timings:Record<string,number|string|boolean|null|unknown[]>
+  escalation:{requires_human:boolean;ai_may_continue:boolean;action:string|null;scope:string;category:string|null;reason:string|null}
+  exact_tool_errors:string[]
+}
+type Simulation = { reply: string | null; blocked: string | null; model: string; session_id:string; decision: { known_facts: Fact[];missing_facts:string[];recommended_action:string;subtask_escalations?:{topic:string;reason:string}[] }; tool_results: {diagnostics?:Diagnostics;[key:string]:unknown} }
+
+const duration=(value:unknown)=>typeof value==='number'?(value<1000?`${value} ms`:`${(value/1000).toFixed(2)} s`):'Not recorded'
+
+function StaffDiagnostics({simulation}:{simulation:Simulation}) {
+  const diagnostics=simulation.tool_results.diagnostics
+  const facts=diagnostics?.known_facts??simulation.decision.known_facts
+  const missing=diagnostics?.missing_facts??simulation.decision.missing_facts
+  const openAiDuration=diagnostics?.timings.openai_ms ?? diagnostics?.tool_calls.filter(tool=>tool.name==='openai.responses').reduce((sum,tool)=>sum+tool.duration_ms,0)
+  const pipeline=diagnostics?[
+    ['Context load',diagnostics.timings.context_load_ms],['Address parse',diagnostics.timings.address_parse_ms],
+    ['Google Routes',diagnostics.timings.google_routes_ms],['Pricing',diagnostics.timings.deterministic_pricing_ms],
+    ['OpenAI',openAiDuration],['Fallback',diagnostics.timings.fallback_ms],
+    ['Composer',diagnostics.timings.composition_ms],['Postprocess',diagnostics.timings.decision_postprocess_ms],
+    ['Lifecycle write',diagnostics.timings.lifecycle_apply_ms],['Total',diagnostics.timings.total_ms],
+  ]:[]
+  return <details className="rounded-xl border border-line bg-raised/60 p-3">
+    <summary className="cursor-pointer font-semibold">Staff diagnostics{diagnostics?` · ${duration(diagnostics.timings.total_ms)}`:''}</summary>
+    <div className="mt-4 space-y-5">
+      {!diagnostics&&<p className="text-cc-muted">Structured timing diagnostics were not returned by this backend version.</p>}
+      {diagnostics&&<>
+        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div><dt className="text-xs uppercase tracking-wide text-cc-muted">Lifecycle</dt><dd className="font-semibold">{diagnostics.lifecycle_stage}</dd></div>
+          <div><dt className="text-xs uppercase tracking-wide text-cc-muted">Route</dt><dd className="font-semibold">{diagnostics.route.status}</dd></div>
+          <div><dt className="text-xs uppercase tracking-wide text-cc-muted">Total latency</dt><dd className="font-semibold">{duration(diagnostics.timings.total_ms)}</dd></div>
+          <div><dt className="text-xs uppercase tracking-wide text-cc-muted">OpenAI</dt><dd className="font-semibold">{duration(openAiDuration)}</dd></div>
+          <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-cc-muted">Resolved address</dt><dd>{diagnostics.route.address??'Not resolved'} <span className="text-cc-muted">({diagnostics.route.address_source})</span></dd></div>
+          <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-cc-muted">Escalation</dt><dd>{diagnostics.escalation.requires_human?'Human required':diagnostics.escalation.ai_may_continue?'AI may continue':'AI stopped'}{diagnostics.escalation.reason?`: ${diagnostics.escalation.reason}`:''}</dd></div>
+        </dl>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-xs">
+            <caption className="mb-2 text-left text-sm font-semibold">Tool calls</caption>
+            <thead className="text-cc-muted"><tr><th className="px-2 py-2">Tool</th><th className="px-2 py-2">Status</th><th className="px-2 py-2">Duration</th><th className="px-2 py-2">Details</th></tr></thead>
+            <tbody className="divide-y divide-line">{diagnostics.tool_calls.map((tool,index)=><tr key={`${tool.name}-${tool.attempt??index}`}><td className="px-2 py-2 font-medium">{tool.name}{tool.attempt?` #${tool.attempt}`:''}</td><td className="px-2 py-2">{tool.status}{tool.retried?' · retried':''}</td><td className="px-2 py-2">{duration(tool.duration_ms)}</td><td className="max-w-md px-2 py-2 break-words text-cc-muted">{tool.error??([tool.reason,tool.source,tool.cache_source,tool.http_status&&`HTTP ${tool.http_status}`].filter(Boolean).join(' · ')||'None')}</td></tr>)}</tbody>
+          </table>
+        </div>
+        <div><p className="mb-2 font-semibold">Pipeline timings</p><dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">{pipeline.map(([label,value])=><div key={String(label)} className="rounded-lg border border-line px-3 py-2"><dt className="text-xs text-cc-muted">{String(label)}</dt><dd className="font-medium">{duration(value)}</dd></div>)}</dl></div>
+        {!!diagnostics.exact_tool_errors.length&&<div role="alert" className="rounded-lg border border-warn/40 bg-warn/10 p-3"><p className="font-semibold">Exact tool errors</p><ul className="mt-1 list-disc pl-5">{diagnostics.exact_tool_errors.map((error,index)=><li key={index} className="break-words">{error}</li>)}</ul></div>}
+      </>}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div><p className="font-semibold">Known facts</p><dl className="mt-2 space-y-1">{facts.map((fact,index)=><div key={`${fact.key}-${index}`} className="flex flex-wrap gap-2"><dt className="text-cc-muted">{fact.key.replaceAll('_',' ')}:</dt><dd>{fact.value}</dd></div>)}{!facts.length&&<p className="text-cc-muted">None</p>}</dl></div>
+        <div><p className="font-semibold">Missing facts</p><p className="mt-2">{missing.join(', ')||'None'}</p></div>
+      </div>
+      <details><summary className="cursor-pointer py-2 text-cc-muted">Raw diagnostic payload</summary><pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-surface p-3 text-xs">{JSON.stringify(simulation.tool_results,null,2)}</pre></details>
+    </div>
+  </details>
+}
 
 async function call<T>(body: unknown): Promise<T> {
   const { data, error } = await supabase.functions.invoke('ai-control',{body})
@@ -90,7 +148,7 @@ export function AiControlPanel() {
       {disabledReason&&<p role="status" className="mt-2 text-xs text-cc-muted">{disabledReason}</p>}
       {simulation?.blocked&&<p role="status" className="mt-3 text-sm text-warn">Entire conversation blocked: {simulation.blocked}. You can enter another test message or reset; nothing is sent.</p>}
       {!!simulation?.decision.subtask_escalations?.length&&!simulation.blocked&&<p role="status" className="mt-3 text-sm text-ice">Subtask review only: custom work pricing needs Salvador. Standard material and delivery conversation remains active.</p>}
-      {simulation&&<div className="mt-4 space-y-3 text-sm"><p className={simulation.blocked?'text-warn':'text-ice'}>{simulation.blocked?`Human review: ${simulation.blocked}`:`Action: ${simulation.decision.recommended_action}`}</p><dl>{simulation.decision.known_facts.map((f,i)=><div key={i} className="flex flex-wrap gap-2"><dt className="text-cc-muted">{f.key.replaceAll('_',' ')}:</dt><dd>{f.value}</dd></div>)}</dl><p>Still needed: {simulation.decision.missing_facts.join(', ')||'None'}</p><details><summary className="cursor-pointer py-2">Deterministic tool results</summary><pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-raised p-3 text-xs">{JSON.stringify(simulation.tool_results,null,2)}</pre></details></div>}
+      {simulation&&<div className="mt-4 space-y-3 text-sm"><p className={simulation.blocked?'text-warn':'text-ice'}>{simulation.blocked?`Human review: ${simulation.blocked}`:`Action: ${simulation.decision.recommended_action}`}</p><StaffDiagnostics simulation={simulation}/></div>}
     </Panel>
     <Panel title="Review & change history">
       <p className="mb-3 text-sm text-cc-muted">Latest 20 entries. Full history is retained. Last review: {profile?.last_review_at?new Date(profile.last_review_at).toLocaleString():'Not run yet'}.</p>

@@ -7,6 +7,7 @@ import { workerAuthorized } from '../_shared/worker-auth.ts'
 const json = (body:unknown,status=200) => new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}})
 
 Deno.serve(async(req) => {
+  const requestStarted=Date.now()
   if (req.method!=='POST') return json({error:'Method not allowed'},405)
   const key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const url=Deno.env.get('SUPABASE_URL')
@@ -29,12 +30,15 @@ Deno.serve(async(req) => {
     const runtime=await service.from('communication_runtime').select('ai_sending_enabled,scheduled_sending_enabled').eq('id',1).single()
     if (runtime.error) throw new Error('Runtime settings unavailable')
     let job:{processed:boolean,messageId?:string|null}={processed:false}
+    const generationStarted=Date.now()
     if (jobId&&runtime.data.ai_sending_enabled) {
       job=await runCommunicationJob(service,await configuredAi(service),Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID'),jobId)
     } else if (!targeted&&(runtime.data.ai_sending_enabled||runtime.data.scheduled_sending_enabled)) {
       job=await runCommunicationJob(service,await configuredAi(service),Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID'))
     }
+    const generationMs=Date.now()-generationStarted
     const apiKey=Deno.env.get('SENT_DM_API_KEY')
+    const dispatchStarted=Date.now()
     let dispatches=0
     if (apiKey) {
       const exactMessageId=messageId??job.messageId??null
@@ -47,8 +51,11 @@ Deno.serve(async(req) => {
         dispatches++
       }
     }
-    return json({planned:planned.data,job,dispatches})
+    const timing={generation_ms:generationMs,dispatch_ms:Date.now()-dispatchStarted,total_ms:Date.now()-requestStarted}
+    console.info('communications worker timing',{jobId,messageId,processed:job.processed,dispatches,...timing})
+    return json({planned:planned.data,job,dispatches,timing})
   } catch(error) {
+    console.error('communications worker failed',{total_ms:Date.now()-requestStarted,error:error instanceof Error?error.message:'Communications processing failed'})
     return json({error:error instanceof Error?error.message:'Communications processing failed'},503)
   }
 })

@@ -46,4 +46,22 @@ describe('sandbox debugging and isolation',()=>{
     fireEvent.change(screen.getByLabelText('Test message'),{target:{value:'25 yards'}})
     expect(screen.getByRole('button',{name:'Test response'})).toBeEnabled()
   })
+  it('shows staff-only structured timings, tools, route state and exact errors in collapsible diagnostics',async()=>{
+    const diagnosticResult={...result,tool_results:{diagnostics:{
+      lifecycle_stage:'LEAD',known_facts:[{key:'delivery_address',value:'4625 Virginia Ave, Dallas, TX 75204'}],missing_facts:[],
+      tool_calls:[{name:'google.routes',status:'UNAVAILABLE',duration_ms:12001,http_status:503,error:'Google Routes HTTP 503.'}],
+      route:{status:'UNAVAILABLE',address:'4625 Virginia Ave, Dallas, TX 75204',address_source:'MESSAGE',provider_called:true,http_status:503,cache_source:null,error:'Google Routes HTTP 503.'},
+      timings:{openai_ms:0,total_ms:12006},escalation:{requires_human:false,ai_may_continue:true,action:'PROVIDE_STANDARD_PRICE',scope:'NONE',category:null,reason:null},
+      exact_tool_errors:['Google Routes HTTP 503.'],
+    }}}
+    invoke.mockImplementation(async(_name,{body})=>({data:body.action==='status'?status:diagnosticResult,error:null}))
+    render(<AiControlPanel/>);await screen.findByText('Enter a customer message to test.')
+    fireEvent.change(screen.getByLabelText('Test message'),{target:{value:'75204'}});fireEvent.click(screen.getByRole('button',{name:'Test response'}))
+    const summary=await screen.findByText(/Staff diagnostics/);fireEvent.click(summary)
+    expect(screen.getAllByText('LEAD').length).toBeGreaterThan(1)
+    expect(screen.getAllByText('UNAVAILABLE').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('12.01 s').length).toBeGreaterThan(1)
+    expect(screen.getAllByText('Google Routes HTTP 503.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/4625 Virginia Ave/).length).toBeGreaterThan(1)
+  })
 })

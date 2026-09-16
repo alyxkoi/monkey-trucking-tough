@@ -4,7 +4,7 @@ import { addressClarification, addressFromText, calculateDeliveryRoute, delivery
 import { assertCustomerText, composeConversationResponse, responsePlanSchema } from './conversation-response.ts'
 import { additionalYards, dashboardPlanSchema, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName } from './lifecycle.ts'
 
-export const PROMPT_VERSION = 'mt-ai-lifecycle-v11.1'
+export const PROMPT_VERSION = 'mt-ai-lifecycle-v12'
 
 const decisionSchema = {
   type: 'object',
@@ -171,8 +171,12 @@ export function activeAiInstructions(config: Pick<AiConfig,'tone'|'concise'>) {
 
 async function requestAiDecision(baseUrl: string, apiKey: string, model: string, context: any, allowDeterministicDraftFallback: boolean, timings:any) {
   const deadline=Date.now()+40_000
+  timings.openai_attempts=[]
   for (let attempt = 0; attempt < 2; attempt += 1) {
     timings.model_attempts=attempt+1
+    const attemptStarted=Date.now()
+    const attemptTrace:any={attempt:attempt+1,duration_ms:0,status:'STARTED',http_status:null,error:null,retried:false}
+    timings.openai_attempts.push(attemptTrace)
     let aiResponse: Response
     try {
       aiResponse = await fetch(`${baseUrl.replace(/\/$/, '')}/responses`, {
@@ -186,44 +190,69 @@ async function requestAiDecision(baseUrl: string, apiKey: string, model: string,
         }),
       })
     } catch (error) {
-      if (attempt === 0) continue
+      attemptTrace.duration_ms=Date.now()-attemptStarted
+      attemptTrace.status='ERROR'
+      attemptTrace.error=error instanceof Error?`${error.name}: ${error.message}`:'OpenAI request failed.'
+      if (attempt === 0) {attemptTrace.retried=true;continue}
       throw error
     }
 
     if (!aiResponse.ok) {
-      if (attempt === 0 && ([408, 429].includes(aiResponse.status) || aiResponse.status >= 500)) continue
+      attemptTrace.duration_ms=Date.now()-attemptStarted
+      attemptTrace.http_status=aiResponse.status
+      attemptTrace.status='HTTP_ERROR'
+      attemptTrace.error=`OpenAI HTTP ${aiResponse.status}.`
+      if (attempt === 0 && ([408, 429].includes(aiResponse.status) || aiResponse.status >= 500)) {attemptTrace.retried=true;continue}
       throw new Error(`OpenAI request failed with ${aiResponse.status}.`)
     }
+    attemptTrace.http_status=aiResponse.status
 
     let responseBody: any
     try {
       responseBody = await aiResponse.json()
-    } catch {
-      if (attempt === 0) continue
+    } catch(error) {
+      attemptTrace.duration_ms=Date.now()-attemptStarted
+      attemptTrace.status='INVALID_RESPONSE'
+      attemptTrace.error=error instanceof Error?`${error.name}: ${error.message}`:'AI returned an unreadable response.'
+      if (attempt === 0) {attemptTrace.retried=true;continue}
       throw new Error('AI returned an unreadable response.')
     }
     if (responseBody.status !== 'completed') {
-      if (attempt === 0 && !outputText(responseBody).trim()) continue
+      attemptTrace.duration_ms=Date.now()-attemptStarted
+      attemptTrace.status='INCOMPLETE'
+      attemptTrace.error='OpenAI response was incomplete.'
+      if (attempt === 0 && !outputText(responseBody).trim()) {attemptTrace.retried=true;continue}
       throw new Error('AI response was incomplete; no reply is eligible to send.')
     }
 
     timings.provider_usage=responseBody.usage??null
     const text = outputText(responseBody).trim()
     if (!text) {
-      if (attempt === 0) continue
+      attemptTrace.duration_ms=Date.now()-attemptStarted
+      attemptTrace.status='EMPTY_OUTPUT'
+      attemptTrace.error='OpenAI returned empty output.'
+      if (attempt === 0) {attemptTrace.retried=true;continue}
       throw new Error('AI returned an empty customer draft.')
     }
     let decision: any
     try {
       decision = JSON.parse(text)
-    } catch {
-      if (attempt === 0) continue
+    } catch(error) {
+      attemptTrace.duration_ms=Date.now()-attemptStarted
+      attemptTrace.status='INVALID_JSON'
+      attemptTrace.error=error instanceof Error?`${error.name}: ${error.message}`:'OpenAI returned invalid JSON.'
+      if (attempt === 0) {attemptTrace.retried=true;continue}
       throw new Error('AI returned invalid structured output.')
     }
     if (!allowDeterministicDraftFallback && decision.ai_may_continue === true && !String(decision.draft_reply ?? '').trim()) {
-      if (attempt === 0) continue
+      attemptTrace.duration_ms=Date.now()-attemptStarted
+      attemptTrace.status='EMPTY_DRAFT'
+      attemptTrace.error='AI returned an empty customer draft.'
+      if (attempt === 0) {attemptTrace.retried=true;continue}
       throw new Error('AI returned an empty customer draft.')
     }
+    attemptTrace.duration_ms=Date.now()-attemptStarted
+    attemptTrace.status='SUCCESS'
     return { responseBody, decision }
   }
   throw new Error('AI request failed after one retry.')
@@ -285,11 +314,70 @@ function currentFacts(previous:any[], quantity:QuantityResolution, route:RouteRe
   return facts
 }
 
+function diagnosticBundle(lifecycle:any, decision:any, route:RouteResult, routeDiagnostics:any, pricing:any, timings:any) {
+  const attempts=Array.isArray(timings.openai_attempts)?timings.openai_attempts:[]
+  const exactErrors=[
+    routeDiagnostics?.error,
+    pricing?.status==='UNAVAILABLE'?pricing?.reason:null,
+    ...attempts.map((attempt:any)=>attempt?.error),
+  ].filter((value,index,values):value is string=>typeof value==='string'&&value.length>0&&values.indexOf(value)===index)
+  const tools:any[]=[
+    {
+      name:'address.resolve',
+      status:route.destination?'RESOLVED':route.status==='NEEDS_CLARIFICATION'?'NEEDS_CLARIFICATION':'NOT_READY',
+      duration_ms:routeDiagnostics?.address_parse_ms??0,
+      source:routeDiagnostics?.address_source??'NONE',
+      error:null,
+    },
+    {
+      name:'google.routes',
+      status:routeDiagnostics?.cache_source?'CACHE_HIT':routeDiagnostics?.provider_called?route.status:'SKIPPED',
+      duration_ms:routeDiagnostics?.provider_ms??0,
+      http_status:routeDiagnostics?.provider_http_status??null,
+      cache_source:routeDiagnostics?.cache_source??null,
+      error:routeDiagnostics?.error??null,
+    },
+    {
+      name:'material.pricing',
+      status:pricing?.status??'NOT_RUN',
+      duration_ms:timings.deterministic_pricing_ms??0,
+      error:pricing?.status==='UNAVAILABLE'?pricing?.reason??'Deterministic pricing unavailable.':null,
+    },
+  ]
+  if(attempts.length)tools.push(...attempts.map((attempt:any)=>({name:'openai.responses',...attempt})))
+  else tools.push({name:'openai.responses',status:'SKIPPED',duration_ms:0,reason:timings.openai_skipped_reason??null,error:null})
+  return {
+    lifecycle_stage:lifecycle?.stage??'UNKNOWN',
+    known_facts:decision?.known_facts??[],
+    missing_facts:decision?.missing_facts??[],
+    tool_calls:tools,
+    route:{
+      status:route.status,
+      address:route.destination??null,
+      address_source:routeDiagnostics?.address_source??'NONE',
+      provider_called:routeDiagnostics?.provider_called??false,
+      http_status:routeDiagnostics?.provider_http_status??null,
+      cache_source:routeDiagnostics?.cache_source??null,
+      error:routeDiagnostics?.error??null,
+    },
+    timings:{...timings,total_ms:timings.total_ms??null},
+    escalation:{
+      requires_human:decision?.requires_human===true,
+      ai_may_continue:decision?.ai_may_continue===true,
+      action:decision?.recommended_action??null,
+      scope:decision?.response_plan?.escalation_scope??(decision?.requires_human?'CONVERSATION':'NONE'),
+      category:decision?.response_plan?.escalation_category??null,
+      reason:decision?.escalation_reason??null,
+    },
+    exact_tool_errors:exactErrors,
+  }
+}
+
 
 export type AiConfig = { apiKey: string; baseUrl: string; model: string; googleMapsApiKey?: string; tone?: string; concise?: boolean; version?: number }
 export async function generateAiDraft(service: any, body: any, actorId: string | null, config: AiConfig, options: { sandbox?: boolean } = {}) {
   const started = Date.now()
-  const timings:any={model_attempts:0}
+  const timings:any={model_attempts:0,openai_attempts:[]}
   let leadId: string | null = null
   let customerId: string | null = null
   let automationRuleId: string | null = null
@@ -331,6 +419,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     }
 
     if (!customerId) throw new Error('Customer context could not be resolved.')
+    const contextStarted=Date.now()
     const [customerResult, messageResult, stateResult, quoteResult, jobResult, invoiceResult, paymentResult, materialResult, appResult, controlResult] = await Promise.all([
       service.from('customers').select('id,name,phone,email,notes,sms_consent_at,sms_consent_source,sms_double_opt_in_at,sms_opted_out_at').eq('id', customerId).single(),
       leadId ? service.from('lead_messages').select('id,sender_type,body,created_at').eq('lead_id', leadId).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(80) : Promise.resolve({ data: [], error: null }),
@@ -345,6 +434,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     ])
     if ([customerResult,messageResult,stateResult,quoteResult,jobResult,invoiceResult,paymentResult,materialResult,appResult,controlResult].some((result) => result.error)
       || !customerResult.data || !appResult.data || !controlResult.data) throw new Error('Required conversation context could not be loaded.')
+    timings.context_load_ms=Date.now()-contextStarted
     const messages = [...(messageResult.data ?? [])].reverse()
     const lifecycle=lifecycleContext(lead,quoteResult.data??[],jobResult.data??[],invoiceResult.data??[],paymentResult.data??[])
     // Form intake is context, never an outbound message or a current trigger.
@@ -355,17 +445,25 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     const forcedReason = forcedEscalation(latestCustomer?.body ?? '', takeover)
     const customWorkRequested = forcedReason === 'Custom work pricing requires Salvador.'
     const forced = customWorkRequested ? null : forcedReason
+    const quantityStarted=Date.now()
     let quantity = resolveConversationQuantity(toolMessages, materialResult.data ?? [], stateResult.data)
     const acceptedItems=lifecycle.protected?(lifecycle.quote?.quote_items??[]).filter((i:any)=>i.kind==='MATERIAL'):[]
     const acceptedMaterial=acceptedItems.length===1?(materialResult.data??[]).find((m:any)=>m.id===acceptedItems[0].material_id):null
     if(acceptedMaterial&&Number(acceptedItems[0].yards)>0)quantity={status:'RESOLVED',material_id:acceptedMaterial.id,material_name:acceptedMaterial.name,material_catalog_key:acceptedMaterial.catalog_key,input_unit:'YARDS',input_value:Number(acceptedItems[0].yards),yards:Number(acceptedItems[0].yards)}
+    timings.quantity_parse_ms=Date.now()-quantityStarted
     timings.context_ms=Date.now()-started
     const routeStarted=Date.now()
-    const route = await calculateDeliveryRoute({
+    const routeResult = await calculateDeliveryRoute({
       messages: toolMessages, state: stateResult.data, quotes: quoteResult.data ?? [], settings: appResult.data,
       enabled: controlResult.data.route_intelligence_enabled !== false,
       apiKey: config.googleMapsApiKey,
     })
+    const {diagnostics:routeDiagnostics,...route}=routeResult
+    timings.route_ms=Date.now()-routeStarted
+    timings.address_parse_ms=routeDiagnostics?.address_parse_ms??0
+    timings.google_routes_ms=routeDiagnostics?.provider_ms??0
+    timings.route_response_parse_ms=routeDiagnostics?.response_parse_ms??0
+    const pricingStarted=Date.now()
     const pricing:any = materialTool(messages, materialResult.data ?? [], appResult.data, { quantity, route })
     const authoritativeFacts=currentFacts(stateResult.data?.known_facts,quantity,route,toolMessages,customerResult.data)
     const catalogPricing=(materialResult.data??[]).map((material:any)=>{
@@ -374,7 +472,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
         full_load_price:Number(material.full_load_price),full_load_yards:Number(material.full_load_yards),
         current_quantity_total:q?(materialTool(messages,[material],appResult.data,{quantity:q,route}) as any).material_total:null}
     })
-    timings.route_ms=Date.now()-routeStarted
+    timings.deterministic_pricing_ms=Date.now()-pricingStarted
     const context = {
       mode, automation_rule_id: automationRuleId, subject,
       lifecycle,
@@ -399,22 +497,26 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     }
 
     if (takeover) {
+      timings.openai_skipped_reason='Human takeover is active.'
       const decision = {
         detected_language: 'ENGLISH', customer_intent: 'HUMAN_TAKEOVER', extracted_facts: [],
-        known_facts: stateResult.data?.known_facts ?? [], missing_facts: stateResult.data?.missing_facts ?? [], uncertain_facts: [],
+        known_facts: authoritativeFacts,
+        missing_facts: (stateResult.data?.missing_facts ?? []).filter((value:string)=>!route.destination||!/(?:delivery\s+)?address|zip|postal/i.test(value)), uncertain_facts: [],
         ai_may_continue: false, requires_human: true, escalation_reason: forced,
         recommended_action: 'MANUAL_REPLY', draft_reply: '', confidence: 'HIGH', deterministic_pricing_required: false,
         payment_claim_detected: false, automation_state: { mode, rule_id: automationRuleId, transport: 'SETUP_REQUIRED', send_allowed: false },
       }
+      timings.total_ms=Date.now()-started
+      const diagnostics=diagnosticBundle(lifecycle,decision,route,routeDiagnostics,pricing,timings)
       if (!options.sandbox) await service.from('ai_audit_logs').insert({
         evaluation_type: mode, customer_id: customerId, lead_id: leadId,
         automation_rule_id: automationRuleId, prompt_version: PROMPT_VERSION,
         language: decision.detected_language, decision,
         concise_rationale: 'Human takeover is active, so no model call or draft was created.',
         status: 'SUCCESS', latency_ms: Date.now() - started,
-        tool_results: { pricing, quantity, route, model_call_skipped: true }, actor_id: actorId,
+        tool_results: { pricing, quantity, route, diagnostics, model_call_skipped: true,timings }, actor_id: actorId,
       })
-      return { decision, draft: null, tool_results: { pricing, quantity, route }, paused: true }
+      return { decision, draft: null, tool_results: { pricing, quantity, route, diagnostics }, paused: true }
     }
 
     const apiKey = config.apiKey
@@ -428,6 +530,8 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     let decision: any
     const latestIsAddressReply = (addressFromText(latestCustomer?.body??'') || /^\s*\d{5}(?:-\d{4})?\s*$/.test(latestCustomer?.body??''))
       && !/[?？]/.test(latestCustomer?.body??'')
+    const decisionStarted=Date.now()
+    let usedModel=false
     if (route.status === 'NEEDS_CLARIFICATION' && !forced && latestIsAddressReply) {
       const completeAddress = 'Verify delivery location'
       const language = stateResult.data?.detected_language ?? clarificationLanguage(messages.filter((m: any) => m.sender_type === 'CUSTOMER').map((m: any) => m.body).join(' '))
@@ -447,20 +551,25 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
         draft_reply: repeatingClarification ? '' : clarification,
         confidence: 'HIGH', deterministic_pricing_required: false, payment_claim_detected: false,
       }
+      timings.openai_skipped_reason='Deterministic address clarification.'
     } else if(!forced&&!lifecycle.reactive&&latestIsAddressReply&&
       (/^\s*\d{5}(?:-\d{4})?\s*$/.test(latestCustomer.body)||addressFromText(latestCustomer.body)===String(latestCustomer.body).trim().replace(/^(?:my (?:delivery )?address is|the address is)\s+/i,''))&&
       ['ROUTE_CALCULATED','UNAVAILABLE'].includes(route.status)) {
       const language=clarificationLanguage(messages.filter((m:any)=>m.sender_type==='CUSTOMER').map((m:any)=>m.body).join(' '))
-      const priced=route.status==='ROUTE_CALCULATED'&&pricing.status==='MATERIAL_CALCULATED'
-      const reply=route.status==='UNAVAILABLE'?(language==='SPANISH'?'ya tengo su dirección. la verificación de entrega no está disponible ahora; no hace falta repetirla.':'I have your address. delivery verification is temporarily unavailable; no need to send it again.'):(language==='SPANISH'?'ya tengo su dirección de entrega. qué material y cuántas yardas necesita?':'I have your delivery address. what material and how many yards do you need?')
+      const priced=pricing.status==='MATERIAL_CALCULATED'
+      const reply=route.status==='UNAVAILABLE'?(language==='SPANISH'?'ya tengo la dirección. la verificación de la ruta no está disponible ahora, pero no necesita enviarla otra vez.':'got it, I have the delivery address. route verification is temporarily unavailable, but you do not need to send it again.'):(language==='SPANISH'?'ya tengo su dirección de entrega. qué material y cuántas yardas necesita?':'I have your delivery address. what material and how many yards do you need?')
       decision={detected_language:language,customer_intent:'DELIVERY_ADDRESS_RECEIVED',extracted_facts:[],known_facts:authoritativeFacts,missing_facts:[],uncertain_facts:[],ai_may_continue:true,requires_human:false,escalation_reason:null,recommended_action:priced?'PROVIDE_STANDARD_PRICE':'ASK_NEXT_MISSING_FACT',draft_reply:reply,confidence:'HIGH',deterministic_pricing_required:priced,payment_claim_detected:false}
       timings.deterministic_address_reply=true
+      timings.openai_skipped_reason=route.status==='UNAVAILABLE'?'Known address preserved during route failure.':'Verified address handled deterministically.'
     } else {
+      usedModel=true
       const modelStarted=Date.now()
-      const modelResult = await requestAiDecision(baseUrl, apiKey, model, context, canUseVerifiedRouteFallback,timings).finally(()=>{timings.model_ms=Date.now()-modelStarted})
+      const modelResult = await requestAiDecision(baseUrl, apiKey, model, context, canUseVerifiedRouteFallback,timings).finally(()=>{timings.model_ms=Date.now()-modelStarted;timings.openai_ms=timings.model_ms})
       responseBody = modelResult.responseBody
       decision = modelResult.decision
     }
+    timings.fallback_ms=usedModel?0:Date.now()-decisionStarted
+    const postprocessStarted=Date.now()
     decision.automation_state = { mode, rule_id: automationRuleId, transport: 'SETUP_REQUIRED', send_allowed: false }
     if (forced) {
       decision.ai_may_continue = false
@@ -507,6 +616,27 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
         decision.confidence = 'HIGH'
         decision.deterministic_pricing_required = true
         if (!decision.draft_reply) decision.draft_reply = 'the material and delivery estimate are ready.'
+      }
+    }
+    // A provider failure cannot erase an address that the server already
+    // resolved from the conversation, saved state, or a scoped quote.
+    if(route.destination&&route.status!=='NEEDS_CLARIFICATION') {
+      decision.known_facts=upsertFact(decision.known_facts,'delivery_address',route.destination,'CONVERSATION')
+      decision.missing_facts=(decision.missing_facts??[]).filter((value:string)=>!/(?:delivery\s+)?address|zip|postal/i.test(value))
+      decision.uncertain_facts=(decision.uncertain_facts??[]).filter((value:string)=>!/(?:delivery\s+)?address|zip|postal/i.test(value))
+      const repeatsKnownAddress=/\b(?:send|share|provide|what(?:'s| is)|need)\b.{0,40}\b(?:address|zip|postal)\b/i.test(decision.draft_reply??'')
+        || /\b(?:address|direcci[oó]n)\b/i.test(decision.response_plan?.next_question??'')
+      const routeOnlyEscalation=decision.response_plan?.escalation_category==='TOOL_REFRESH'
+        || /\b(route|delivery verification|address verification|tool refresh)\b/i.test(decision.escalation_reason??'')
+      if(!forced&&route.status==='UNAVAILABLE'&&(repeatsKnownAddress||routeOnlyEscalation)) {
+        decision.ai_may_continue=true;decision.requires_human=false;decision.escalation_reason=null;decision.confidence='HIGH'
+        decision.recommended_action=pricing.status==='MATERIAL_CALCULATED'?'PROVIDE_STANDARD_PRICE':'ASK_NEXT_MISSING_FACT'
+        decision.deterministic_pricing_required=pricing.status==='MATERIAL_CALCULATED'
+        decision.draft_reply=decision.detected_language==='SPANISH'
+          ?'ya tengo la dirección. la verificación de la ruta no está disponible ahora, pero no necesita enviarla otra vez.'
+          :'got it, I have the delivery address. route verification is temporarily unavailable, but you do not need to send it again.'
+        if(decision.response_plan){decision.response_plan.next_question='';decision.response_plan.escalation_scope='NONE';decision.response_plan.escalation_category='NONE'}
+        timings.known_address_fallback=true
       }
     }
     if (asksStandardPrice && pricing.status !== 'MATERIAL_CALCULATED' && /\$|\b\d{2,}(?:\.\d{2})?\b/.test(decision.draft_reply ?? '')) {
@@ -608,7 +738,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
           product_guidance_es:options.some((m:any)=>m.catalog_key==='mat-1')&&options.some((m:any)=>m.catalog_key==='mat-3')?'commercial clean es para entradas y base compactable; 3x4 para base grande, drenaje y estabilización.':'',
           refresh:{material:true,route:route.status,cached_route:route.cached===true},
         }
-        if(!preparedLifecycleReply)decision.draft_reply=composeConversationResponse(decision,pricing)
+        if(!preparedLifecycleReply){const compositionStarted=Date.now();decision.draft_reply=composeConversationResponse(decision,pricing);timings.composition_ms=Date.now()-compositionStarted}
       }
     }
     decision.lifecycle=lifecycle.stage
@@ -652,13 +782,17 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     decision.explain_conversion = /\b\d+(?:\.\d+)?\s*(?:tons?|toneladas?)\b/i.test(latestCustomer?.body ?? '')
     decision.first_conversational_reply = !lifecycle.reactive&&!messages.some((m: any) => ['AI','HUMAN'].includes(m.sender_type))
     if(decision.ai_may_continue&&!decision.requires_human)assertCustomerText(decision.draft_reply)
+    timings.decision_postprocess_ms=Date.now()-postprocessStarted
     timings.total_ms=Date.now()-started
-    if (options.sandbox) return { decision, draft: null, tool_results: { pricing, quantity, route, lifecycle, proposed_changes:proposal,timings }, model: responseBody?.model ?? model, profile_version: config.version, sandbox: true }
+    let diagnostics=diagnosticBundle(lifecycle,decision,route,routeDiagnostics,pricing,timings)
+    if (options.sandbox) return { decision, draft: null, tool_results: { pricing, quantity, route, lifecycle, proposed_changes:proposal,timings,diagnostics }, model: responseBody?.model ?? model, profile_version: config.version, sandbox: true }
 
     const quoteApplication: Record<string, unknown> = {}
     if (mode === 'CONVERSATION' && leadId && typeof service.rpc === 'function') {
       if((decision.ai_may_continue&&!decision.requires_human&&decision.confidence==='HIGH'&&!proposal.clarification)||proposal.actions.length) {
+        const lifecycleStarted=Date.now()
         const applied=await service.rpc('apply_ai_lifecycle',{p_lead_id:leadId,p_expected_revision:lead.conversation_revision+(decision.global_pause_applied?1:0),p_source_message_id:proposal.source_message_id,p_plan:{...proposal,write_allowed:decision.ai_may_continue&&!decision.requires_human&&decision.confidence==='HIGH'&&!decision.uncertain_facts.length}})
+        timings.lifecycle_apply_ms=Date.now()-lifecycleStarted
         if(applied.error||!['APPLIED','ALREADY_APPLIED'].includes(applied.data?.status))throw new Error(applied.error?.message??'Lifecycle update could not be safely applied. Nothing will be sent.')
         quoteApplication.lifecycle=applied.data
         if(proposal.ready&&!applied.data.ready){decision.lifecycle_reply=decision.detected_language==='SPANISH'?'Salvador revisará los detalles protegidos antes de preparar su cotización.':'Salvador will review the protected details before preparing your quote.';decision.lifecycle_reply=decision.lifecycle_reply.charAt(0).toLowerCase()+decision.lifecycle_reply.slice(1);decision.draft_reply=decision.lifecycle_reply}
@@ -670,11 +804,13 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     }
 
     const rationale = decision.requires_human ? decision.escalation_reason : `${decision.customer_intent}: ${decision.recommended_action}`
+    timings.total_ms=Date.now()-started
+    diagnostics=diagnosticBundle(lifecycle,decision,route,routeDiagnostics,pricing,timings)
     const audit = await service.from('ai_audit_logs').insert({
       evaluation_type: mode, customer_id: customerId, lead_id: leadId, automation_rule_id: automationRuleId,
       model_id: responseBody?.model ?? (responseBody ? model : null), prompt_version: PROMPT_VERSION, language: decision.detected_language,
       decision, concise_rationale: rationale, status: 'SUCCESS', latency_ms: Date.now() - started,
-      tool_results: { pricing, quantity, route, quote_application: quoteApplication, model_call_skipped: responseBody == null,timings }, actor_id: actorId,
+      tool_results: { pricing, quantity, route, quote_application: quoteApplication, diagnostics, model_call_skipped: responseBody == null,timings }, actor_id: actorId,
     }).select('id').single()
     if (audit.error) throw new Error('AI audit log could not be saved.')
     const draft = await service.from('ai_drafts').insert({
@@ -690,7 +826,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
         last_evaluated_message_id: lastMessage?.id ?? null, updated_at: new Date().toISOString(),
       }, { onConflict: 'lead_id' })
     }
-    return { decision, draft: draft.data, tool_results: { pricing, quantity, route, quote_application: quoteApplication } }
+    return { decision, draft: draft.data, tool_results: { pricing, quantity, route, quote_application: quoteApplication, diagnostics } }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'AI draft generation failed.'
     if (service && !options.sandbox) {

@@ -9,6 +9,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 })
 
 Deno.serve(async (req) => {
+  const requestStarted=Date.now()
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
   const url = Deno.env.get('SUPABASE_URL')
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
@@ -52,6 +53,7 @@ Deno.serve(async (req) => {
   if (isInbound && (!inboundNumber || businessNumber !== '+19453750877')) return json({ received: true, ignored: true })
   const text = typeof payload?.text === 'string' && payload.text.trim() ? payload.text.trim().slice(0, 1600) : '[Non-text SMS received]'
   const service = createClient(url, key)
+  const ingestStarted=Date.now()
   const result = await service.rpc('ingest_sms_event', {
     p_message_id: messageId, p_event_type: eventType, p_status: status, p_inbound: isInbound,
     p_business_number: businessNumber, p_phone: inboundNumber, p_body: isInbound ? text : null,
@@ -61,5 +63,12 @@ Deno.serve(async (req) => {
   if (result.error) return json({ error: 'Webhook could not be committed; retry required' }, 503)
   const jobId = typeof result.data?.result?.job_id === 'string' ? result.data.result.job_id : null
   if (jobId) kickCommunications(url, key, { jobId })
+  if(isInbound)console.info('sent.DM inbound timing',{
+    messageId,jobId,
+    provider_to_webhook_ms:Math.max(0,requestStarted-Date.parse(occurredAt)),
+    verify_parse_ms:ingestStarted-requestStarted,
+    ingest_ms:Date.now()-ingestStarted,
+    webhook_total_ms:Date.now()-requestStarted,
+  })
   return json(result.data)
 })

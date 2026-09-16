@@ -13,6 +13,20 @@ export type RouteResult = {
   cached?: boolean
   reason?: string
   resolved_at?: number
+  diagnostics?: RouteDiagnostics
+}
+
+export type RouteDiagnostics = {
+  address_source: 'MESSAGE' | 'STATE' | 'QUOTE' | 'NONE'
+  address_parse_ms: number
+  cache_lookup_ms: number
+  provider_called: boolean
+  provider_http_status: number | null
+  provider_ms: number
+  response_parse_ms: number
+  total_ms: number
+  cache_source: 'MEMORY' | 'QUOTE' | null
+  error: string | null
 }
 
 // Server-owned, short-lived cache only. Never accept route evidence from the
@@ -41,7 +55,7 @@ function withPostalCode(address: string, postalCode: string | null) {
   return `${address} ${postalCode}`
 }
 
-export function resolveDeliveryAddress(messages: any[], state: any, quotes: any[]) {
+function resolveDeliveryAddressWithSource(messages: any[], state: any, quotes: any[]) {
   let latestPostalCode: string | null = null
   let latestCity: string | null = null
   for (const message of [...messages].reverse()) {
@@ -49,7 +63,7 @@ export function resolveDeliveryAddress(messages: any[], state: any, quotes: any[
     const body = String(message.body ?? '')
     latestPostalCode ??= postalCodeFromText(body)
     const address = addressFromText(body)
-    if (address) return withPostalCode(latestCity ? `${address}, ${latestCity}` : address, latestPostalCode)
+    if (address) return {address:withPostalCode(latestCity ? `${address}, ${latestCity}` : address, latestPostalCode),source:'MESSAGE' as const}
     const previous = messages[messages.indexOf(message)-1]
     if (!latestCity && previous?.sender_type === 'AI' && /\b(city|ciudad)\b/i.test(previous.body ?? '')
       && /^[a-z][a-z .,'’]{1,60}(?:\s+\d{5})?[.!]?$/i.test(body.trim())
@@ -59,10 +73,16 @@ export function resolveDeliveryAddress(messages: any[], state: any, quotes: any[
   const stateAddress = [...known].reverse().find((fact: any) => ['delivery_address', 'address'].includes(fact?.key))?.value
   const statePostalCode = [...known].reverse().find((fact: any) => ['delivery_zip', 'postal_code', 'zip'].includes(fact?.key))?.value
   if (typeof stateAddress === 'string' && stateAddress.trim()) {
-    return withPostalCode(latestCity ? `${stateAddress.trim()}, ${latestCity}` : stateAddress.trim(), latestPostalCode ?? (typeof statePostalCode === 'string' ? statePostalCode.trim() : null))
+    return {address:withPostalCode(latestCity ? `${stateAddress.trim()}, ${latestCity}` : stateAddress.trim(), latestPostalCode ?? (typeof statePostalCode === 'string' ? statePostalCode.trim() : null)),source:'STATE' as const}
   }
   const draftAddress = quotes.find((quote) => ['DRAFT','SENT','ACCEPTED'].includes(quote.status) && String(quote.address ?? '').trim())?.address
-  return typeof draftAddress === 'string' ? withPostalCode(draftAddress.trim(), latestPostalCode) : null
+  return typeof draftAddress === 'string'
+    ? {address:withPostalCode(draftAddress.trim(), latestPostalCode),source:'QUOTE' as const}
+    : {address:null,source:'NONE' as const}
+}
+
+export function resolveDeliveryAddress(messages: any[], state: any, quotes: any[]) {
+  return resolveDeliveryAddressWithSource(messages,state,quotes).address
 }
 
 export function addressClarification(destination: string | undefined, language: string) {
@@ -96,21 +116,31 @@ export async function calculateDeliveryRoute(input: {
   apiKey?: string
   fetcher?: typeof fetch
 }): Promise<RouteResult> {
-  if (!input.enabled) return { status: 'OFF', reason: 'Route intelligence is turned off.' }
+  const started=Date.now()
+  const diagnostics:RouteDiagnostics={address_source:'NONE',address_parse_ms:0,cache_lookup_ms:0,provider_called:false,provider_http_status:null,provider_ms:0,response_parse_ms:0,total_ms:0,cache_source:null,error:null}
+  const finish=(result:Omit<RouteResult,'diagnostics'>):RouteResult=>({...result,diagnostics:{...diagnostics,total_ms:Date.now()-started}})
+  if (!input.enabled) return finish({ status: 'OFF', reason: 'Route intelligence is turned off.' })
   const origin = [input.settings?.company_address, input.settings?.company_city_state_zip].filter(Boolean).join(', ').trim()
-  const destination = resolveDeliveryAddress(input.messages, input.state, input.quotes)
-  if (!origin) return { status: 'UNAVAILABLE', reason: 'The business origin address is missing.' }
-  if (!destination) return { status: 'NOT_READY', origin, reason: 'An exact delivery address is required.' }
+  const addressStarted=Date.now()
+  const resolved=resolveDeliveryAddressWithSource(input.messages,input.state,input.quotes)
+  const destination=resolved.address
+  diagnostics.address_source=resolved.source
+  diagnostics.address_parse_ms=Date.now()-addressStarted
+  if (!origin) { diagnostics.error='Business origin address is missing.'; return finish({ status: 'UNAVAILABLE', reason: diagnostics.error }) }
+  if (!destination) return finish({ status: 'NOT_READY', origin, reason: 'An exact delivery address is required.' })
   // A street alone can geocode to a different city without partialMatch.
   // Obtain one locality hint before allowing Google to select a destination.
   if (/\b(?:road|rd|street|st|avenue|ave|lane|ln|drive|dr|highway|hwy|expressway|expy|parkway|pkwy|boulevard|blvd|court|ct|circle|cir|trail|trl|way|fm|cr)\.?\s*(?:\d{1,4})?$/i.test(destination)) {
-    return { status: 'NEEDS_CLARIFICATION', origin, destination, reason: 'A city or ZIP is needed to distinguish the street.' }
+    return finish({ status: 'NEEDS_CLARIFICATION', origin, destination, reason: 'A city or ZIP is needed to distinguish the street.' })
   }
+  const cacheStarted=Date.now()
   const cacheKey=JSON.stringify([origin.toLowerCase(),destination.toLowerCase()])
   const recent=routeCache.get(cacheKey)
   if(!input.fetcher&&recent&&Date.now()-(recent.resolved_at??0)<ROUTE_TTL_MS) {
     const fee=deliveryForMiles(recent.distance_miles!,input.settings)
-    return {...recent,origin,destination,delivery_type:fee?.type,delivery_fee_per_load:fee?.fee_per_load,cached:true}
+    diagnostics.cache_lookup_ms=Date.now()-cacheStarted;diagnostics.cache_source='MEMORY'
+    const {diagnostics:_oldDiagnostics,...cachedRoute}=recent
+    return finish({...cachedRoute,origin,destination,delivery_type:fee?.type,delivery_fee_per_load:fee?.fee_per_load,cached:true})
   }
   const cached = input.quotes.find((quote) => quote.status === 'DRAFT'
     && quote.delivery_distance_source === 'GOOGLE_ROUTES'
@@ -118,16 +148,20 @@ export async function calculateDeliveryRoute(input: {
     && String(quote.address ?? '').trim().toLowerCase() === destination.toLowerCase()
     && quote.delivery_origin === origin
     && quote.delivery_miles!=null&&Number.isFinite(Number(quote.delivery_miles)))
-  if (cached) return {
+  diagnostics.cache_lookup_ms=Date.now()-cacheStarted
+  if (cached) { diagnostics.cache_source='QUOTE'; return finish({
     status: 'ROUTE_CALCULATED', origin: cached.delivery_origin || origin, destination,
     distance_miles: Number(cached.delivery_miles), destination_place_id: cached.delivery_destination_place_id ?? null,
     duration_seconds: null, delivery_type: cached.delivery_type ?? null,
     delivery_fee_per_load: deliveryForMiles(Number(cached.delivery_miles), input.settings)?.fee_per_load ?? null,
     cached: true,
-  }
-  if (!input.apiKey) return { status: 'SETUP_REQUIRED', origin, destination, reason: 'Google Routes is not connected.' }
+  }) }
+  if (!input.apiKey) { diagnostics.error='Google Routes is not connected.'; return finish({ status: 'SETUP_REQUIRED', origin, destination, reason: diagnostics.error }) }
 
+  let providerStarted=0
   try {
+    diagnostics.provider_called=true
+    providerStarted=Date.now()
     const response = await (input.fetcher ?? fetch)('https://routes.googleapis.com/directions/v2:computeRoutes', {
       method: 'POST',
       signal: AbortSignal.timeout(12_000),
@@ -144,18 +178,22 @@ export async function calculateDeliveryRoute(input: {
         computeAlternativeRoutes: false,
       }),
     })
-    if (!response.ok) return { status: 'UNAVAILABLE', origin, destination, reason: `Google Routes returned ${response.status}.` }
+    diagnostics.provider_ms=Date.now()-providerStarted
+    diagnostics.provider_http_status=response.status
+    if (!response.ok) { diagnostics.error=`Google Routes HTTP ${response.status}.`; return finish({ status: 'UNAVAILABLE', origin, destination, reason: diagnostics.error }) }
+    const parseStarted=Date.now()
     const body = await response.json()
+    diagnostics.response_parse_ms=Date.now()-parseStarted
     const geocoded = body?.geocodingResults?.destination
     // Google represents geocoderStatus as google.rpc.Status ({} means OK),
     // not just a string. Treating {} !== 'OK' caused endless clarification.
     const status = geocoded?.geocoderStatus
     const failedStatus = typeof status === 'string' ? status !== 'OK' : Number(status?.code ?? 0) !== 0
     if (geocoded?.partialMatch || failedStatus) {
-      return { status: 'NEEDS_CLARIFICATION', origin, destination, reason: 'The delivery address did not resolve exactly.' }
+      return finish({ status: 'NEEDS_CLARIFICATION', origin, destination, reason: 'The delivery address did not resolve exactly.' })
     }
     const distanceMeters = Number(body?.routes?.[0]?.distanceMeters)
-    if (!Number.isFinite(distanceMeters) || distanceMeters < 0) return { status: 'UNAVAILABLE', origin, destination, reason: 'No drivable route was returned.' }
+    if (!Number.isFinite(distanceMeters) || distanceMeters < 0) { diagnostics.error='Google Routes returned no drivable route.'; return finish({ status: 'UNAVAILABLE', origin, destination, reason: 'No drivable route was returned.' }) }
     const seconds = Number(String(body?.routes?.[0]?.duration ?? '').replace(/s$/, ''))
     const distanceMiles = distanceMeters / 1609.344
     const delivery = deliveryForMiles(distanceMiles, input.settings)
@@ -169,8 +207,10 @@ export async function calculateDeliveryRoute(input: {
       resolved_at:Date.now(),
     }
     if(!input.fetcher){if(routeCache.size>=200)routeCache.delete(routeCache.keys().next().value!);routeCache.set(cacheKey,result)}
-    return result
-  } catch {
-    return { status: 'UNAVAILABLE', origin, destination, reason: 'Google Routes could not be reached.' }
+    return finish(result)
+  } catch(error) {
+    if(providerStarted&&diagnostics.provider_ms===0)diagnostics.provider_ms=Date.now()-providerStarted
+    diagnostics.error=error instanceof Error?`${error.name}: ${error.message}`:'Google Routes request failed.'
+    return finish({ status: 'UNAVAILABLE', origin, destination, reason: 'Google Routes could not be reached.' })
   }
 }
