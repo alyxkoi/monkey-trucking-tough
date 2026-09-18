@@ -550,10 +550,12 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     let usedModel=false
     const previousTurn=messages.slice(0,-1).filter((m:any)=>['AI','HUMAN','CUSTOMER'].includes(m.sender_type)).at(-1)
     const previousReply=previousTurn&&['AI','HUMAN'].includes(previousTurn.sender_type)?previousTurn.body??'':''
-    const confirmationTurn=isSimpleAcceptance(latestCustomer?.body??'') && /[?？]/.test(previousReply)
+    const emailAnswer=/^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?\.[A-Z]{2,}$/i.test(String(latestCustomer?.body??'').trim())
+      && /\b(?:email|correo)\b|@/i.test(previousReply)
+    const confirmationTurn=/[?？]/.test(previousReply) && (emailAnswer || isSimpleAcceptance(latestCustomer?.body??'')
       && (isQuoteApproval(latestCustomer.body,previousReply)
         || /\b(?:email|correo)\b|@/i.test(previousReply)
-        || materialCandidates(previousReply,materialResult.data??[]).length===1 && /\b(?:would you like|do you want|shall we use|quiere|prefiere|usamos)\b/i.test(previousReply))
+        || materialCandidates(previousReply,materialResult.data??[]).length===1 && /\b(?:would you like|do you want|shall we use|quiere|prefiere|usamos)\b/i.test(previousReply)))
     if(mode==='CONVERSATION'&&!forced&&!lifecycle.reactive&&confirmationTurn) {
       decision={detected_language:clarificationLanguage(messages.filter((m:any)=>m.sender_type==='CUSTOMER').map((m:any)=>m.body).join(' ')),customer_intent:'CONFIRM_INTAKE',extracted_facts:[],known_facts:authoritativeFacts,missing_facts:[],uncertain_facts:[],ai_may_continue:true,requires_human:false,escalation_reason:null,recommended_action:pricing.status==='MATERIAL_CALCULATED'?'PROVIDE_STANDARD_PRICE':'ASK_NEXT_MISSING_FACT',draft_reply:'got it.',confidence:'HIGH',deterministic_pricing_required:pricing.status==='MATERIAL_CALCULATED',payment_claim_detected:false}
       timings.openai_skipped_reason='Direct confirmation handled by verified intake and lifecycle tools.'

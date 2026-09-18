@@ -26,6 +26,15 @@ function onlyRoutes(){
   vi.stubGlobal('fetch',fetcher);return fetcher
 }
 describe('real confirmation failure sequence through the production sandbox',()=>{
+  it('accepts an email-only answer through the guarded lifecycle without waiting for the model',async()=>{
+    onlyRoutes()
+    const result=await simulateConversation(service(),{messages:[...intake,c('yes'),a('Would you like us to prepare the quote?'),c('yes please'),a('what email should we send the quote to?'),c('pipeline-test@example.com')]},config)
+    expect(result.decision.dashboard_proposal).toMatchObject({ready:true,quote_requested:true,confirmed_email:'pipeline-test@example.com'})
+    expect(result.reply).toContain('ready for review')
+    expect(result.reply).not.toContain('?')
+    expect(result.tool_results.timings.model_attempts).toBe(0)
+    expect(result.send_allowed).toBe(false)
+  })
   it('keeps known yards while clarifying the material after an address reply',async()=>{
     onlyRoutes()
     const result=await simulateConversation(service(),{messages:[c('my name is Mike'),c('20 yards crushed concrete'),c('123 Oak Road, Kaufman TX 75142')]},config)
