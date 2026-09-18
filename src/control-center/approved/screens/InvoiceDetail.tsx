@@ -444,8 +444,8 @@ export function InvoiceDetail() {
             <ContextualActionBar align="start" className="sm:flex-col sm:items-stretch">
               {status === 'PAID' && (
                 <p className="text-[15px] leading-snug text-cc-muted">
-                  Settled. A review request goes out about a day after payment, as long as
-                  there is no complaint open.
+                  Settled. A review request goes out immediately after full confirmed payment,
+                  as long as there is no complaint open.
                 </p>
               )}
               {status === 'VOID' && (

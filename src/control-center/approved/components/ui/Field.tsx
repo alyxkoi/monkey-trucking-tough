@@ -34,7 +34,7 @@ export function TextField({
   onChange: (value: string) => void
   placeholder?: string
   type?: string
-  inputMode?: 'text' | 'tel' | 'email' | 'numeric' | 'decimal'
+  inputMode?: 'text' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal'
   hint?: ReactNode
   className?: string
   tone?: FieldTone

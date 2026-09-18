@@ -144,7 +144,7 @@ export const AUTOMATIONS: AutomationRule[] = [
       'No review request already sent for that job',
       'Customer has not opted out',
     ],
-    delay: 'About 24 hours after payment',
+    delay: 'Immediately after full confirmed payment',
     action: 'One warm message about the outcome, with the review link as the natural last part',
     stopConditions: ['Customer reports a problem', 'Only ever one request per job'],
     fallback: 'A reported problem pauses it and goes to Salvador, who can resume or skip it',
@@ -204,7 +204,7 @@ export const AI_SAMPLES: {
   {
     id: 'sample-7',
     language: 'English',
-    context: 'Review request, about a day after payment',
+    context: 'Review request, immediately after full confirmed payment',
     text: 'hey, hope the driveway is making getting in and out a lot easier now. we really appreciate you trusting us with the work. if you are happy with how everything came out, here is our google review link if you would like to share your experience.',
   },
 ]

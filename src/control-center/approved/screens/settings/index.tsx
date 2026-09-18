@@ -1044,7 +1044,7 @@ export function SettingsCommunication() {
             onChange={setReviewUrl}
             inputMode="url"
             placeholder="https://g.page/r/.../review"
-            hint="The Review request automation turns on only after a valid HTTPS link is saved. It sends once, about 24 hours after confirmed payment for completed work."
+            hint="The Review request automation turns on only after a valid HTTPS link is saved. It sends once, immediately after full confirmed payment for completed work, within messaging hours."
           />
           <Toggle label="English" value={english} onChange={setEnglish} />
           <Toggle

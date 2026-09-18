@@ -94,9 +94,13 @@ describe('Phase 06 OpenAI intelligence safety contracts', () => {
     expect(read('src/control-center/ai/automationDryRun.ts')).not.toContain("base('reactivation'")
     expect(read('src/control-center/approved/screens/CustomerDetail.tsx')).not.toContain('ReactivationPanel')
     expect(read('src/control-center/approved/screens/settings/index.tsx')).toContain('label="Google review link"')
+    expect(read('src/control-center/approved/state/automationData.ts')).toContain("delay: 'Immediately after full confirmed payment'")
     const migration = read('supabase/migrations/20260918210000_post_job_communications.sql')
     expect(migration).toContain("if p_rule='reactivation' then return false")
     expect(migration).toContain("where id='reactivation'")
+    const immediateReview = read('supabase/migrations/20260918223000_immediate_review_request.sql')
+    expect(immediateReview).toContain('greatest(i.paid_at,j.completed_at)')
+    expect(immediateReview).not.toContain("interval '24 hours'")
   })
 
   it('enforces draft-only server and database boundaries', () => {

@@ -176,7 +176,10 @@ export function buildAutomationPreviews(data: ControlData, now = Date.now()): Au
   reviewPreview.stopConditions = ['Complaint', 'Dispute', 'Opt out', 'Request already logged']
   if (reviewJob) {
     const paidInvoice = data.invoices.find((invoice) => invoice.job_id === reviewJob.id && invoice.status === 'PAID')!
-    const dueAt = new Date(paidInvoice.paid_at ?? paidInvoice.updated_at).getTime() + DAY
+    const dueAt = Math.max(
+      new Date(paidInvoice.paid_at ?? paidInvoice.updated_at).getTime(),
+      new Date(reviewJob.completed_at ?? reviewJob.updated_at).getTime(),
+    )
     const already = data.activities.some((activity) => activity.entity_type === 'JOB' && activity.entity_id === reviewJob.id && /review/i.test(activity.event_type))
     const reviewUrl = data.controlSettings?.review_url?.trim() ?? ''
     const linkMissing = !reviewUrl.startsWith('https://')
@@ -187,7 +190,7 @@ export function buildAutomationPreviews(data: ControlData, now = Date.now()): Au
       subjectType: 'JOB',
       subjectId: reviewJob.id,
       dueAt: new Date(dueAt).toISOString(),
-      reason: already ? 'A review request was already logged.' : linkMissing ? 'The Google review link is not configured.' : now >= dueAt ? 'Completed work is paid and the appreciation window is open.' : 'Waiting until roughly 24 hours after payment.',
+      reason: already ? 'A review request was already logged.' : linkMissing ? 'The Google review link is not configured.' : now >= dueAt ? 'Completed work is fully paid and the review request is ready immediately.' : 'Waiting for both completed work and full confirmed payment.',
       blockedReason: already ? 'Exactly one review request is allowed.' : linkMissing ? 'Add the Google review link in Communication & AI settings.' : now < dueAt ? 'Not due yet.' : null,
       language: languageFor(data, reviewJob.customer_id),
       draft: linkMissing ? '' : `thanks again for choosing Monkey Trucking. if you would like to share your experience, you can leave a Google review here: ${reviewUrl}`,
