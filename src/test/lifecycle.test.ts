@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe,it,expect } from 'vitest'
-import { appendLeadMilestone,customerName,explicitFullRecap,knownCustomerName,leadMilestoneQuestion,lifecycleContext,lifecycleProposal,lifecycleReply,resolveDeliveryPreference } from '../../supabase/functions/_shared/lifecycle'
+import { appendLeadMilestone,customerName,explicitFullRecap,isQuoteApproval,knownCustomerName,leadMilestoneQuestion,lifecycleContext,lifecycleProposal,lifecycleReply,resolveDeliveryPreference } from '../../supabase/functions/_shared/lifecycle'
 import { activeAiInstructions,PROMPT_VERSION } from '../../supabase/functions/_shared/ai-engine'
 const now=new Date('2026-09-15T23:30:00Z')
 const lead={id:'lead'},quote={id:'q',lead_id:'lead',status:'ACCEPTED'},job={id:'j',quote_id:'q',status:'SCHEDULED',scheduled_date:'2026-09-20',scheduled_time:'09:00'}
@@ -8,6 +8,29 @@ const pricing={status:'MATERIAL_CALCULATED',yards:20,material_name:'Flexbase',gr
 const decision={detected_language:'ENGLISH',uncertain_facts:[]}
 function proposal(text:string,extra:Record<string,unknown>={}) {return lifecycleProposal({lead,customer:{name:'Mike',email:'mike@example.com'},messages:[{id:'m',sender_type:'CUSTOMER',body:text}],lifecycle:lifecycleContext(lead,[],[],[],[]),decision,pricing,now,...extra})}
 describe('lifecycle projection and validated proposals',()=>{
+  it.each(['would you like us to prepare the quote?', 'Would you like me to prepare the quote for Salvador to review and send?', 'quiere que preparemos la cotización?'])('recognizes one approval to its own prompt: %s',question=>{
+    expect(isQuoteApproval('yes',question)).toBe(true)
+    expect(isQuoteApproval('no thanks',question)).toBe(false)
+  })
+  it('does not treat an unrelated yes or quote cancellation as permission',()=>{
+    expect(isQuoteApproval('yes','is the driveway gravel?')).toBe(false)
+    expect(isQuoteApproval('yes','would you like to cancel the quote?')).toBe(false)
+    expect(isQuoteApproval("don't prepare the quote",'')).toBe(false)
+  })
+  it('retains earlier approval through quantity correction and finishes without more permission questions',()=>{
+    const p=proposal('yes',{lead:{...lead,requested_delivery_date:'2026-09-16',requested_delivery_time:'10:00'},messages:[
+      {sender_type:'AI',body:'would you like me to prepare the quote for Salvador to review and send?'},
+      {sender_type:'CUSTOMER',body:'yes'}, {sender_type:'CUSTOMER',body:'actually make it 40 yards'},
+      {sender_type:'AI',body:'i have mike@example.com. is that where you want us to send it?'}, {sender_type:'CUSTOMER',body:'yes'},
+    ]})
+    expect(p.quote_requested).toBe(true);expect(p.ready).toBe(true)
+    expect(lifecycleReply(p,{reactive:false},decision,pricing)).toContain('ready for review')
+    expect(lifecycleReply(p,{reactive:false},decision,pricing)).not.toContain('?')
+    expect(leadMilestoneQuestion({proposal:p,lifecycle:{reactive:false},pricing,route:pricing.route,quantity:{status:'RESOLVED'},customer:{name:'Mike'},language:'ENGLISH'})).toBeNull()
+  })
+  it('does not persist an ambiguous date while asking for clarification',()=>{
+    expect(proposal('Friday or Saturday at noon').requested_date).toBeNull()
+  })
   it.each([['tomorrow at noon','2026-09-16','12:00',false],['tomorrow around noon','2026-09-16','12:00',false],['Friday morning','2026-09-18',null,true],['next Monday','2026-09-21',null,true],['Saturday at 2pm','2026-09-19','14:00',false],['mañana al mediodía','2026-09-16','12:00',false],['Friday at 12','2026-09-18',null,true],['Friday between 6 and 8pm','2026-09-18','18:00',false]])('resolves %s in Chicago', (text,date,time,needsClarification)=>{
     expect(resolveDeliveryPreference(text as string,now)).toMatchObject({date,time,needsClarification})
   })

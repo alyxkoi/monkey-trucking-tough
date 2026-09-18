@@ -46,3 +46,8 @@ export function formatBusinessDate(value: string | Date): string {
     timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric',
   }).format(date)
 }
+/** Only the document recipient explicitly confirmed by customer or staff is sendable. */
+export function confirmedQuoteRecipient(value: unknown): string | null {
+  const email = String(value ?? '').trim().toLowerCase()
+  return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null
+}

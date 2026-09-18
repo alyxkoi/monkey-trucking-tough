@@ -782,6 +782,9 @@ export const createQuoteDraft = (leadId: string) =>
     p_lead_id: leadId,
   });
 
+export const confirmQuoteRecipient = (quoteId: string, email: string) =>
+  runRpc<string>('confirm_quote_recipient', { p_quote_id: quoteId, p_email: email });
+
 export type NewJobInput = {
   customerId?: string;
   name?: string;

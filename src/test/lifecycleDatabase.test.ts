@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
 import { beforeAll,afterAll,describe,it,expect } from 'vitest'
+import { lifecycleProposal, lifecycleContext } from '../../supabase/functions/_shared/lifecycle'
 const read=(name:string)=>readFileSync(`supabase/migrations/${name}.sql`,'utf8')
 const base=read('20260826233501_36b91b63-9c99-426a-9ad4-fd55280d9c6b')
 let db:PGlite
@@ -20,6 +21,10 @@ beforeAll(async()=>{
  for(const file of ['20260913090000_sent_dm_sms_transport','20260913170000_durable_sms_pipeline','20260913171000_sms_consent_and_inbox','20260913172000_communication_worker','20260914190000_initial_response_and_reschedule_intake','20260915010000_ai_material_and_route_intelligence'])await db.exec(read(file))
  await db.exec(`create table ai_audit_logs(id uuid primary key default gen_random_uuid(),created_at timestamptz default now(),status text);`)
  for(const file of ['20260915120000_ai_control_audit','20260915193000_followup_completion','20260915201500_outbound_receipt_reconciliation','20260915220000_ai_lifecycle_actions','20260916120000_approved_change_confirmations','20260916153000_sms_lifecycle_hardening','20260916154000_transactional_quote_recipient','20260916180000_customer_email_and_lead_need'])await db.exec(read(file))
+ await db.exec(`create function auth.jwt() returns jsonb language sql as 'select ''{}''::jsonb';create function public.next_quote_number() returns text language sql as 'select ''Q''||nextval(''quote_number_seq'')';alter table ai_audit_logs add lead_id uuid,add decision jsonb,add tool_results jsonb;alter table leads add notes text;`)
+ await db.exec(read('20260914231500_fix_create_quote_draft_ambiguous_id'))
+ await db.exec(read('20260917160000_quote_preparation_and_recipient'))
+ await db.exec(read('20260917160000_quote_preparation_and_recipient')) // safe if deployment retries
 },30000)
 afterAll(async()=>{await db?.close()})
 async function fixture(body='my name is Mike'){
@@ -30,6 +35,63 @@ async function fixture(body='my name is Mike'){
 }
 async function transaction(fn:()=>Promise<void>){await db.exec('begin');try{await fn()}finally{await db.exec('rollback')}}
 describe.sequential('executed lifecycle write transactions',()=>{
+ it.each([true,false])('prepares one complete quote through approval, correction and email (profile=%s)',hasEmail=>transaction(async()=>{
+   const a=await fixture('I need 20 yards of flexbase')
+   await query('update customers set name=$2,email=$3 where id=$1',[a.c.id,'Mike',hasEmail?'mike@example.com':null])
+   await query("update leads set notes='Use the front gate' where id=$1",[a.l.id])
+   const [material]=await query("insert into materials(name,price_per_yard,full_load_price,full_load_yards) values('Flexbase',38,720,20) returning *")
+   let yards=20
+   const pricing=()=>({status:'MATERIAL_CALCULATED',material_id:material.id,material_name:material.name,yards,grand_total:yards*36+Math.ceil(yards/20)*100,quantity:{status:'RESOLVED'},route:{status:'ROUTE_CALCULATED',destination:'123 Oak Road, Kaufman TX',origin:'7653 S FM 148',distance_miles:10}})
+   let tick=0
+   async function turn(body:string,question?:string) {
+     if(question)await query("insert into lead_messages(lead_id,customer_id,sender_type,body,created_at) values($1,$2,'AI',$3,now()+$4*interval '1 second')",[a.l.id,a.c.id,question,++tick])
+     const [m]=await query("insert into lead_messages(lead_id,customer_id,sender_type,body,created_at) values($1,$2,'CUSTOMER',$3,now()+$4*interval '1 second') returning *",[a.l.id,a.c.id,body,++tick])
+     const [lead]=await query('update leads set conversation_revision=conversation_revision+1 where id=$1 returning *',[a.l.id])
+     const [customer]=await query('select * from customers where id=$1',[a.c.id])
+     const messages=await query('select * from lead_messages where lead_id=$1 order by created_at,id',[a.l.id])
+     const quotes=await query('select * from quotes where lead_id=$1 order by created_at desc',[a.l.id])
+     const proposal=lifecycleProposal({lead,customer,messages,lifecycle:lifecycleContext(lead,quotes,[],[],[]),decision:{uncertain_facts:[]},pricing:pricing()})
+     const applied=await rpc('apply_ai_lifecycle',[lead.id,lead.conversation_revision,m.id,{...proposal,write_allowed:true}])
+     return {proposal,applied}
+   }
+   await turn('tomorrow')
+   expect((await query('select requested_delivery_date from leads where id=$1',[a.l.id]))[0].requested_delivery_date).toBeTruthy()
+   await turn('10am','what time works best that day?')
+   const approval=await turn('yes','would you like us to prepare the quote?')
+   expect(approval.proposal.quote_requested).toBe(true)
+   expect(approval.applied.quote_id).toBeTruthy();expect(approval.applied.ready).toBe(false)
+   yards=40
+   const corrected=await turn('actually make it 40 yards')
+   expect(corrected.proposal.quote_requested).toBe(true)
+   const final=hasEmail?await turn('yes','i have mike@example.com. is that where you want us to send it?'):await turn('mike@example.com','what email should we send the quote to?')
+   expect(final.applied).toMatchObject({ready:true,quote_id:approval.applied.quote_id})
+   const [q]=await query('select * from quotes where lead_id=$1',[a.l.id])
+   expect(q).toMatchObject({status:'DRAFT',confirmed_email:'mike@example.com',address:'123 Oak Road, Kaufman TX',notes:'Use the front gate'})
+   expect(q.requested_delivery_time).toBe('10:00:00');expect(q.ai_ready_at).toBeTruthy()
+   expect(Number(q.materials_subtotal)).toBe(1440);expect(Number(q.delivery_total)).toBe(200);expect(Number(q.grand_total)).toBe(1640)
+   expect((await query('select sum(yards)::float yards from quote_items where quote_id=$1',[q.id]))[0].yards).toBe(40)
+   expect(await query('select * from quotes where lead_id=$1',[a.l.id])).toHaveLength(1)
+   expect(await query('select * from sms_outbox')).toHaveLength(0)
+   await rpc('confirm_quote_recipient',[q.id,'alternate@example.com'])
+   await rpc('confirm_quote_recipient',[q.id,'alternate@example.com'])
+   expect((await query('select email from customers where id=$1',[a.c.id]))[0].email).toBe('mike@example.com')
+   expect((await query('select confirmed_email from quotes where id=$1',[q.id]))[0].confirmed_email).toBe('alternate@example.com')
+   expect(await query("select * from activity_history where entity_id=$1 and event_type='RECIPIENT_CONFIRMED'",[q.id])).toHaveLength(1)
+   const [existing]=await query('select * from create_quote_draft_from_lead($1)',[a.l.id]);expect(existing.id).toBe(q.id)
+ }))
+ it('manual quote creation reuses current verified intake and rejects stale calculations',()=>transaction(async()=>{
+   const a=await fixture('please prepare the quote')
+   const [material]=await query("insert into materials(name,price_per_yard,full_load_price,full_load_yards) values('Flexbase',38,720,20) returning *")
+   await query("update leads set delivery_address='123 Oak Road',requested_delivery_date=current_date+1,requested_delivery_time='10:00',quote_confirmed_email='mike@example.com' where id=$1",[a.l.id])
+   await query("insert into ai_audit_logs(lead_id,status,decision,tool_results) values($1,'SUCCESS',$2,$3)",[a.l.id,{dashboard_proposal:{source_message_id:a.m.id}},{pricing:{status:'MATERIAL_CALCULATED',material_id:material.id,yards:40,quantity:{status:'RESOLVED'},route:{status:'ROUTE_CALCULATED',destination:'123 Oak Road',origin:'7653 S FM 148',distance_miles:10}}}])
+   const [created]=await query('select * from create_quote_draft_from_lead($1)',[a.l.id])
+   const [q]=await query('select * from quotes where id=$1',[created.id])
+   expect(q.confirmed_email).toBe('mike@example.com');expect(Number(q.grand_total)).toBe(1640)
+   const b=await fixture('actually a different material')
+   await query("insert into ai_audit_logs(lead_id,status,decision,tool_results) values($1,'SUCCESS',$2,$3)",[b.l.id,{dashboard_proposal:{source_message_id:a.m.id}},{pricing:{status:'MATERIAL_CALCULATED',material_id:material.id,yards:40,quantity:{status:'RESOLVED'}}}])
+   const [empty]=await query('select * from create_quote_draft_from_lead($1)',[b.l.id])
+   expect(await query('select * from quote_items where quote_id=$1',[empty.id])).toHaveLength(0)
+ }))
  it('approves the saved modified schedule, reserves once and keeps staff takeover',()=>transaction(async()=>{
    const a=await fixture('can we move it to Friday at 10am?')
    const actor='00000000-0000-0000-0000-000000000001'
@@ -93,7 +155,7 @@ describe.sequential('executed lifecycle write transactions',()=>{
    const a=await fixture('send the quote to mike@example.com tomorrow at noon')
    const [material]=await query("insert into materials(name,price_per_yard,full_load_price,full_load_yards,is_active) values('Flexbase',38,720,20,true) returning id")
    const date=(await query("select ((now() at time zone 'America/Chicago')::date+1)::text value"))[0].value
-   const p={email:'mike@example.com',confirmed_email:'mike@example.com',quote_requested:true,requested_date:date,requested_time:'12:00',requested_text:'tomorrow at noon',ready:true,context:{pricing:{material_id:material.id,yards:20,quantity:{status:'RESOLVED'},route:{status:'ROUTE_CALCULATED',destination:'123 Oak Road, Kaufman TX',origin:'7653 S FM 148',distance_miles:10}}}}
+   const p={email:'mike@example.com',confirmed_email:'mike@example.com',quote_requested:true,requested_date:date,requested_time:'12:00',requested_text:'tomorrow at noon',ready:true,context:{pricing:{status:'MATERIAL_CALCULATED',material_id:material.id,yards:20,quantity:{status:'RESOLVED'},route:{status:'ROUTE_CALCULATED',destination:'123 Oak Road, Kaufman TX',origin:'7653 S FM 148',distance_miles:10}}}}
    expect(await a.apply(p)).toMatchObject({status:'APPLIED',ready:true})
    const [q]=await query('select * from quotes where lead_id=$1',[a.l.id]);expect(q.status).toBe('DRAFT');expect(Number(q.grand_total)).toBe(820);expect(q.confirmed_email).toBe('mike@example.com');expect(q.ai_ready_at).toBeTruthy()
    expect(await query('select * from open_ai_staff_actions()')).toHaveLength(1)

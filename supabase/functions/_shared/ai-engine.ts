@@ -4,7 +4,7 @@ import { addressClarification, addressFromText, calculateDeliveryRoute, delivery
 import { assertCustomerText, composeConversationResponse, responsePlanSchema, sanitizeResponsePlanWording } from './conversation-response.ts'
 import { additionalYards, appendLeadMilestone, dashboardPlanSchema, explicitFullRecap, leadMilestoneQuestion, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName } from './lifecycle.ts'
 
-export const PROMPT_VERSION = 'mt-ai-lifecycle-v14'
+export const PROMPT_VERSION = 'mt-ai-lifecycle-v15'
 
 const decisionSchema = {
   type: 'object',
@@ -680,7 +680,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
         Object.assign(proposal.context,{additional_yards:extra,accepted_yards:Number(item.yards),proposed_pricing:materialTool(messages,[material],appResult.data,{quantity:proposedQuantity,route}),proposal_requires_staff_approval:true})
       }
     }
-    const preparedLifecycleReply=mode==='CONVERSATION'&&!forced?lifecycleReply(proposal,lifecycle,decision,pricing):null
+    let preparedLifecycleReply=mode==='CONVERSATION'&&!forced?lifecycleReply(proposal,lifecycle,decision,pricing):null
     // Request intake is not financial authorization. A server-composed receipt
     // can continue while the actual protected change remains a staff action.
     // Never release a dispute, explicit takeover, or genuinely uncertain claim.
@@ -750,6 +750,14 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
           refresh:{material:true,route:route.status,cached_route:route.cached===true},
         }
         if(!preparedLifecycleReply){
+          // Qualification questions are owned by the persisted milestone logic.
+          // A model question must not re-open already completed quote consent.
+          if(!lifecycle.reactive&&proposal.quote_requested&&/quote|estimate|cotizaci[oó]n|presupuesto|email|correo/i.test(plan.next_question??'')) {
+            plan.next_question=''
+            // When this was the model's entire answer, acknowledge actual ready
+            // state instead of leaving an empty response or reopening consent.
+            if(mode==='CONVERSATION'&&proposal.ready&&!plan.answers?.length)preparedLifecycleReply=lifecycleReply({...proposal,progress:true},lifecycle,decision,pricing)
+          }
           const compositionStarted=Date.now()
           const sanitized=sanitizeResponsePlanWording(plan,pricing.conversation.question_references??[])
           if(sanitized.length)timings.response_wording_sanitized=sanitized
@@ -809,7 +817,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
 
     const quoteApplication: Record<string, unknown> = {}
     if (mode === 'CONVERSATION' && leadId && typeof service.rpc === 'function') {
-      if((decision.ai_may_continue&&!decision.requires_human&&decision.confidence==='HIGH'&&!proposal.clarification)||proposal.actions.length) {
+      if((decision.ai_may_continue&&!decision.requires_human&&decision.confidence==='HIGH'&&(!proposal.clarification||proposal.clarification==='DATE_TIME'))||proposal.actions.length) {
         const lifecycleStarted=Date.now()
         const expectedRevision=lead.conversation_revision+(decision.global_pause_applied?1:0)
         const applied=await service.rpc('apply_ai_lifecycle',{p_lead_id:leadId,p_expected_revision:expectedRevision,p_source_message_id:proposal.source_message_id,p_plan:{...proposal,write_allowed:decision.ai_may_continue&&!decision.requires_human&&decision.confidence==='HIGH'&&!decision.uncertain_facts.length}})

@@ -3,7 +3,7 @@
 export const LIFECYCLE_POLICY = `CUSTOMER LIFECYCLE AND DASHBOARD AUTHORITY
 Use lifecycle.stage and its scoped quote/job/invoice, never another transaction belonging to the same customer.
 LEAD/QUOTING: answer useful questions, collect missing specifications and name naturally. Known names are not asked again.
-QUOTE_READY: offer the quote, confirm the exact email, then prepare an eligible draft for staff Review & Send. Never send or accept a quote yourself.
+QUOTE_READY: the draft is already prepared for staff. Answer new questions, but never ask for quote permission or recipient confirmation again unless the customer changes the recipient. Never send or accept a quote yourself.
 QUOTE_SENT: respond to questions; do not restart qualification or offer the same quote again.
 ACCEPTED/SCHEDULING: collect requested delivery details, not new qualification. These and later stages are established relationships: never reintroduce Monkey Trucking merely because the supplied transcript is empty.
 SCHEDULED/IN_PROGRESS: react to the customer. Arrival answers use the actual calendar. Gate/access instructions may become job notes. Date, quantity, material and address changes are staff requests, never silent calendar/financial edits.
@@ -103,7 +103,7 @@ export function resolveDeliveryPreference(text:string, now=new Date(), timezone=
   if(date&&(!Number.isFinite(Date.parse(date+'T12:00:00Z'))||new Date(date+'T12:00:00Z').toISOString().slice(0,10)!==date))ambiguous=true
   if(date&&date<today)ambiguous=true
   if(date===today&&time){const hm=new Intl.DateTimeFormat('en-GB',{timeZone:timezone,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(now);if(time<=hm)ambiguous=true}
-  return {date,time,text:text.slice(0,200),needsClarification:ambiguous||!!date&&!time||!!time&&!date}
+  return {date,time,text:text.slice(0,200),ambiguous,needsClarification:ambiguous||!!date&&!time||!!time&&!date}
 }
 
 export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];lifecycle:any;decision:any;pricing:any;requestMessage?:any;now?:Date;timezone?:string}) {
@@ -123,9 +123,17 @@ export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];li
   // date from the immediately preceding customer preference when time arrives.
   const priorText=[...messages].slice(0,-1).reverse().find(m=>m.sender_type==='CUSTOMER')
   const priorPreference=priorText?resolveDeliveryPreference(priorText.body,priorText.created_at?new Date(priorText.created_at):input.now,input.timezone):null
-  const previousDate=priorPreference?.date??lead.requested_delivery_date
+  const previousDate=priorPreference&&!priorPreference.ambiguous?priorPreference.date??lead.requested_delivery_date:lead.requested_delivery_date
   const preference=dateRelevant?resolveDeliveryPreference(text,input.now,input.timezone,previousDate):null
-  const quoteRequested=Boolean(lead.quote_requested_at)||intent==='QUOTE_REQUEST'&&/\b(quote|estimate|cotizacion|presupuesto|send it|mandala|enviala)\b/i.test(normal(text))||yes&&/\b(send.*quote|quote.*over|envi.*cotizaci|mand.*cotizaci)\b/i.test(lastAi)
+  // Recover approvals from customer turns too, so old conversations affected by
+  // the prepare/send wording mismatch can advance on their next message.
+  let approved=Boolean(lead.quote_requested_at)
+  let precedingQuestion=''
+  for(const message of messages) {
+    if(['AI','HUMAN'].includes(message.sender_type))precedingQuestion=String(message.body??'')
+    if(message.sender_type==='CUSTOMER'&&isQuoteApproval(String(message.body??''),precedingQuestion))approved=true
+  }
+  const quoteRequested=approved||isQuoteApproval(text,lastAi)||intent==='QUOTE_REQUEST'&&/\b(quote|estimate|cotizacion|presupuesto|send it|mandala|enviala)\b/i.test(normal(text))
   const quoteEmailPrompt=/\b(quote|estimate|cotizaci[oó]n|presupuesto|send|email|correo)\b/i.test(lastAi)
   const existingEmail=String(customer.email??'').trim().toLowerCase()
   const explicitQuoteOnly=Boolean(email)&&intent!=='CONTACT'&&(
@@ -137,7 +145,8 @@ export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];li
   // customer contact data. Explicit alternate document recipients stay scoped
   // to this Quote and never overwrite the profile.
   const contactEmail=email&&!explicitQuoteOnly?email:null
-  const confirmedEmail=email&&intent!=='CONTACT'&&(intent==='NONE'||['CONFIRM_EMAIL','QUOTE_REQUEST'].includes(intent)||quoteEmailPrompt)?email:(yes&&customer.email&&lastAi.includes(customer.email)?customer.email:null)
+  const promptedEmails=[...lastAi.matchAll(/\b[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?\.[A-Z]{2,}\b/gi)].map(m=>m[0].toLowerCase())
+  const confirmedEmail=email&&intent!=='CONTACT'&&(intent==='NONE'||['CONFIRM_EMAIL','QUOTE_REQUEST'].includes(intent)||quoteEmailPrompt)?email:(yes&&quoteEmailPrompt&&promptedEmails.length===1&&/[?？]/.test(lastAi)?promptedEmails[0]:null)
   const requestedDate=preference?.date??lead.requested_delivery_date
   const requestedTime=preference?.date&&preference.date!==lead.requested_delivery_date?preference.time:preference?.time??lead.requested_delivery_time
   const emailConfirmed=confirmedEmail??lead.quote_confirmed_email??null
@@ -154,7 +163,7 @@ export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];li
   const leadNeed=!lifecycle.protected?leadNeedFromConversation(messages,pricing?.quantity):null
   return {source_message_id:inbound?.id,name,email:contactEmail,confirmed_email:confirmedEmail,quote_requested:quoteRequested,
     lead_need:leadNeed?.need??null,lead_need_source_message_id:leadNeed?.source_message_id??null,lead_need_source_text:leadNeed?.source_text??null,
-    requested_date:preference?.date,requested_time:preference?.time,requested_text:preference?.text,
+    requested_date:preference&&!preference.ambiguous?preference.date:null,requested_time:preference&&!preference.ambiguous?preference.time:null,requested_text:preference?.text,
     job_note:financialChange?null:note,ready:Boolean(ready),actions,clarification:emails.length>1?'EMAIL':preference?.needsClarification?'DATE_TIME':plan?.confidence==='LOW'?'REQUEST':null,
     intent,progress:yes||Boolean(email)||Boolean(preference)||intent==='QUOTE_REQUEST',context:{stage:lifecycle.stage,quote_id:lifecycle.quote?.id,job_id:lifecycle.job?.id,invoice_id:lifecycle.invoice?.id,request:text,request_source_message_id:input.requestMessage?.id??inbound?.id,requested_date:preference?.date,requested_time:preference?.time,pricing,prior_delivery_address:lead.delivery_address},
     current:{name:name??knownCustomerName(customer.name),email:emailConfirmed,contact_email:customer.email,date:requestedDate,time:requestedTime},
@@ -179,7 +188,7 @@ export function leadMilestoneQuestion(input:{proposal:any;lifecycle:any;pricing:
   if(!route?.destination)return choose('what is the exact delivery address?','cuál es la dirección exacta de entrega?')
   if(!proposal.current?.date)return choose('what delivery date and time work best for you?','qué fecha y hora de entrega le funcionan mejor?')
   if(!proposal.current?.time)return choose('what time works best that day?','qué hora le funciona mejor ese día?')
-  if(!proposal.quote_requested)return choose('would you like me to prepare the quote for Salvador to review and send?','quiere que prepare la cotización para que Salvador la revise y la envíe?')
+  if(!proposal.quote_requested)return choose('would you like us to prepare the quote?','quiere que preparemos la cotización?')
   if(!proposal.current?.email)return proposal.current?.contact_email
     ? choose(`should we send the quote to ${proposal.current.contact_email}?`,`enviamos la cotización a ${proposal.current.contact_email}?`)
     : choose('what email should we send the quote to?','a qué correo enviamos la cotización?')
@@ -213,13 +222,24 @@ export function lifecycleReply(proposal:any,lifecycle:any,decision:any,pricing:a
     && /\b(address|direcci[oó]n)\b|\d{1,6}\s+\S+/i.test(proposal.context.request??'')) {
     return choose(`got it, I changed the delivery address to ${pricing.route.destination}.`,`listo, cambié la dirección de entrega a ${pricing.route.destination}.`)
   }
-  if(proposal.ready&&proposal.progress)return choose(`your quote is prepared for Salvador to review and send to ${proposal.current.email}. the delivery time is a request until the team confirms.`,`su cotización está preparada para que Salvador la revise y envíe a ${proposal.current.email}. el horario es una solicitud hasta que el equipo confirme.`)
+  if(proposal.ready&&proposal.progress)return choose('perfect, your quote is ready for review. we’ll send it over shortly.','perfecto, su cotización está lista para revisión. se la enviamos pronto.')
   if(proposal.quote_requested&&proposal.progress&&pricing.status==='MATERIAL_CALCULATED'&&!proposal.current.email)return proposal.current.contact_email?choose(`I have ${proposal.current.contact_email} on file. is that where you want us to send it?`,`tengo ${proposal.current.contact_email}. ahí quiere que enviemos la cotización?`):choose('what email should we send the quote to?','a qué correo enviamos la cotización?')
-  if(proposal.requested_date&&proposal.current.time&&pricing.status==='MATERIAL_CALCULATED'&&pricing.route?.status==='ROUTE_CALCULATED') {
+  if(!proposal.quote_requested&&proposal.requested_date&&proposal.current.time&&pricing.status==='MATERIAL_CALCULATED'&&pricing.route?.status==='ROUTE_CALCULATED') {
     const material=String(pricing.material_name).replace(/[—–-]/g,' ')
     return choose(`I have ${pricing.yards} yards of ${material}, ${pricing.route.destination}, requested for ${proposal.current.date} at ${proposal.current.time}. would you like us to send the quote over?`,`tengo ${pricing.yards} yardas de ${material}, ${pricing.route.destination}, para solicitar el ${proposal.current.date} a las ${proposal.current.time}. quiere que enviemos la cotización?`)
   }
   return null
+}
+
+export function isQuoteApproval(text:string,previousReply:string) {
+  const value=normal(text).trim()
+  if(/\b(?:do not|don't|dont|not yet|no thanks|no quiero)\b/.test(value))return false
+  if(/\b(?:prepare|send|make|email|prepara|prepare|manda|mande|envia|envie)\b.{0,45}\b(?:quote|estimate|cotizacion|presupuesto)\b/.test(value))return true
+  const affirmative=/^(?:yes|yeah|yep|sure|ok(?:ay)?|si|claro|correct|correcto|please do|send it|yes please|yes that is correct|yes that's correct)[.!\s]*$/.test(value)
+  const question=normal(previousReply).split(/[?？]/).slice(0,-1).pop()??''
+  return affirmative&&/\b(?:quote|estimate|cotizacion|presupuesto)\b/.test(question)
+    && /\b(?:prepare|send|review|prepar\w*|envi\w*|mand\w*)\b/.test(question)
+    && !/\b(?:cancel|decline|reject|cancelar|rechazar)\b/.test(question)
 }
 
 // An increment is not a replacement quantity. Keep it separate from accepted terms.

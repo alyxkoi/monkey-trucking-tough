@@ -94,6 +94,7 @@ export type Quote = {
   /** Persisted pricing snapshots win over live settings for saved quotes. */
   snapshotTotals?: ReturnType<typeof computeTotals>
   createdAt: number
+  lastActivityAt?: number
   sentAt?: number
   acceptedAt?: number
   declinedAt?: number

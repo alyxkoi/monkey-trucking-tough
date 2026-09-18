@@ -38,12 +38,16 @@ export function QuoteScreen() {
     declineQuote,
     emailSendingFor,
     sourceData,
+    confirmQuoteRecipient,
   } = useAppState()
 
   const [materialSheet, setMaterialSheet] = useState(false)
   const [deliverySheet, setDeliverySheet] = useState(false)
   const [customSheet, setCustomSheet] = useState(false)
   const [scheduleSheet, setScheduleSheet] = useState(false)
+  const [recipientEdit, setRecipientEdit] = useState<string | null>(null)
+  const [recipientBusy, setRecipientBusy] = useState(false)
+  const [recipientError, setRecipientError] = useState('')
 
   const quote = quoteById(quoteId)
   if (!quote) {
@@ -63,7 +67,10 @@ export function QuoteScreen() {
   const editable = quote.status === 'DRAFT'
   const empty = quote.materialLines.length === 0 && quote.customLines.length === 0
   const deliveryUnset = quote.delivery.mode === 'UNSET'
-  const canSend = !empty && !deliveryUnset
+  const confirmedRecipient = sourceData?.quotes.find(row => row.id === quote.id)?.confirmed_email ?? ''
+  const recipient = recipientEdit ?? (confirmedRecipient || customer?.email || '')
+  const recipientConfirmed = Boolean(confirmedRecipient) && recipient.trim().toLowerCase() === confirmedRecipient.toLowerCase()
+  const canSend = !empty && !deliveryUnset && recipientConfirmed && !recipientBusy
 
   return (
     <div className="space-y-5">
@@ -74,7 +81,19 @@ export function QuoteScreen() {
         right={<StatusPill tone={QUOTE_TONE[quote.status]}>{QUOTE_LABEL[quote.status]}</StatusPill>}
       />
 
-      {sourceData?.quotes.find(row=>row.id===quote.id)?.requested_delivery_date&&<Panel title="Customer delivery request"><p className="font-semibold">{sourceData.quotes.find(row=>row.id===quote.id)?.requested_delivery_date} at {sourceData.quotes.find(row=>row.id===quote.id)?.requested_delivery_time?.slice(0,5)}</p><p className="mt-2 text-sm text-cc-muted">Requested, not booked. Quote recipient: {sourceData.quotes.find(row=>row.id===quote.id)?.confirmed_email??customer?.email??'Needs confirmation'}. Review the details before sending.</p></Panel>}
+      {quote.requestedDeliveryDate && <Panel title="Customer delivery request"><p className="font-semibold">{quote.requestedDeliveryDate}{quote.requestedDeliveryTime ? ` at ${quote.requestedDeliveryTime}` : ' · Time still needed'}</p><p className="mt-2 text-sm text-cc-muted">Requested, not booked.</p></Panel>}
+      <Panel title="Quote recipient">
+        {editable ? <div className="space-y-3">
+          <TextField label="Recipient email" type="email" value={recipient} onChange={value => { setRecipientEdit(value); setRecipientError('') }} hint={recipientConfirmed ? 'Confirmed for this quote.' : 'Confirm this email before sending. This does not change the customer profile.'} />
+          {!recipientConfirmed && <SecondaryButton disabled={recipientBusy || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.trim())} onClick={async () => {
+            setRecipientBusy(true); setRecipientError('')
+            try { await confirmQuoteRecipient(quote.id, recipient); setRecipientEdit(current => current === recipient ? null : current) }
+            catch(error) { setRecipientError(error instanceof Error ? error.message : 'Could not confirm the recipient') }
+            finally { setRecipientBusy(false) }
+          }}>{recipientBusy ? 'Confirming…' : 'Confirm recipient'}</SecondaryButton>}
+          {recipientError && <p role="alert" className="text-sm text-mt-red">{recipientError}</p>}
+        </div> : <p>{confirmedRecipient || 'No confirmed recipient'}</p>}
+      </Panel>
 
       <div className="grid gap-5 lg:grid-cols-12">
         <div className="min-w-0 space-y-5 lg:col-span-7">
@@ -326,6 +345,7 @@ export function QuoteScreen() {
                 ? 'Add material or custom work'
                 : deliveryUnset
                   ? 'Pick a delivery zone'
+                  : !recipientConfirmed ? 'Confirm the quote recipient above'
                   : `${quote.materialLines.length} material ${quote.materialLines.length === 1 ? 'line' : 'lines'}, tax included`
             }
             action={

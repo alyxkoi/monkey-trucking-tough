@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   customerEmailIdempotencyKey,
+  confirmedQuoteRecipient,
   formatBusinessDate,
   invoiceCanBeEmailed,
   quoteCanBeEmailed,
@@ -88,6 +89,14 @@ describe('approved transactional email rendering', () => {
 })
 
 describe('transactional workflow safety', () => {
+  it('accepts the confirmed document recipient without falling back to the customer identity', () => {
+    expect(confirmedQuoteRecipient(null)).toBeNull()
+    expect(confirmedQuoteRecipient('not an email')).toBeNull()
+    expect(confirmedQuoteRecipient(' ALT@example.com ')).toBe('alt@example.com')
+    const customer = { email: 'profile@example.com' }
+    const quote = { confirmed_email: 'alternate@example.com' }
+    expect(confirmedQuoteRecipient(quote.confirmed_email)).not.toBe(customer.email)
+  })
   it('uses stable idempotency for initial sends and real payment events', () => {
     expect(customerEmailIdempotencyKey({ template: 'QUOTE_READY', recordId: 'q1' })).toBe('quote-ready:q1:initial')
     expect(customerEmailIdempotencyKey({ template: 'PAYMENT_RECEIVED', recordId: 'p1' })).toBe('payment-received:p1')
@@ -117,6 +126,7 @@ describe('transactional workflow safety', () => {
     expect(edge).toContain("quote.confirmed_email")
     expect(edge).toContain("'recipient' in prepared ? prepared.recipient : prepared.customer.email")
     expect(appState).not.toContain("await updateQuote(id, { status: 'SENT'")
+    expect(appState).toContain("if (current?.status === 'DRAFT' && quoteDraftsRef.current[id])")
     expect(source('src/control-center/data.ts')).not.toContain('RESEND_API_KEY')
     expect(source('src/pages/CustomerDocument.tsx')).not.toContain('RESEND_API_KEY')
   })

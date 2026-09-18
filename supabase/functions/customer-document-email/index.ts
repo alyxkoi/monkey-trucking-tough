@@ -2,6 +2,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import {
   customerEmailIdempotencyKey,
+  confirmedQuoteRecipient,
   firstName,
   formatBusinessDate,
   formatMoney,
@@ -104,8 +105,8 @@ async function quoteEmail(service: any, quoteId: string, actorId: string | null,
     service.from('customers').select('id,name,email').eq('id', quote.customer_id).single(),
     service.from('quote_items').select('*').eq('quote_id', quote.id).order('created_at'),
   ])
-  const recipient = String(quote.confirmed_email ?? '').trim().toLowerCase()
-  if (!recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) throw new ResponseError(422, 'Confirm the quote recipient email before sending this quote')
+  const recipient = confirmedQuoteRecipient(quote.confirmed_email)
+  if (!recipient) throw new ResponseError(422, 'Confirm the quote recipient email before sending this quote')
   const documentToken = await makeDocumentToken(service, 'QUOTE', quote.id, actorId)
   const url = `${SITE_ORIGIN}/quote/${documentToken.raw}`
   const materialItems = (items ?? []).filter((item: any) => item.kind === 'MATERIAL')

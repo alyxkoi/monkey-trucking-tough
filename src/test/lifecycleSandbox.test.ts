@@ -9,10 +9,10 @@ function service(){return {from(table:string){
  const chain:any={then:(resolve:any)=>Promise.resolve({data:rows[table],error:null}).then(resolve)};for(const method of ['select','eq','limit','single'])chain[method]=()=>chain;return chain
 }}}
 const c=(body:string)=>({sender_type:'CUSTOMER',body}),a=(body:string)=>({sender_type:'AI',body})
-async function run(messages:any[],intent='NONE',scenario='LEAD',language='ENGLISH',form='',financialHold=false){
+async function run(messages:any[],intent='NONE',scenario='LEAD',language='ENGLISH',form='',financialHold=false,nextQuestion='what can I help with?'){
  const text=messages.at(-1).body
  const decision={detected_language:language,customer_intent:'CUSTOMER_REQUEST',extracted_facts:[],known_facts:[],missing_facts:[],uncertain_facts:[],ai_may_continue:true,requires_human:false,escalation_reason:null,recommended_action:'ANSWER_CUSTOMER',draft_reply:'current customer request',confidence:'HIGH',deterministic_pricing_required:false,payment_claim_detected:false,
- dashboard_plan:{intent,source_text:text,confidence:'HIGH'},response_plan:{objective:'COLLECT',answers:[],comparison_keys:[],recommendation_key:'',acknowledgement:'got it.',next_question:'what can I help with?',required_tools:[],escalation_scope:'NONE',escalation_category:'NONE'}}
+ dashboard_plan:{intent,source_text:text,confidence:'HIGH'},response_plan:{objective:'COLLECT',answers:[],comparison_keys:[],recommendation_key:'',acknowledgement:'got it.',next_question:nextQuestion,required_tools:[],escalation_scope:'NONE',escalation_category:'NONE'}}
  if(financialHold)Object.assign(decision,{requires_human:true,ai_may_continue:false,recommended_action:'MANUAL_REPLY',escalation_reason:'Accepted terms require staff review',response_plan:{...decision.response_plan,escalation_scope:'CONVERSATION',escalation_category:'FINANCIAL'}})
  vi.stubGlobal('fetch',vi.fn(async(url:string)=>new Response(JSON.stringify(url.includes('routes.googleapis.com')?{routes:[{distanceMeters:16093.44,duration:'900s'}],geocodingResults:{destination:{geocoderStatus:{},placeId:'fixture-pin'}}}:{status:'completed',model:'unchanged-model',output_text:JSON.stringify(decision)}))))
  return simulateConversation(service(),{messages,scenario,form},config)
@@ -56,7 +56,14 @@ describe('full lifecycle sandbox using production engine',()=>{
    const date=await run([c('tomorrow at noon')],'DELIVERY_PREFERENCE','LEAD','ENGLISH',form)
    expect(date.reply).toMatch(/20 yards.*12:00.*send the quote/)
    const result=await run([c('tomorrow at noon'),a('would you like us to send the quote over?'),c('yes'),a('what email should we use?'),c('use mike@example.com')],'CONFIRM_EMAIL','LEAD','ENGLISH',form)
-   expect(result.decision.dashboard_proposal.ready).toBe(true);expect(result.reply).toContain('Salvador to review and send');expect(result.send_allowed).toBe(false)
+   expect(result.decision.dashboard_proposal.ready).toBe(true);expect(result.reply).toContain('ready for review');expect(result.reply).not.toContain('?');expect(result.send_allowed).toBe(false)
+ })
+ it('does not let a model question restart permission after approval and correction',async()=>{
+   const result=await run([c('my name is Mike'),c('tomorrow at noon'),a('would you like us to prepare the quote?'),c('yes'),a('what email should we use?'),c('mike@example.com'),c('actually make it 40 yards')],'NONE','LEAD','ENGLISH','20 yards flexbase to 123 Oak Road, Kaufman TX 75142',false,'would you like me to prepare the quote for Salvador to review and send?')
+   expect(result.decision.dashboard_proposal.quote_requested).toBe(true)
+   expect(result.decision.dashboard_proposal.current.email).toBe('mike@example.com')
+   expect(result.reply).not.toMatch(/would you like|what email|Salvador to review and send/i)
+   expect(result.tool_results.quantity.yards).toBe(40)
  })
  it('answers arrival from actual schedule and accepts access notes',async()=>{
    const arrival=await run([c('what time are you coming?')],'ARRIVAL','SCHEDULED');expect(arrival.reply).toContain('09:00');expect(arrival.tool_results.diagnostics.lifecycle_stage).toBe('SCHEDULED')

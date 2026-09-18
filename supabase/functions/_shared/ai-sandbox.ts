@@ -45,7 +45,7 @@ export async function simulateConversation(service: any, input: any, config: AiC
     if(proposal.confirmed_email)rows.leads.quote_confirmed_email=proposal.confirmed_email
     if(proposal.lead_need)rows.leads.need=proposal.lead_need
     if(proposal.quote_requested)rows.leads.quote_requested_at=new Date().toISOString()
-    if(proposal.requested_date&&!proposal.clarification){rows.leads.requested_delivery_date=proposal.requested_date;rows.leads.requested_delivery_time=proposal.requested_time}
+    if(proposal.requested_date&&(!proposal.clarification||proposal.clarification==='DATE_TIME')){const priorDate=rows.leads.requested_delivery_date;rows.leads.requested_delivery_date=proposal.requested_date;rows.leads.requested_delivery_time=proposal.requested_time??(priorDate===proposal.requested_date?rows.leads.requested_delivery_time:null)}
   }
   const fake = { from(table: string) {
     if (!(table in rows)) throw new Error('Sandbox blocked database access: '+table)

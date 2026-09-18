@@ -13,6 +13,7 @@ import { RECORD_NAME_ROW } from '@/control-center/approved/lib/typography'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import { quoteTotals } from '@/control-center/approved/state/salesData'
 import { ACTIVE_LEAD_FILTERS, countLeadsForFilter, type LeadFilter } from '@/control-center/approved/state/leadWorkflow'
+import { sortSales, type SalesSort } from '@/control-center/approved/state/salesSort'
 
 type Mode = 'leads' | 'quotes'
 
@@ -20,6 +21,7 @@ const NAME = RECORD_NAME_ROW
 
 export function LeadsQuotes() {
   const [mode, setMode] = useState<Mode>('leads')
+  const [sort, setSort] = useState<SalesSort>('NEWEST')
   const { setNewLeadSheetOpen } = useAppState()
 
   return (
@@ -43,25 +45,28 @@ export function LeadsQuotes() {
         )}
       </div>
 
+      <label className="flex items-center gap-3 text-sm text-cc-muted">
+        Sort by
+        <select aria-label="Sort leads and quotes" className="h-12 rounded-xl border border-line bg-raised px-3 text-base text-ink" value={sort} onChange={event => setSort(event.target.value as SalesSort)}>
+          <option value="NEWEST">Newest activity first</option>
+          <option value="URGENT">Most urgent first</option>
+        </select>
+      </label>
       {/* Keyed so switching mode fades rather than snapping. */}
       <div key={mode} className="animate-swap">
-        {mode === 'leads' ? <LeadsInbox /> : <QuotesList />}
+        {mode === 'leads' ? <LeadsInbox sort={sort} /> : <QuotesList sort={sort} />}
       </div>
     </div>
   )
 }
 
 /** An opportunity inbox, not a CRM table. */
-function LeadsInbox() {
+function LeadsInbox({sort}:{sort:SalesSort}) {
   const [filter, setFilter] = useState<LeadFilter>('ALL')
-  const { leads, customerById, setNewLeadSheetOpen } = useAppState()
+  const { leads, customerById, setNewLeadSheetOpen, attention } = useAppState()
   const navigate = useNavigate()
 
-  const sorted = [...leads].sort((a, b) => {
-    // Urgency is not a status, so it sorts on top without changing the status.
-    if (a.needsSalvador !== b.needsSalvador) return a.needsSalvador ? -1 : 1
-    return b.lastActivityAt - a.lastActivityAt
-  })
+  const sorted = sortSales(leads,sort,attention,lead => ({at:lead.lastActivityAt,paths:[`/admin/leads/${lead.id}`,`/admin/quotes/${lead.quoteId}`]}))
   const visible = filter === 'ALL' ? sorted : sorted.filter((lead) => lead.status === filter)
 
   const countFor = (value: LeadFilter) => countLeadsForFilter(leads,value)
@@ -161,10 +166,10 @@ function LeadsInbox() {
   )
 }
 
-function QuotesList() {
-  const { quotes, customerById } = useAppState()
+function QuotesList({sort}:{sort:SalesSort}) {
+  const { quotes, customerById, attention, leads } = useAppState()
   const navigate = useNavigate()
-  const sorted = [...quotes].sort((a, b) => b.createdAt - a.createdAt)
+  const sorted = sortSales(quotes,sort,attention,quote => ({at:Math.max(quote.lastActivityAt??quote.createdAt,leads.find(lead=>lead.id===quote.leadId)?.lastActivityAt??0),paths:[`/admin/quotes/${quote.id}`,`/admin/leads/${quote.leadId}`]}))
 
   return (
     <Panel padded={false} title="Quotes">

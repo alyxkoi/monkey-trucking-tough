@@ -22,6 +22,7 @@ import {
   createJob as createJobRecord,
   createLead as createLeadRecord,
   createQuoteDraft,
+  confirmQuoteRecipient as confirmQuoteRecipientRecord,
   createWorkerPayment,
   findOrCreateCustomer,
   markWorkerPaymentPaid,
@@ -227,6 +228,7 @@ export type AppStateValue = {
   updateCustomerNotes: (customerId: string, notes: string) => void
   updateCustomerContact: (customerId: string, input: { phone: string; email?: string }) => Promise<CustomerContactUpdateResult>
   createQuoteFromLead: (leadId: string) => Promise<string>
+  confirmQuoteRecipient: (quoteId: string, email: string) => Promise<void>
   updateQuoteMeta: (quoteId: string, patch: { description?: string; address?: string }) => void
   addMaterialLine: (quoteId: string, materialId: string, options: { isFullLoad: boolean; loads?: number; yards?: number }) => void
   removeMaterialLine: (quoteId: string, lineId: string) => void
@@ -700,6 +702,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     quoteDraftsRef.current = next
     setQuoteDrafts(next)
   }, [])
+  const confirmQuoteRecipient = useCallback(async (id: string, email: string) => {
+    if (demo.enabled) {
+      demo.updateData(current => ({ ...current, quotes: current.quotes.map(row => row.id === id ? { ...row, confirmed_email: email.trim().toLowerCase() } : row) }))
+      return
+    }
+    await confirmQuoteRecipientRecord(id, email)
+    await refresh()
+  }, [demo, refresh])
   const saveQuoteDraftNow = useCallback(async (quote: Quote) => {
     if (demo.enabled) {
       const draft = quoteDraft({ ...quote, snapshotTotals: undefined })
@@ -762,7 +772,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (emailSendingFor === id) return
     const current = quoteDraftsRef.current[id] ?? quoteById(id)
     if (demo.enabled) {
-      if (current?.status === 'DRAFT') {
+      if (current?.status === 'DRAFT' && quoteDraftsRef.current[id]) {
         window.clearTimeout(noteTimers.current[`quote:${id}`])
         await saveQuoteDraftNow(current)
       }
@@ -774,7 +784,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
     setEmailSendingFor(id)
     try {
-      if (current?.status === 'DRAFT') {
+      // Persist actual staff edits only. Opening an AI-prepared quote and
+      // clicking Send must not reprice its saved snapshot or rewrite its items.
+      if (current?.status === 'DRAFT' && quoteDraftsRef.current[id]) {
         window.clearTimeout(noteTimers.current[`quote:${id}`])
         await saveQuoteChanges(id, quoteDraft({ ...current, snapshotTotals: undefined }))
       }
@@ -1053,9 +1065,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, deleteTicket, printTicket,
     invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor,
     createInvoiceFromJob, createInvoiceFromTicket, reviseInvoice, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment,
-    findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, updateCustomerContact, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote,
+    findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, updateCustomerContact, createQuoteFromLead, confirmQuoteRecipient, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote,
     communicationReady: ['READY', 'TESTING'].includes(data?.controlSettings?.sms_status ?? ''), emailSendingFor, sourceData: data,
-  }), [period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, showAllAttention, snoozeAttention, unsnoozeAttention, lastAction, undoLastAction, loading, moneyLoading, demo.enabled, online, syncing, pendingTickets, lastSyncAt, cycleSync, newSheetOpen, newLeadSheetOpen, newJobSheetOpen, pinnedBarActive, customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer, jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes, tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, deleteTicket, printTicket, invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor, createInvoiceFromJob, createInvoiceFromTicket, reviseInvoice, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment, findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, updateCustomerContact, createQuoteFromLead, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote, emailSendingFor, data])
+  }), [period, setPeriod, money, pipeline, todayJobs, attention, visibleAttention, snoozedItems, showAllAttention, snoozeAttention, unsnoozeAttention, lastAction, undoLastAction, loading, moneyLoading, demo.enabled, online, syncing, pendingTickets, lastSyncAt, cycleSync, newSheetOpen, newLeadSheetOpen, newJobSheetOpen, pinnedBarActive, customers, leads, quotes, activities, customerById, leadById, quoteById, leadsForCustomer, quotesForCustomer, activitiesForCustomer, jobs, jobById, jobsForDay, jobsForCustomer, photoJobsForCustomer, unscheduledQuotes, scheduleJob, rescheduleJob, completeJob, cancelJob, startJob, updateJobNotes, tickets, ticketById, ticketsForJob, ticketsForCustomer, saveTicket, updateTicket, voidTicket, deleteTicket, printTicket, invoices, payments, workers, workerPayments, invoiceById, invoiceForJob, invoiceForTicket, paymentsForInvoice, workerPaymentsFor, createInvoiceFromJob, createInvoiceFromTicket, reviseInvoice, sendInvoice, resendInvoice, voidInvoice, recordPayment, addHourlyWorkerPay, addDriverWorkerPay, confirmWorkerPayDetails, markWorkerPayPaid, voidWorkerPayment, voidPayment, findDuplicate, createLead, createCustomer, replyToLead, updateLeadNotes, updateCustomerNotes, updateCustomerContact, createQuoteFromLead, confirmQuoteRecipient, updateQuoteMeta, addMaterialLine, removeMaterialLine, addCustomLine, removeCustomLine, setQuoteDelivery, setQuoteDeliveryLoads, sendQuote, acceptQuote, declineQuote, emailSendingFor, data])
 
   if (loading && !data) {
     return <div className="min-h-screen" aria-label="Loading Control Center" />
