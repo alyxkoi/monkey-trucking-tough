@@ -19,6 +19,14 @@ async function run(messages:any[],intent='NONE',scenario='LEAD',language='ENGLIS
 }
 afterEach(()=>vi.unstubAllGlobals())
 describe('full lifecycle sandbox using production engine',()=>{
+ it('renders a verified recap outside the model question gate after a named material answer',async()=>{
+   const result=await run([c('my name is Mike'),c('20 yards to 123 Oak Road, Kaufman TX 75142'),c('tomorrow at 1pm'),a('which material would you like?'),c('Flexbase')],'NONE','LEAD','ENGLISH','',false,'would you like us to prepare the quote?')
+   expect(result.blocked).toBeNull()
+   expect(result.reply).toContain('Material $720.00, delivery $100.00')
+   expect(result.reply).toContain('total $820.00')
+   expect(result.reply).toContain('prepare the quote?')
+   expect(result.tool_results.timings.model_attempts).toBe(1)
+ })
  it('acknowledges a quantity correction without repeating the full final recap',async()=>{
    const result=await run([c('my name is Mike'),c('20 yards flexbase to 123 Oak Road, Kaufman TX 75142'),c('tomorrow at 1pm'),a('Would you like us to prepare the quote?'),c('actually make it 40')])
    expect(result.reply).toContain('40 yards')

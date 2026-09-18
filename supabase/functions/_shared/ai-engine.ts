@@ -781,7 +781,13 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
           // The model may answer service questions, but cannot jump to a quote
           // before a product and delivered calculation actually exist.
           if(!lifecycle.reactive&&!proposal.quote_requested&&/quote|estimate|cotizaci[oó]n|presupuesto/i.test(plan.next_question??'')) {
-            plan.next_question=leadMilestoneQuestion({proposal,lifecycle,pricing,route,quantity,customer:customerResult.data,language:decision.detected_language})??''
+            const next=leadMilestoneQuestion({proposal,lifecycle,pricing,route,quantity,customer:customerResult.data,language:decision.detected_language})
+            if(next&&pricing.status==='MATERIAL_CALCULATED'&&route.status==='ROUTE_CALCULATED'&&proposal.current.date&&proposal.current.time) {
+              // The verified recap is server output, not model-authored glue.
+              // Never push money/date facts through the 150-character question gate.
+              preparedLifecycleReply=next
+              plan.next_question=''
+            } else plan.next_question=next??''
           }
           // Qualification questions are owned by the persisted milestone logic.
           // A model question must not re-open already completed quote consent.
@@ -794,7 +800,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
           const compositionStarted=Date.now()
           const sanitized=sanitizeResponsePlanWording(plan,pricing.conversation.question_references??[])
           if(sanitized.length)timings.response_wording_sanitized=sanitized
-          decision.draft_reply=plan.answers?.length||plan.next_question?composeConversationResponse(decision,pricing):''
+          decision.draft_reply=preparedLifecycleReply??(plan.answers?.length||plan.next_question?composeConversationResponse(decision,pricing):'')
           timings.composition_ms=Date.now()-compositionStarted
         }
       }
