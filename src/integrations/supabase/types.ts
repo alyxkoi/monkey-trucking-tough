@@ -2068,6 +2068,7 @@ export type Database = {
           error_message: string | null
           event_key: string
           event_type: string
+          ingress_timings: Json | null
           message_status: string
           occurred_at: string | null
           processed_at: string | null
@@ -2081,6 +2082,7 @@ export type Database = {
           error_message?: string | null
           event_key: string
           event_type: string
+          ingress_timings?: Json | null
           message_status: string
           occurred_at?: string | null
           processed_at?: string | null
@@ -2094,6 +2096,7 @@ export type Database = {
           error_message?: string | null
           event_key?: string
           event_type?: string
+          ingress_timings?: Json | null
           message_status?: string
           occurred_at?: string | null
           processed_at?: string | null

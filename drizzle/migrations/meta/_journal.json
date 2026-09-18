@@ -211,6 +211,13 @@
       "when": 1789705847708,
       "tag": "0029_lead_notes_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1789745800093,
+      "tag": "0030_quote_intake_continuity",
+      "breakpoints": true
     }
   ]
 }
