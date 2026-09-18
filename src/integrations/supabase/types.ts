@@ -2956,6 +2956,10 @@ export type Database = {
         }
         Returns: Json
       }
+      confirm_quote_recipient: {
+        Args: { p_email: string; p_quote_id: string }
+        Returns: string
+      }
       confirm_worker_payment_details: {
         Args: { p_worker_payment_id: string }
         Returns: undefined
