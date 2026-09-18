@@ -91,6 +91,7 @@ export function InvoiceDetail() {
     voidInvoice,
     voidPayment,
     emailSendingFor,
+    sourceData,
   } = useAppState()
   const [paymentSheet, setPaymentSheet] = useState(false)
   const [voidOpen, setVoidOpen] = useState(false)
@@ -536,7 +537,12 @@ export function InvoiceDetail() {
             </Panel>
           )}
 
-          <ReviewRequestPanel invoice={invoice} job={job} />
+          <ReviewRequestPanel
+            invoice={invoice}
+            job={job}
+            configured={Boolean(sourceData?.controlSettings?.review_url?.trim())}
+            sent={Boolean(job && sourceData?.activities.some((activity) => activity.entity_type === 'JOB' && activity.entity_id === job.id && activity.event_type === 'REVIEW_REQUEST_SENT'))}
+          />
 
           <ChangeHistory history={invoice.history} />
 

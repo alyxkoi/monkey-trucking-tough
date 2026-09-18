@@ -22,8 +22,7 @@ describe('contextual scheduled responses',()=>{
     expect(()=>scheduledResponse({...context,reviewUrl:null})).toThrow()
     expect(()=>scheduledResponse({...context,job:{...context.job,status:'SCHEDULED'}})).toThrow()
   })
-  it('keeps reactivation optional and includes STOP without inventing offers',()=>{
-    const text=scheduledResponse({...base,rule:'reactivation',spanish:true,invoice:{...base.invoice,status:'PAID'},job:{category:'MATERIAL_DELIVERY',status:'COMPLETED'}})
-    expect(text).toContain('a su servicio');expect(text).toContain('STOP');expect(text).not.toContain('$')
+  it('has no active SMS reactivation response',()=>{
+    expect(()=>scheduledResponse({...base,rule:'reactivation',spanish:true,invoice:{...base.invoice,status:'PAID'},job:{category:'MATERIAL_DELIVERY',status:'COMPLETED'}})).toThrow('No verified trigger')
   })
 })

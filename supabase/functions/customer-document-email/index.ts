@@ -11,6 +11,7 @@ import {
   verifiedPaymentCanReceiveReceipt,
   type CustomerEmailTemplate,
 } from '../_shared/customer-email-domain.ts'
+import { dispatchSms } from '../_shared/sms-dispatch.ts'
 import {
   renderInvoiceReadyEmail,
   renderPaymentReceivedEmail,
@@ -214,6 +215,26 @@ async function sendWithResend(apiKey: string, email: EmailRenderResult, to: stri
   return body.id as string
 }
 
+async function queueInvoiceNotice(service: any, logId: string, actorId: string | null) {
+  const queued = await service.rpc('queue_invoice_email_notification', {
+    p_log_id: logId,
+    p_actor_id: actorId,
+    p_template_id: Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID') ?? null,
+  })
+  if (queued.error) {
+    console.warn('Invoice email succeeded but its SMS notice could not be reserved', { logId, error: queued.error.message })
+    return { status: 'SKIPPED', reason: queued.error.message }
+  }
+  const messageId = queued.data?.message_id as string | undefined
+  const apiKey = Deno.env.get('SENT_DM_API_KEY')
+  if (messageId && apiKey) {
+    await dispatchSms(service, { apiKey, profileId: Deno.env.get('SENT_DM_PROFILE_ID') }, messageId).catch((error) => {
+      console.warn('Invoice notice remains queued after immediate dispatch failed', { logId, messageId, error: error instanceof Error ? error.message : 'dispatch failed' })
+    })
+  }
+  return queued.data
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
@@ -235,9 +256,12 @@ Deno.serve(async (req) => {
     const idempotencyKey = customerEmailIdempotencyKey({ template, recordId, resend, requestId })
 
     const { data: completedSend } = await service.from('email_send_log')
-      .select('status,provider_message_id').eq('idempotency_key', idempotencyKey).maybeSingle()
+      .select('id,status,provider_message_id,recipient_email').eq('idempotency_key', idempotencyKey).maybeSingle()
     if (completedSend?.status === 'accepted_by_provider') {
-      return json({ success: true, idempotent: true, providerMessageId: completedSend.provider_message_id })
+      const smsNotification = template === 'INVOICE_READY'
+        ? await queueInvoiceNotice(service, completedSend.id, user.id)
+        : undefined
+      return json({ success: true, idempotent: true, providerMessageId: completedSend.provider_message_id, smsNotification })
     }
 
     const prepared = template === 'QUOTE_READY'
@@ -251,7 +275,12 @@ Deno.serve(async (req) => {
       template, recordId, recipient: 'recipient' in prepared ? prepared.recipient : prepared.customer.email, customerId: prepared.customer.id,
       tokenId: prepared.documentToken.id, idempotencyKey,
     })
-    if (log.status === 'accepted_by_provider') return json({ success: true, idempotent: true, providerMessageId: log.provider_message_id })
+    if (log.status === 'accepted_by_provider') {
+      const smsNotification = template === 'INVOICE_READY'
+        ? await queueInvoiceNotice(service, log.id, user.id)
+        : undefined
+      return json({ success: true, idempotent: true, providerMessageId: log.provider_message_id, smsNotification })
+    }
     if (log.status === 'pending' && log.attempted_at && Date.now() - new Date(log.attempted_at).getTime() < 15_000 && log.document_token_id !== prepared.documentToken.id) {
       return json({ error: 'This email is already being sent' }, 409)
     }
@@ -276,7 +305,10 @@ Deno.serve(async (req) => {
       await service.from('email_send_log').update({ status: 'provider_accepted_finalize_failed', provider_message_id: providerMessageId, error_message: finalizeError.message.slice(0, 1000) }).eq('id', log.id)
       return json({ error: 'The provider accepted the email, but the record could not be finalized. Retry safely.' }, 500)
     }
-    return json({ success: true, providerMessageId })
+    const smsNotification = template === 'INVOICE_READY'
+      ? await queueInvoiceNotice(service, log.id, user.id)
+      : undefined
+    return json({ success: true, providerMessageId, smsNotification })
   } catch (error) {
     if (error instanceof ResponseError) return json({ error: error.message }, error.status)
     console.error('customer-document-email failed', error)

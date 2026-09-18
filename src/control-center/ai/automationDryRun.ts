@@ -178,49 +178,22 @@ export function buildAutomationPreviews(data: ControlData, now = Date.now()): Au
     const paidInvoice = data.invoices.find((invoice) => invoice.job_id === reviewJob.id && invoice.status === 'PAID')!
     const dueAt = new Date(paidInvoice.paid_at ?? paidInvoice.updated_at).getTime() + DAY
     const already = data.activities.some((activity) => activity.entity_type === 'JOB' && activity.entity_id === reviewJob.id && /review/i.test(activity.event_type))
+    const reviewUrl = data.controlSettings?.review_url?.trim() ?? ''
+    const linkMissing = !reviewUrl.startsWith('https://')
     Object.assign(reviewPreview, {
-      eligible: !already && now >= dueAt && !paidInvoice.disputed,
+      eligible: !already && !linkMissing && now >= dueAt && !paidInvoice.disputed,
       customerId: reviewJob.customer_id,
       customerName: customerName(data, reviewJob.customer_id),
       subjectType: 'JOB',
       subjectId: reviewJob.id,
       dueAt: new Date(dueAt).toISOString(),
-      reason: already ? 'A review request was already logged.' : now >= dueAt ? 'Completed work is paid and the appreciation window is open.' : 'Waiting until roughly 24 hours after payment.',
-      blockedReason: already ? 'Exactly one review request is allowed.' : now < dueAt ? 'Not due yet.' : null,
+      reason: already ? 'A review request was already logged.' : linkMissing ? 'The Google review link is not configured.' : now >= dueAt ? 'Completed work is paid and the appreciation window is open.' : 'Waiting until roughly 24 hours after payment.',
+      blockedReason: already ? 'Exactly one review request is allowed.' : linkMissing ? 'Add the Google review link in Communication & AI settings.' : now < dueAt ? 'Not due yet.' : null,
       language: languageFor(data, reviewJob.customer_id),
-      draft: 'hey, we hope everything came out great. we appreciate you trusting us with the work. if you are happy with it, we would be grateful for a review.',
+      draft: linkMissing ? '' : `thanks again for choosing Monkey Trucking. if you would like to share your experience, you can leave a Google review here: ${reviewUrl}`,
     })
   }
   previews.push(reviewPreview)
-
-  const reactivationCustomer = data.customers.find((customer) => {
-    const paid = data.invoices.filter((invoice) => invoice.customer_id === customer.id && invoice.status === 'PAID').sort((a, b) => (b.paid_at ?? '').localeCompare(a.paid_at ?? ''))[0]
-    if (!paid?.paid_at || now - new Date(paid.paid_at).getTime() < 60 * DAY) return false
-    const activeLead = data.leads.some((lead) => lead.customer_id === customer.id && !['WON', 'LOST'].includes(lead.status))
-    const activeQuote = data.quotes.some((quote) => quote.customer_id === customer.id && ['DRAFT', 'SENT', 'ACCEPTED'].includes(quote.status))
-    const activeJob = data.jobs.some((job) => job.customer_id === customer.id && !['COMPLETED', 'CANCELLED'].includes(job.status))
-    return !activeLead && !activeQuote && !activeJob
-  })
-  const reactivate = base('reactivation', '60 day reactivation')
-  reactivate.stopConditions = ['Active lead, quote or job', 'Payment problem', 'Complaint', 'Opt out', 'Customer returned', 'Already sent']
-  if (reactivationCustomer) {
-    const paid = data.invoices.filter((invoice) => invoice.customer_id === reactivationCustomer.id && invoice.status === 'PAID').sort((a, b) => (b.paid_at ?? '').localeCompare(a.paid_at ?? ''))[0]
-    const dueAt = new Date(paid.paid_at!).getTime() + 60 * DAY
-    const language = languageFor(data, reactivationCustomer.id)
-    Object.assign(reactivate, {
-      eligible: now >= dueAt,
-      customerId: reactivationCustomer.id,
-      customerName: reactivationCustomer.name,
-      subjectType: 'CUSTOMER',
-      subjectId: reactivationCustomer.id,
-      dueAt: new Date(dueAt).toISOString(),
-      reason: 'Completed and paid work is past the one time reactivation point with no active work.',
-      blockedReason: null,
-      language,
-      draft: language === 'SPANISH' ? 'hola, nomás queríamos ver cómo siguen. si necesitan algo, aquí estamos a sus órdenes.' : 'hey, just checking in. if you need material or help with another project, we are here for you.',
-    })
-  }
-  previews.push(reactivate)
 
   return previews.map((preview) => {
     if (!preview.customerId) return preview

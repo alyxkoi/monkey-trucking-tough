@@ -177,11 +177,11 @@ export function deriveSettingsReadiness(data: ControlData | null): SettingsReadi
       ? ready('Business calling transport is verified.')
       : item('TEST_REQUIRED', 'Test required', 'A number exists, but calling and missed-call events are not verified.', ['Verify calling and missed-call webhooks.'])
 
-  const requiredRules = ['new-lead', 'missed-call', 'quote-follow-up', 'job-reminder', 'invoice-follow-up', 'review-request', 'reactivation']
+  const requiredRules = ['new-lead', 'missed-call', 'quote-follow-up', 'job-reminder', 'invoice-follow-up', 'review-request']
   const rulesPresent = requiredRules.every((id) => data.automations.some((rule) => rule.id === id))
   const enabledRuleCount = data.automations.filter((rule) => requiredRules.includes(rule.id) && rule.status === 'ON').length
   const automations = !rulesPresent
-    ? item('ERROR', 'Error', 'One or more approved automation rules is missing.', ['Restore all seven approved automation definitions.'])
+    ? item('ERROR', 'Error', 'One or more approved automation rules is missing.', ['Restore all six approved automation definitions.'])
     : data.aiIntegration.status === 'READY'
       ? data.communicationRuntime?.scheduled_sending_enabled
         ? item('READY', 'Enabled', `${enabledRuleCount} automation rule${enabledRuleCount === 1 ? '' : 's'} enabled. Eligibility and stop conditions remain enforced.`, [])

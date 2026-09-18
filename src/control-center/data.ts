@@ -1003,6 +1003,12 @@ export type CustomerEmailResult = {
   skipped?: boolean;
   reason?: string;
   providerMessageId?: string;
+  smsNotification?: {
+    status: "QUEUED" | "SKIPPED";
+    message_id?: string;
+    recipient_email?: string;
+    reason?: string;
+  };
 };
 
 async function functionErrorMessage(error: unknown): Promise<string> {

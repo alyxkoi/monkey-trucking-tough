@@ -79,14 +79,24 @@ describe('Phase 06 OpenAI intelligence safety contracts', () => {
     expect(decision.recommended_action).toBe('MANUAL_REPLY')
   })
 
-  it('builds all seven dry runs and preserves spouse context', () => {
+  it('builds all six active dry runs and preserves spouse context', () => {
     const previews = buildAutomationPreviews(createQaFixtureData(reference), reference.getTime())
     expect(previews.map((item) => item.ruleId)).toEqual([
       'new-lead', 'missed-call', 'quote-follow-up', 'job-reminder',
-      'invoice-follow-up', 'review-request', 'reactivation',
+      'invoice-follow-up', 'review-request',
     ])
     expect(previews.find((item) => item.ruleId === 'quote-follow-up')?.draft).toMatch(/wife/i)
     expect(previews.every((item) => item.transport === 'SETUP_REQUIRED')).toBe(true)
+  })
+
+  it('removes reactivation from active UI/runtime definitions and exposes the review link setting', () => {
+    expect(read('src/control-center/approved/state/automationData.ts')).not.toContain("id: 'reactivation'")
+    expect(read('src/control-center/ai/automationDryRun.ts')).not.toContain("base('reactivation'")
+    expect(read('src/control-center/approved/screens/CustomerDetail.tsx')).not.toContain('ReactivationPanel')
+    expect(read('src/control-center/approved/screens/settings/index.tsx')).toContain('label="Google review link"')
+    const migration = read('supabase/migrations/20260918210000_post_job_communications.sql')
+    expect(migration).toContain("if p_rule='reactivation' then return false")
+    expect(migration).toContain("where id='reactivation'")
   })
 
   it('enforces draft-only server and database boundaries', () => {

@@ -876,6 +876,7 @@ export function SettingsCommunication() {
   const [spanish, setSpanish] = useState(true)
   const [takeover, setTakeover] = useState(true)
   const [routeEnabled, setRouteEnabled] = useState(true)
+  const [reviewUrl, setReviewUrl] = useState('')
   const [initialReplyMinutes, setInitialReplyMinutes] = useState('0')
   const [openRule, setOpenRule] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -884,7 +885,7 @@ export function SettingsCommunication() {
   const [previewError, setPreviewError] = useState<Record<string, string>>({})
   const settings = sourceData?.controlSettings
   const automations = sourceData?.automations ?? []
-  const customerAutomations = automations.filter((rule) => rule.id !== 'human-takeover')
+  const customerAutomations = automations.filter((rule) => rule.id !== 'human-takeover' && rule.id !== 'reactivation')
   const previews = useMemo(() => sourceData ? buildAutomationPreviews(sourceData) : [], [sourceData])
   const aiIntegration = sourceData?.aiIntegration
   const readiness = deriveSettingsReadiness(sourceData ?? null)
@@ -915,6 +916,7 @@ export function SettingsCommunication() {
     setSpanish(settings.ai_spanish)
     setTakeover(true)
     setRouteEnabled(settings.route_intelligence_enabled !== false)
+    setReviewUrl(settings.review_url ?? '')
     setInitialReplyMinutes(String(Math.max(0, Math.round((settings.initial_response_target_seconds ?? 0) / 60))))
   }, [settings])
 
@@ -924,16 +926,33 @@ export function SettingsCommunication() {
       toast.error('First reply delay must be a whole number from 0 to 10 minutes.')
       return
     }
+    const normalizedReviewUrl = reviewUrl.trim()
+    if (normalizedReviewUrl) {
+      try {
+        const parsed = new URL(normalizedReviewUrl)
+        if (parsed.protocol !== 'https:' || parsed.username || parsed.password) throw new Error()
+      } catch {
+        toast.error('Enter a valid HTTPS Google review link.')
+        return
+      }
+    }
     setSaving(true)
     try {
       if (demo.enabled) {
         const now = new Date().toISOString()
-        demo.updateData((current) => ({ ...current, controlSettings: current.controlSettings ? { ...current.controlSettings, business_number: number.trim() || null, ai_english: english, ai_spanish: spanish, human_takeover_on_reply: takeover, route_intelligence_enabled: routeEnabled, route_status: routeEnabled ? current.controlSettings.route_status : 'OFF', initial_response_target_seconds: parsedReplyMinutes * 60, updated_at: now } : null }))
+        demo.updateData((current) => ({
+          ...current,
+          controlSettings: current.controlSettings ? { ...current.controlSettings, business_number: number.trim() || null, review_url: normalizedReviewUrl || null, ai_english: english, ai_spanish: spanish, human_takeover_on_reply: takeover, route_intelligence_enabled: routeEnabled, route_status: routeEnabled ? current.controlSettings.route_status : 'OFF', initial_response_target_seconds: parsedReplyMinutes * 60, updated_at: now } : null,
+          automations: current.automations.map((rule) => rule.id === 'review-request'
+            ? { ...rule, status: normalizedReviewUrl ? 'ON' : 'SETUP_REQUIRED', setup_reason: normalizedReviewUrl ? null : 'Add a valid HTTPS Google review link in Communication & AI settings.', updated_at: now }
+            : rule),
+        }))
         toast.success('Communication settings saved in demo memory.')
         return
       }
       const { error } = await controlDb.from('control_center_settings').update({
         business_number: number.trim() || null,
+        review_url: normalizedReviewUrl || null,
         ai_english: english,
         ai_spanish: spanish,
         human_takeover_on_reply: takeover,
@@ -976,7 +995,7 @@ export function SettingsCommunication() {
             line={readiness.capabilities.ai.reason}
           />
           <StatusRow label="AI replies" value={sourceData?.communicationRuntime?.ai_sending_enabled ? 'Enabled' : 'Off'} tone="ice" line="Automatic customer replies are separate from draft generation and require confirmed SMS consent." />
-          <StatusRow label="Scheduled SMS" value={sourceData?.communicationRuntime?.scheduled_sending_enabled ? 'Enabled' : 'Off'} tone="ice" line="Only enabled rules can send. Promotional messages remain blocked until campaign coverage is verified." />
+          <StatusRow label="Scheduled SMS" value={sourceData?.communicationRuntime?.scheduled_sending_enabled ? 'Enabled' : 'Off'} tone="ice" line="Only enabled rules can send. Eligibility and stop conditions are checked again immediately before delivery." />
           <StatusRow
             label="Transactional email"
             value={readiness.capabilities.email.label}
@@ -1018,6 +1037,14 @@ export function SettingsCommunication() {
             onChange={setInitialReplyMinutes}
             inputMode="numeric"
             hint="Minutes, from 0 to 10. Set to 0 for an immediate reply. Applies only to the first automated reply; ongoing replies stay immediate."
+          />
+          <TextField
+            label="Google review link"
+            value={reviewUrl}
+            onChange={setReviewUrl}
+            inputMode="url"
+            placeholder="https://g.page/r/.../review"
+            hint="The Review request automation turns on only after a valid HTTPS link is saved. It sends once, about 24 hours after confirmed payment for completed work."
           />
           <Toggle label="English" value={english} onChange={setEnglish} />
           <Toggle

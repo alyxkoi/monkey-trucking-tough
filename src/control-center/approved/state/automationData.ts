@@ -152,27 +152,6 @@ export const AUTOMATIONS: AutomationRule[] = [
     status: 'SETUP_REQUIRED',
     tunable: true,
   },
-  {
-    id: 'reactivation',
-    name: '60 day reactivation',
-    trigger: 'About 60 days after completed and paid work',
-    conditions: [
-      'No active lead',
-      'No active quote',
-      'No active job',
-      'No payment issue',
-      'No unresolved complaint',
-      'Customer has not opted out',
-      'Customer has not already come back',
-    ],
-    delay: 'About 60 days, once',
-    action: 'One warm, no pressure message offering to help again',
-    stopConditions: ['This is a single message and never repeats'],
-    fallback: 'Any reply moves it into a normal conversation',
-    log: 'Reactivation state on the customer timeline',
-    status: 'SETUP_REQUIRED',
-    tunable: true,
-  },
 ]
 
 /**
@@ -227,11 +206,5 @@ export const AI_SAMPLES: {
     language: 'English',
     context: 'Review request, about a day after payment',
     text: 'hey, hope the driveway is making getting in and out a lot easier now. we really appreciate you trusting us with the work. if you are happy with how everything came out, here is our google review link if you would like to share your experience.',
-  },
-  {
-    id: 'sample-8',
-    language: 'Spanish',
-    context: '60 day reactivation, one message only',
-    text: 'hola, nomás queríamos ver cómo siguen. si necesitan más material o tienen algún trabajo que necesiten hacer, aquí estamos a sus órdenes. cualquier cosa nos avisan.',
   },
 ]

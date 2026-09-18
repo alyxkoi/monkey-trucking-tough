@@ -48,6 +48,7 @@ beforeAll(async () => {
   db = new PGlite()
   await db.exec(`create role anon; create role authenticated; create role service_role;
     create schema auth; create function auth.uid() returns uuid language sql as 'select null::uuid';
+    create function auth.role() returns text language sql as 'select ''service_role''::text';
     create schema vault; create table vault.decrypted_secrets(name text,decrypted_secret text);
     create table tickets(id uuid primary key);
     create table user_roles(user_id uuid,role text);
@@ -58,6 +59,7 @@ beforeAll(async () => {
     await db.exec(ddl)
   }
   await db.exec(`alter table customers add sms_consent_at timestamptz,add sms_consent_source text,add sms_opted_out_at timestamptz;
+    create table email_send_log(id uuid primary key default gen_random_uuid(),template_type text,recipient_email text,customer_id uuid references customers(id),invoice_id uuid references invoices(id),status text,created_at timestamptz default now());
     create table contact_submissions(id uuid primary key,customer_id uuid,lead_id uuid,phone text,project_type text,message text,sms_consent boolean,sms_consent_at timestamptz,submitted_at timestamptz,consent_source text);
     insert into control_center_settings(id) values(1);
     insert into user_roles values('${actor}','admin');`)
@@ -74,6 +76,7 @@ beforeAll(async () => {
   await db.exec(read('20260915120000_ai_control_audit'))
   await db.exec(read('20260915193000_followup_completion'))
   await db.exec(read('20260915201500_outbound_receipt_reconciliation'))
+  await db.exec(read('20260918210000_post_job_communications'))
 }, 30_000)
 afterAll(async () => { await db?.close() })
 
@@ -156,33 +159,57 @@ describe.sequential('executed PostgreSQL SMS transactions', () => {
     } finally {await db.exec('rollback')}
   })
 
-  it('requires real paid/completed records and approval for one-time reviews and reactivation; never invents missed calls',async()=>{
+  it('requires real paid/completed records for one-time reviews and permanently disables SMS reactivation',async()=>{
     await db.exec('begin')
     try {
       const c=await customer('+12145550084')
-      await db.exec("update communication_runtime set scheduled_sending_enabled=true,activated_at='2026-01-01',marketing_approved=false; update automation_rules set status='ON'; update control_center_settings set review_url='https://example.com/review'")
-      await query("update customers set sms_double_opt_in_at=now(),sms_marketing_consent_at=now() where id=$1",[c.customerId])
+      await db.exec("update communication_runtime set scheduled_sending_enabled=true,activated_at='2026-01-01',marketing_approved=false; update automation_rules set status='ON' where id<>'reactivation'; update control_center_settings set review_url='https://example.com/review'")
+      await query("update customers set sms_double_opt_in_at=now(),sms_marketing_consent_at=null where id=$1",[c.customerId])
       await query("update leads set status='WON',created_at='2026-06-01' where id=$1",[c.leadId])
       const [j]=await query("insert into jobs(customer_id,category,status,scheduled_date,address,description,completed_at) values($1,'DRIVEWAY','COMPLETED','2026-07-16','Fixture','Fixture','2026-07-17T10:00:00-05') returning id",[c.customerId])
       const [i]=await query("insert into invoices(invoice_number,customer_id,job_id,amount_source,description,amount,status,paid_at) values('FLOW-I4',$1,$2,'JOB','Fixture',100,'PAID','2026-07-16T10:00:00-05') returning *",[c.customerId,j.id])
       const guard={subject_type:'INVOICE',subject_id:i.id,anchor:i.paid_at,version:i.updated_at,step:0}
       expect(await rpc('sms_automation_guard',['missed-call',c.leadId,guard])).toBe(false)
       expect(await rpc('sms_automation_guard',['reactivation',c.leadId,guard,'2026-09-15T10:05:00-05'])).toBe(false)
-      await db.exec('update communication_runtime set marketing_approved=true')
-      expect(await rpc('sms_automation_guard',['reactivation',c.leadId,guard,'2026-09-15T10:05:00-05'])).toBe(false)
+      expect(await rpc('sms_automation_guard',['review-request',c.leadId,guard,'2026-07-20T09:05:00-05'])).toBe(false)
       await query("insert into payments(invoice_id,customer_id,amount,method,confirmed_by,received_at) values($1,$2,100,'ACH','HUMAN','2026-07-16')",[i.id,c.customerId])
-      expect(await rpc('sms_automation_guard',['reactivation',c.leadId,guard,'2026-09-15T10:05:00-05'])).toBe(true)
       expect(await rpc('sms_automation_guard',['review-request',c.leadId,guard,'2026-07-20T09:05:00-05'])).toBe(true)
       expect((await query("select rule_id from communication_candidates('2026-07-20T09:05:00-05') where subject_id=$1",[i.id])).map(r=>r.rule_id)).toEqual(['review-request'])
+      expect((await query("select status from automation_rules where id='reactivation'"))[0].status).toBe('OFF')
       await db.exec("update control_center_settings set sms_status='READY'")
       await rpc('enqueue_sms',[c.leadId,'Fixture review','already-reviewed','AUTOMATION',actor,'fixture',null,'review-request',guard])
       expect(await rpc('sms_automation_guard',['review-request',c.leadId,guard,'2026-07-20T09:05:00-05'])).toBe(false)
-      await rpc('enqueue_sms',[c.leadId,'Fixture reactivation','already-reactivated','AUTOMATION',actor,'fixture',null,'reactivation',guard])
-      expect(await rpc('sms_automation_guard',['reactivation',c.leadId,guard,'2026-09-15T10:05:00-05'])).toBe(false)
       await db.exec('update control_center_settings set review_url=null')
       expect(await rpc('sms_automation_guard',['review-request',c.leadId,guard,'2026-07-20T09:05:00-05'])).toBe(false)
-      await query("insert into lead_messages(lead_id,customer_id,sender_type,body,created_at) values($1,$2,'CUSTOMER','Need more gravel','2026-08-01')",[c.leadId,c.customerId])
-      expect(await rpc('sms_automation_guard',['reactivation',c.leadId,guard,'2026-09-15T10:05:00-05'])).toBe(false)
+    } finally {await db.exec('rollback')}
+  })
+
+  it('queues one post-email SMS from the accepted recipient and never claims a failed email was sent',async()=>{
+    await db.exec('begin')
+    try {
+      const c=await customer('+12145550094')
+      await db.exec("update control_center_settings set sms_status='READY'; update communication_runtime set test_numbers=array['+12145550094']")
+      const [invoice]=await query("insert into invoices(invoice_number,customer_id,amount_source,description,amount,status) values('FLOW-N1',$1,'JOB','Fixture',100,'SENT') returning id",[c.customerId])
+      const [failed]=await query("insert into email_send_log(template_type,recipient_email,customer_id,invoice_id,status) values('INVOICE_READY','first@example.com',$1,$2,'failed') returning id",[c.customerId,invoice.id])
+      expect(await rpc('queue_invoice_email_notification',[failed.id,actor,'fixture'])).toMatchObject({status:'SKIPPED'})
+      expect((await query("select count(*)::int n from lead_messages where idempotency_key like 'invoice-email-notice:%'"))[0].n).toBe(0)
+
+      const [accepted]=await query("insert into email_send_log(template_type,recipient_email,customer_id,invoice_id,status) values('INVOICE_READY','First@Example.com',$1,$2,'accepted_by_provider') returning id",[c.customerId,invoice.id])
+      const first=await rpc('queue_invoice_email_notification',[accepted.id,actor,'fixture'])
+      const retry=await rpc('queue_invoice_email_notification',[accepted.id,actor,'fixture'])
+      expect(first).toMatchObject({status:'QUEUED',recipient_email:'first@example.com'})
+      expect(retry.message_id).toBe(first.message_id)
+      expect((await query('select body from lead_messages where id=$1',[first.message_id]))[0].body).toBe('we just sent your invoice to first@example.com. please check your inbox.')
+
+      const [resent]=await query("insert into email_send_log(template_type,recipient_email,customer_id,invoice_id,status) values('INVOICE_READY','latest@example.com',$1,$2,'accepted_by_provider') returning id",[c.customerId,invoice.id])
+      const second=await rpc('queue_invoice_email_notification',[resent.id,actor,'fixture'])
+      expect(second.message_id).not.toBe(first.message_id)
+      expect((await query('select body from lead_messages where id=$1',[second.message_id]))[0].body).toContain('latest@example.com')
+      expect((await query("select count(*)::int n from lead_messages where idempotency_key like 'invoice-email-notice:%'"))[0].n).toBe(2)
+
+      await query('update customers set sms_opted_out_at=now() where id=$1',[c.customerId])
+      const [blocked]=await query("insert into email_send_log(template_type,recipient_email,customer_id,invoice_id,status) values('INVOICE_READY','blocked@example.com',$1,$2,'accepted_by_provider') returning id",[c.customerId,invoice.id])
+      expect(await rpc('queue_invoice_email_notification',[blocked.id,actor,'fixture'])).toMatchObject({status:'SKIPPED',reason:expect.stringMatching(/opted out/i)})
     } finally {await db.exec('rollback')}
   })
   it('audits settings versions, rejects stale edits and runs a review at most every three days', async () => {

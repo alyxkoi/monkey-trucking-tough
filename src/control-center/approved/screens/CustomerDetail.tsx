@@ -17,7 +17,6 @@ import { LEAD_LABEL, LEAD_TONE, smsHref, telHref } from '@/control-center/approv
 import { useAppState } from '@/control-center/approved/state/AppState'
 import type { Activity, Message } from '@/control-center/approved/state/salesData'
 import { parseDateKey } from '@/control-center/approved/state/jobsData'
-import { ReactivationPanel } from '@/control-center/approved/components/automation/FollowUpState'
 import { Sheet } from '@/control-center/approved/components/shell/Sheet'
 
 type TimelineFilter = 'ALL' | 'CONVERSATIONS' | 'QUOTES' | 'JOBS' | 'TICKETS' | 'MONEY'
@@ -421,13 +420,6 @@ export function CustomerDetail() {
               </div>
             </Panel>
           )}
-
-          <ReactivationPanel
-            jobs={jobs}
-            invoices={invoices.filter((invoice) => invoice.customerId === customer.id)}
-            leads={leads}
-            quotes={quotes}
-          />
 
           <Panel title={<PanelTitle tone="muted">Notes</PanelTitle>}>
             <TextArea

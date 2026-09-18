@@ -33,11 +33,8 @@ export function scheduledResponse(context: FollowupContext): string {
     try { url = new URL(context.reviewUrl ?? '') } catch { throw new Error('Verified review URL is missing') }
     if (url.protocol !== 'https:' || url.username || url.password) throw new Error('Verified HTTPS review URL is required')
     // Ask everyone eligible, not only happy customers; never invent an outcome.
-    return es ? `gracias por confiar en Monkey Trucking con su ${work}. si desea compartir su experiencia, puede dejar una reseña aquí: ${url.href}`
-      : `thanks for trusting Monkey Trucking with your ${work}. if you would like to share your experience, you can leave a review here: ${url.href}`
+    return es ? `gracias por confiar en Monkey Trucking con su ${work}. si desea compartir su experiencia, puede dejar una reseña en Google aquí: ${url.href}`
+      : `thanks for trusting Monkey Trucking with your ${work}. if you would like to share your experience, you can leave a Google review here: ${url.href}`
   }
-  if (rule === 'reactivation') return es
-    ? `hola, somos Monkey Trucking. esperamos que todo siga bien desde su ${work}. si necesita material o tiene otro proyecto, aquí estamos a su servicio. responda STOP para dejar de recibir mensajes.`
-    : `hi, this is Monkey Trucking. we hope things are going well since your ${work}. if you need material or have another project in mind, we are here to help. reply STOP to opt out.`
   throw new Error('No verified trigger and response for this automation')
 }

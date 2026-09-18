@@ -225,6 +225,13 @@
       "when": 1789750472476,
       "tag": "0031_delivery_calendar_reservations",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1789765200000,
+      "tag": "0032_post_job_communications",
+      "breakpoints": true
     }
   ]
 }

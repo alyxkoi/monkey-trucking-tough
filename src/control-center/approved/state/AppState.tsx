@@ -970,9 +970,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (demo.enabled) { const now = new Date().toISOString(); demo.updateData((current) => ({ ...current, invoices: current.invoices.map((row) => row.id === id ? { ...row, status: 'SENT', issued_at: now, due_at: due.toISOString(), updated_at: now } : row) })); toast.info('Invoice email simulated in demo mode. No email was sent.'); return }
     setEmailSendingFor(id)
     try {
-      await sendCustomerEmail({ template: 'INVOICE_READY', recordId: id, requestId: crypto.randomUUID() })
+      const result = await sendCustomerEmail({ template: 'INVOICE_READY', recordId: id, requestId: crypto.randomUUID() })
       await refresh()
-      toast.success('Invoice emailed.')
+      if (result.smsNotification?.status === 'QUEUED') toast.success('Invoice emailed and the customer SMS was queued.')
+      else if (result.smsNotification?.status === 'SKIPPED') toast.info(`Invoice emailed. SMS notice skipped: ${result.smsNotification.reason ?? 'customer is not eligible for SMS'}`)
+      else toast.success('Invoice emailed.')
     } finally {
       setEmailSendingFor(null)
     }
@@ -982,9 +984,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (demo.enabled) { toast.info('Invoice resend simulated in demo mode. No email was sent.'); return }
     setEmailSendingFor(id)
     try {
-      await sendCustomerEmail({ template: 'INVOICE_READY', recordId: id, resend: true, requestId: crypto.randomUUID() })
+      const result = await sendCustomerEmail({ template: 'INVOICE_READY', recordId: id, resend: true, requestId: crypto.randomUUID() })
       await refresh()
-      toast.success('Invoice emailed again.')
+      if (result.smsNotification?.status === 'QUEUED') toast.success('Invoice emailed again and the customer SMS was queued.')
+      else if (result.smsNotification?.status === 'SKIPPED') toast.info(`Invoice emailed again. SMS notice skipped: ${result.smsNotification.reason ?? 'customer is not eligible for SMS'}`)
+      else toast.success('Invoice emailed again.')
     } finally {
       setEmailSendingFor(null)
     }
