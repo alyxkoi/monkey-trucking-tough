@@ -1515,6 +1515,7 @@ export type Database = {
           created_by: string | null
           customer_id: string
           delivery_address: string | null
+          delivery_reserved_at: string | null
           handoff_ack_message_id: string | null
           human_takeover: boolean
           id: string
@@ -1527,6 +1528,8 @@ export type Database = {
           requested_delivery_date: string | null
           requested_delivery_text: string | null
           requested_delivery_time: string | null
+          reserved_delivery_date: string | null
+          reserved_delivery_time: string | null
           route_evidence_calculated_at: string | null
           route_evidence_fingerprint: string | null
           route_evidence_miles: number | null
@@ -1543,6 +1546,7 @@ export type Database = {
           created_by?: string | null
           customer_id: string
           delivery_address?: string | null
+          delivery_reserved_at?: string | null
           handoff_ack_message_id?: string | null
           human_takeover?: boolean
           id?: string
@@ -1555,6 +1559,8 @@ export type Database = {
           requested_delivery_date?: string | null
           requested_delivery_text?: string | null
           requested_delivery_time?: string | null
+          reserved_delivery_date?: string | null
+          reserved_delivery_time?: string | null
           route_evidence_calculated_at?: string | null
           route_evidence_fingerprint?: string | null
           route_evidence_miles?: number | null
@@ -1571,6 +1577,7 @@ export type Database = {
           created_by?: string | null
           customer_id?: string
           delivery_address?: string | null
+          delivery_reserved_at?: string | null
           handoff_ack_message_id?: string | null
           human_takeover?: boolean
           id?: string
@@ -1583,6 +1590,8 @@ export type Database = {
           requested_delivery_date?: string | null
           requested_delivery_text?: string | null
           requested_delivery_time?: string | null
+          reserved_delivery_date?: string | null
+          reserved_delivery_time?: string | null
           route_evidence_calculated_at?: string | null
           route_evidence_fingerprint?: string | null
           route_evidence_miles?: number | null
@@ -2877,6 +2886,15 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_ai_lifecycle_before_calendar: {
+        Args: {
+          p_expected_revision: number
+          p_lead_id: string
+          p_plan: Json
+          p_source_message_id: string
+        }
+        Returns: Json
+      }
       apply_ai_material_to_quote: {
         Args: {
           p_expected_revision: number
@@ -2912,6 +2930,10 @@ export type Database = {
       automation_rule_enabled: {
         Args: { p_guard: Json; p_lead: string; p_rule: string }
         Returns: boolean
+      }
+      check_delivery_slot: {
+        Args: { p_date: string; p_lead_id?: string; p_time: string }
+        Returns: Json
       }
       claim_communication_job: { Args: never; Returns: Json }
       claim_communication_job_by_id: {
@@ -3189,6 +3211,15 @@ export type Database = {
       delete_tracking_link_if_unused: {
         Args: { p_tracking_link_id: string }
         Returns: Json
+      }
+      delivery_slot_available: {
+        Args: {
+          p_date: string
+          p_job_id?: string
+          p_lead_id?: string
+          p_time: string
+        }
+        Returns: boolean
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {

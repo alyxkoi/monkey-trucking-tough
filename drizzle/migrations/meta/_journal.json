@@ -218,6 +218,13 @@
       "when": 1789745800093,
       "tag": "0030_quote_intake_continuity",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1789750472476,
+      "tag": "0031_delivery_calendar_reservations",
+      "breakpoints": true
     }
   ]
 }
