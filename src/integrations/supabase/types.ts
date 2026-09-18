@@ -2967,6 +2967,18 @@ export type Database = {
           subject_type: string
         }[]
       }
+      communication_candidates_before_post_job: {
+        Args: { p_now?: string }
+        Returns: {
+          due_at: string
+          guard: Json
+          lead_id: string
+          rule_id: string
+          step: number
+          subject_id: string
+          subject_type: string
+        }[]
+      }
       communication_job_eligible: {
         Args: { p_job_id: string; p_lease_token: string }
         Returns: boolean
@@ -3418,6 +3430,10 @@ export type Database = {
         }
         Returns: Json
       }
+      queue_invoice_email_notification: {
+        Args: { p_actor_id: string; p_log_id: string; p_template_id?: string }
+        Returns: Json
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -3560,6 +3576,15 @@ export type Database = {
         Returns: boolean
       }
       sms_automation_guard_baseline: {
+        Args: {
+          p_guard: Json
+          p_lead_id: string
+          p_now?: string
+          p_rule: string
+        }
+        Returns: boolean
+      }
+      sms_automation_guard_before_post_job: {
         Args: {
           p_guard: Json
           p_lead_id: string
