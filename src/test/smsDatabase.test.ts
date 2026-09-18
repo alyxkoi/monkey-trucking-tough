@@ -83,6 +83,9 @@ describe.sequential('executed PostgreSQL SMS transactions', () => {
     try {
       const c=await customer('+12145550081')
       await db.exec("update communication_runtime set scheduled_sending_enabled=true,activated_at=now()-interval '2 days',business_days=array[1,2,3,4,5,6,7],business_start_hour=0,business_end_hour=23,timezone='America/Chicago'; update control_center_settings set sms_status='READY',business_number='+19453750877'; update automation_rules set status='OFF'; update automation_rules set status='ON' where id='invoice-follow-up'")
+      // This fixture exercises dispatch, not quiet hours. Keep its local clock
+      // at noon even when CI runs after 23:00; the transaction rolls this back.
+      await db.exec("update communication_runtime set timezone=(select name from pg_timezone_names where name like 'Etc/GMT%' and extract(hour from now() at time zone name)=12 limit 1)")
       await query('update customers set sms_double_opt_in_at=now() where id=$1',[c.customerId])
       const [invoice]=await query("insert into invoices(invoice_number,customer_id,amount_source,description,amount,status,issued_at,due_at) values('FLOW-I1',$1,'JOB','Fixture only',321.45,'SENT',now()-interval '1 day',now()-interval '1 minute') returning id",[c.customerId])
       await query("update automation_rules set status='SETUP_REQUIRED',verification_subject_id=$1,verification_until=now()+interval '10 minutes' where id='invoice-follow-up'",[invoice.id])
