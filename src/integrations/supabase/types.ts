@@ -1521,7 +1521,6 @@ export type Database = {
           last_contact_at: string | null
           lost_reason: string | null
           need: string
-          notes: string | null
           quote_confirmed_email: string | null
           quote_requested_at: string | null
           requested_delivery_date: string | null
@@ -1549,7 +1548,6 @@ export type Database = {
           last_contact_at?: string | null
           lost_reason?: string | null
           need: string
-          notes?: string | null
           quote_confirmed_email?: string | null
           quote_requested_at?: string | null
           requested_delivery_date?: string | null
@@ -1577,7 +1575,6 @@ export type Database = {
           last_contact_at?: string | null
           lost_reason?: string | null
           need?: string
-          notes?: string | null
           quote_confirmed_email?: string | null
           quote_requested_at?: string | null
           requested_delivery_date?: string | null
