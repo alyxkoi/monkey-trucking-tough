@@ -2,7 +2,7 @@
 import { isSimpleAcceptance, materialCandidates, resolveConversationQuantity, type QuantityResolution } from './material-intelligence.ts'
 import { addressClarification, addressFromText, calculateDeliveryRoute, deliveryForMiles, type RouteResult } from './route-intelligence.ts'
 import { assertCustomerText, composeConversationResponse, responsePlanSchema, sanitizeResponsePlanWording } from './conversation-response.ts'
-import { additionalYards, appendLeadMilestone, dashboardPlanSchema, explicitFullRecap, leadMilestoneQuestion, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName, isQuoteApproval } from './lifecycle.ts'
+import { additionalYards, appendLeadMilestone, dashboardPlanSchema, explicitFullRecap, leadMilestoneQuestion, materialClarification, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName, isQuoteApproval } from './lifecycle.ts'
 
 export const PROMPT_VERSION = 'mt-ai-lifecycle-v16'
 
@@ -582,7 +582,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       ['ROUTE_CALCULATED','UNAVAILABLE'].includes(route.status)) {
       const language=clarificationLanguage(messages.filter((m:any)=>m.sender_type==='CUSTOMER').map((m:any)=>m.body).join(' '))
       const priced=pricing.status==='MATERIAL_CALCULATED'
-      const reply=route.status==='UNAVAILABLE'?(language==='SPANISH'?'ya tengo la dirección. la verificación de la ruta no está disponible ahora, pero no necesita enviarla otra vez.':'got it, I have the delivery address. route verification is temporarily unavailable, but you do not need to send it again.'):(language==='SPANISH'?'ya tengo su dirección de entrega. qué material y cuántas yardas necesita?':'I have your delivery address. what material and how many yards do you need?')
+      const reply=route.status==='UNAVAILABLE'?(language==='SPANISH'?'ya tengo la dirección. la verificación de la ruta no está disponible ahora, pero no necesita enviarla otra vez.':'got it, I have the delivery address. route verification is temporarily unavailable, but you do not need to send it again.'):`${language==='SPANISH'?'ya tengo su dirección de entrega.':'I have your delivery address.'} ${materialClarification(quantity,language==='SPANISH')}`
       decision={detected_language:language,customer_intent:'DELIVERY_ADDRESS_RECEIVED',extracted_facts:[],known_facts:authoritativeFacts,missing_facts:[],uncertain_facts:[],ai_may_continue:true,requires_human:false,escalation_reason:null,recommended_action:priced?'PROVIDE_STANDARD_PRICE':'ASK_NEXT_MISSING_FACT',draft_reply:reply,confidence:'HIGH',deterministic_pricing_required:priced,payment_claim_detected:false}
       timings.deterministic_address_reply=true
       timings.openai_skipped_reason=route.status==='UNAVAILABLE'?'Known address preserved during route failure.':'Verified address handled deterministically.'

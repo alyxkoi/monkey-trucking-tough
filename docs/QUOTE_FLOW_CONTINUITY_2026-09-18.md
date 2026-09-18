@@ -16,6 +16,8 @@ The normal website attribution bug came from browser-wide campaign storage lasti
 - Render the final delivered recap from verified subtotal, delivery, tax and total before asking for quote preparation. Requested dates are not represented as booked appointments.
 - Preserve quote approval through subsequent turns; discard contradictory model missing-fact labels and repeated approval questions. Use concise recalculated-total acknowledgements for quantity corrections.
 - Keep verified route evidence independent of material selection.
+- Live smoke testing additionally caught a same-sentence scheduling suffix being passed to Google as part of the address. Strip explicit relative-date/time tails after the street while preserving the original message for date extraction and keeping street names intact.
+- Address-reply clarification asks only for the unresolved material choice when quantity is already known, rather than requesting both material and yards again.
 - Reuse the latest recent audited calculation for manual quote preparation only across acknowledgement-only messages, never across unprocessed corrections/addresses/material changes. Existing transactional quote tools remain authoritative and idempotent.
 - Add amber Quote Ready presentation using existing staff actions and attention architecture. Later successful replies supersede historical failed sends; unresolved send errors still remain failures.
 - Add collapsed staff diagnostics spanning ingress, queue, context, tools/model, lifecycle, reservation and provider submission. Record whether the first committed inbound came from WEBHOOK or RECONCILIATION. Unknown historical timings stay unknown. Timing persistence cannot trigger a resend or fail a committed inbound.

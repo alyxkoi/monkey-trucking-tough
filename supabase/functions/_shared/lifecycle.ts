@@ -179,6 +179,18 @@ export function explicitFullRecap(text:string) {
   return /\b(?:recap|summari[sz]e|what (?:information|details) do you have|what do you have (?:for|so far|me down for)|repas[oa]|resumen|qu[eé] (?:informaci[oó]n|datos) tiene)\b/i.test(text)
 }
 
+export function materialClarification(quantity:any,es:boolean) {
+  if(quantity?.input_value&&!quantity?.material_name) {
+    const names=(quantity.material_candidates??[]).slice(0,3).map((m:any)=>String(m.name).replace(/[—–-]/g,' '))
+    return names.length>1
+      ? (es?`cuál prefiere: ${names.join(' o ')}?`:`which would you like: ${names.join(' or ')}?`)
+      : (es?'qué material necesita?':'which material do you need?')
+  }
+  return quantity?.material_name
+    ? (es?`cuántas yardas de ${String(quantity.material_name).replace(/[—–-]/g,' ')} necesita?`:`how many yards of ${String(quantity.material_name).replace(/[—–-]/g,' ')} do you need?`)
+    : (es?'qué material y cuántas yardas necesita?':'what material and how many yards do you need?')
+}
+
 export function leadMilestoneQuestion(input:{proposal:any;lifecycle:any;pricing:any;route:any;quantity:any;customer:any;language:string}) {
   const {proposal,lifecycle,pricing,route,quantity,customer}=input
   if(lifecycle.reactive||proposal.clarification||proposal.actions?.some((a:string)=>['HUMAN_REQUEST','COMPLAINT','PAYMENT_CLAIM'].includes(a)))return null
@@ -186,9 +198,7 @@ export function leadMilestoneQuestion(input:{proposal:any;lifecycle:any;pricing:
   const choose=(en:string,sp:string)=>es?sp:en
   if(!knownCustomerName(proposal.current?.name??customer?.name))return choose('what name should I put on the request?','qué nombre pongo en la solicitud?')
   if(quantity?.status!=='RESOLVED') {
-    return quantity?.material_name
-      ? choose(`how many yards of ${String(quantity.material_name).replace(/[—–-]/g,' ')} do you need?`,`cuántas yardas de ${String(quantity.material_name).replace(/[—–-]/g,' ')} necesita?`)
-      : choose('what material and how many yards do you need?','qué material y cuántas yardas necesita?')
+    return materialClarification(quantity,es)
   }
   if(!route?.destination)return choose('what is the exact delivery address?','cuál es la dirección exacta de entrega?')
   if(!proposal.current?.date)return choose('what delivery date and time work best for you?','qué fecha y hora de entrega le funcionan mejor?')

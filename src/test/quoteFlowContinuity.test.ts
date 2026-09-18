@@ -26,6 +26,14 @@ function onlyRoutes(){
   vi.stubGlobal('fetch',fetcher);return fetcher
 }
 describe('real confirmation failure sequence through the production sandbox',()=>{
+  it('keeps known yards while clarifying the material after an address reply',async()=>{
+    onlyRoutes()
+    const result=await simulateConversation(service(),{messages:[c('my name is Mike'),c('20 yards crushed concrete'),c('123 Oak Road, Kaufman TX 75142')]},config)
+    expect(result.reply).toContain('Commercial Crushed Concrete Clean or 3x4 Crushed Concrete')
+    expect(result.reply).not.toMatch(/how many|what material and/)
+    expect(result.tool_results.quantity.input_value).toBe(20)
+    expect(result.tool_results.timings.model_attempts).toBe(0)
+  })
   it.each(['yes','yes please','sure','please do','send it','yeah'])('resolves material, displays verified totals, approves once and confirms recipient: %s',async answer=>{
     onlyRoutes()
     const selected=await simulateConversation(service(),{messages:[...intake,c(answer)]},config)

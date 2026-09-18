@@ -41,7 +41,12 @@ export function addressFromText(text: string) {
   const compact = text.replace(/\r?\n+/g, ', ').replace(/\s+/g, ' ').trim()
   const street = /\b\d{1,6}\s+(?:[a-z.'’]+\s+){0,7}(?:road|rd|street|st|avenue|ave|lane|ln|drive|dr|highway|hwy|expressway|expy|parkway|pkwy|boulevard|blvd|court|ct|circle|cir|trail|trl|way|fm|county road|cr)\b/i.exec(compact)
   if (!street) return null
-  return compact.slice(street.index).split(/[?!]|\.\s+(?=[A-Z])|\s+(?:i['’]?m|i am|i need|i want|looking to|looking for)\b/i)[0].replace(/[.,\s]+$/, '').slice(0, 240)
+  const candidate=compact.slice(street.index).split(/[?!]|\.\s+(?=[A-Z])|\s+(?:i['’]?m|i am|i need|i want|looking to|looking for)\b/i)[0]
+  // Keep street names intact, but do not geocode a delivery preference as part
+  // of the city/ZIP. Date/time extraction still reads the original message.
+  const streetEnd=street[0].length
+  const locality=candidate.slice(streetEnd).split(/\s+(?:(?:for|on|para|el)\s+)?(?:tomorrow|today|tonight|ma[nñ]ana|hoy)\b|\s+(?:at|a las)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/i)[0]
+  return (candidate.slice(0,streetEnd)+locality).replace(/[.,\s]+$/, '').slice(0, 240)
 }
 
 function postalCodeFromText(text: string) {

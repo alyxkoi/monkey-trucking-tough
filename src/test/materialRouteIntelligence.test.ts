@@ -18,6 +18,12 @@ const settings = {
 }
 
 describe('material and route intelligence', () => {
+  it.each(['tomorrow at 1pm','for tomorrow at 1pm','today at 8am','mañana a las 1pm','at 1pm'])('excludes the scheduling tail from routing: %s',when=>{
+    expect(resolveDeliveryAddress([{sender_type:'CUSTOMER',body:`20 yards delivered to 1237 Eastside Dr, Mesquite TX 75149 ${when}.`}],null,[])).toBe('1237 Eastside Dr, Mesquite TX 75149')
+  })
+  it('does not trim a street name that resembles a scheduling word',()=>{
+    expect(resolveDeliveryAddress([{sender_type:'CUSTOMER',body:'123 Tomorrow Road, Kaufman TX 75142'}],null,[])).toBe('123 Tomorrow Road, Kaufman TX 75142')
+  })
   it('uses a corrected ZIP instead of retaining the ZIP on the earlier address', () => {
     expect(resolveDeliveryAddress([
       {sender_type:'CUSTOMER',body:'839 S Good Latimer Expy, Dallas, TX 75204'},
