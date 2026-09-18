@@ -196,7 +196,7 @@ export function LeadDetail() {
       />
 
       {entry && <AttentionBanner entry={entry} />}
-      <AiStaffActions actions={(sourceData?.staffActions??[]).filter(action=>action.entity_id===lead.id)} onResolved={refresh}/>
+      <AiStaffActions actions={(sourceData?.staffActions??[]).filter(action=>action.entity_id===lead.id)} onResolved={refresh} onPriceRequest={quote?openQuote:startQuote}/>
       <CommunicationDiagnostics audit={latestAiAudit}/>
 
       {lead.needsSalvador && (

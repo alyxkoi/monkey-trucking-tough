@@ -182,6 +182,7 @@ export function mapQuotes(data: ControlData): Quote[] {
         requestedDeliveryDate: row.requested_delivery_date ?? sourceLead?.requested_delivery_date ?? undefined,
         requestedDeliveryTime: (row.requested_delivery_time ?? sourceLead?.requested_delivery_time)?.slice(0, 5) || undefined,
         requestedDeliveryText: sourceLead?.requested_delivery_text ?? undefined,
+        notes: row.notes ?? '',
         materialLines: data.quoteItems.filter((item) => item.quote_id === row.id && item.kind === 'MATERIAL').map(quoteLine),
         customLines: data.quoteItems
           .filter((item) => item.quote_id === row.id && item.kind === 'CUSTOM_WORK')

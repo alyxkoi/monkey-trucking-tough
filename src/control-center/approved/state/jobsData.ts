@@ -94,7 +94,7 @@ export function reminderFor(job: Job): { at: number; skipped: boolean } {
   return { at, skipped: job.createdAt > at }
 }
 
-export function formatTime(job: Job): string {
+export function formatTime(job: Pick<Job,'allDay'|'time'>): string {
   if (job.allDay || !job.time) return 'ALL DAY'
   const [hours, minutes] = job.time.split(':').map(Number)
   const meridiem = hours >= 12 ? 'PM' : 'AM'

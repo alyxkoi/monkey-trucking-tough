@@ -47,7 +47,13 @@ export async function simulateConversation(service: any, input: any, config: AiC
     if(proposal.quote_requested)rows.leads.quote_requested_at=new Date().toISOString()
     if(proposal.requested_date&&(!proposal.clarification||proposal.clarification==='DATE_TIME')){const priorDate=rows.leads.requested_delivery_date;rows.leads.requested_delivery_date=proposal.requested_date;rows.leads.requested_delivery_time=proposal.requested_time??(priorDate===proposal.requested_date?rows.leads.requested_delivery_time:null)}
   }
-  const fake = { from(table: string) {
+  const fake = { async rpc(name:string,args:any) {
+    if(name!=='check_delivery_slot')throw new Error('Sandbox blocked write RPC: '+name)
+    // Production sandbox uses the actual read-only calendar RPC. Unit fixtures
+    // can supply a calendar without gaining any access to production writes.
+    if(typeof service.rpc==='function')return service.rpc(name,{...args,p_lead_id:null})
+    return {data:{status:'AVAILABLE',date:args.p_date,time:args.p_time},error:null}
+  }, from(table: string) {
     if (!(table in rows)) throw new Error('Sandbox blocked database access: '+table)
     const result = { data:rows[table],error:null }
     const chain:any = { then:(resolve:any)=>Promise.resolve(result).then(resolve) }

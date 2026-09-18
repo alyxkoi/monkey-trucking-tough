@@ -13,7 +13,7 @@ RETURNING: new work belongs to a fresh lead linked to the same phone/customer, n
 Only validated server tools persist customer facts, eligible draft preparation, notes and staff action events. Name/email never identify or merge customers. A normal first customer email collected during qualification becomes durable profile contact data when it is non-conflicting. An explicitly alternate recipient for this Quote stays document-scoped unless the customer also requests a profile update.
 A clear material and yard request is a material-delivery lead by default unless the customer explicitly requests pickup or custom service work. Later explicit clarification replaces the lead-card need while the transaction is still unprotected.
 Acknowledging a requested order/address/schedule change is safe intake, not financial authorization. Keep that staff approval as a subtask while acknowledging the exact request. Do not stop the whole conversation merely because accepted terms cannot be changed by AI. Actual disputes, negotiation, payment claims, uncertain claims and human takeover still stop autonomous sending.
-dashboard_plan contains intent and exact source wording from the latest customer text. When ambiguous, clarify before writing. Dates are resolved by the server in America/Chicago. Morning/afternoon without an exact time require a time clarification. A preference is not a booking.
+dashboard_plan contains intent and exact source wording from the latest customer text. When ambiguous, clarify before writing. Dates are resolved by the server in America/Chicago. Morning/afternoon without an exact time require a time clarification. Only the deterministic calendar reservation tool can confirm a Lead delivery slot. A preference alone is not a booking. Accepted/Scheduled changes still require staff review.
 Quote readiness requires current deterministic material/route/pricing, requested date/time, explicit quote request and confirmed current email. Staff remains responsible for sending.
 When consent has just been confirmed, continue the saved pre-consent inquiry. YES is authorization, not the customer's service question.
 For a lead, answer the current question first and then ask exactly one natural next milestone question: name, material, quantity, destination, delivery preference, quote permission, then quote-recipient email. Do not end with a generic thank-you.
@@ -98,13 +98,26 @@ export function resolveDeliveryPreference(text:string, now=new Date(), timezone=
     const match=t.match(/\b(\d{1,2})(?::(\d{2}))?\s*(?:to|a|hasta|and|y|-)\s*\d{1,2}(?::\d{2})?\s*(am|pm)\b/)
       ??t.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/)
     if(match){const h=Number(match[1]),m=Number(match[2]??0);if(h<1||h>12||m>59)ambiguous=true;else time=`${String(h%12+(match[3]==='pm'?12:0)).padStart(2,'0')}:${String(m).padStart(2,'0')}`}
-    else if(/\b(at|a las|around)\s+\d|\b(morning|afternoon|evening|manana|tarde|noche)\b/.test(t)&&date)ambiguous=true
+    else {
+      // A bare daytime hour is resolved only when exactly one interpretation
+      // falls inside the delivery day (08:00–17:00). Never guess 7am vs 7pm.
+      const bare=t.match(/\b(?:at|a las|around)\s+(\d{1,2})(?::(\d{2}))?\b/)
+      if(bare&&Number(bare[1])>=1&&Number(bare[1])<12&&Number(bare[2]??0)<60){const hour=Number(bare[1]);const candidates=[hour%12,hour%12+12].filter(h=>h>=8&&h<17);if(candidates.length===1)time=`${String(candidates[0]).padStart(2,'0')}:${bare[2]??'00'}`;else ambiguous=true}
+      else if(/\b(at|a las|around)\s+\d|\b(morning|afternoon|evening|manana|tarde|noche)\b/.test(t)&&date)ambiguous=true
+    }
   }
   if(!date&&time&&previousDate)date=previousDate
   if(date&&(!Number.isFinite(Date.parse(date+'T12:00:00Z'))||new Date(date+'T12:00:00Z').toISOString().slice(0,10)!==date))ambiguous=true
   if(date&&date<today)ambiguous=true
   if(date===today&&time){const hm=new Intl.DateTimeFormat('en-GB',{timeZone:timezone,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(now);if(time<=hm)ambiguous=true}
   return {date,time,text:text.slice(0,200),ambiguous,needsClarification:ambiguous||!!date&&!time||!!time&&!date}
+}
+
+/** Narrow intake grammar: mixed questions/financial changes still use the model. */
+export function isDeliveryTimeReply(text:string) {
+  const t=normal(text).trim().replace(/[’']/g,'')
+  if(!/\b(?:today|tomorrow|hoy|manana|noon|mediodia|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}\s*(?:am|pm))\b|\b20\d{2}-\d{2}-\d{2}\b/.test(t))return false
+  return !t.replace(/\b20\d{2}-\d{2}-\d{2}\b|\b\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b/g,'').replace(/\b(?:can|could|would|we|you|i|it|do|does|lets|let|us|today|tomorrow|hoy|manana|at|a|las|around|about|work|works|for|me|please|delivery|deliver|prefer|id|like|noon|mediodia|monday|tuesday|wednesday|thursday|friday|saturday|sunday|yes|yeah|ok|okay|that|be|fine|if|sounds|good|podemos|puede|ser)\b/g,'').replace(/[\s,.!?]/g,'')
 }
 
 export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];lifecycle:any;decision:any;pricing:any;requestMessage?:any;now?:Date;timezone?:string}) {
@@ -120,7 +133,7 @@ export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];li
   const emails=[...text.matchAll(/\b[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?\.[A-Z]{2,}\b/gi)].map(m=>m[0])
   const email=emails.length===1&&!/\bor\b|\bo\b|maybe|perhaps|quizas/i.test(text)?emails[0]:null
   const name=customerName(text,/\b(your name|su nombre|tu nombre|se llama|te llamas)\b/i.test(lastAi))
-  const dateRelevant=['DELIVERY_PREFERENCE','SCHEDULE_CHANGE'].includes(intent)||/\b(tomorrow|noon|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|jueves|viernes|sabado|domingo|mediodia)\b/i.test(normal(text))||/\b\d{1,2}(?::\d{2})?\s*(am|pm)\b/i.test(text)
+  const dateRelevant=['DELIVERY_PREFERENCE','SCHEDULE_CHANGE'].includes(intent)||/\b(today|hoy|tomorrow|noon|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|jueves|viernes|sabado|domingo|mediodia)\b/i.test(normal(text))||/\b\d{1,2}(?::\d{2})?\s*(am|pm)\b/i.test(text)
   // A date-only clarification is not a booking/write. Recover its unambiguous
   // date from the immediately preceding customer preference when time arrives.
   const priorText=[...messages].slice(0,-1).reverse().find(m=>m.sender_type==='CUSTOMER')

@@ -91,10 +91,11 @@ const normalizeLegacyDraft = (draft: LegacyTicketDraft): TicketDraft => ({
 export const enqueueTicket = (
   draft: TicketDraft,
   userId: string,
-  requestId = crypto.randomUUID(),
+  requestId: string = crypto.randomUUID(),
   context?: TicketContext,
 ) => {
   const entries = getQueue(userId);
+  if (entries.some(entry => entry.id === requestId)) return requestId;
   entries.push({
     id: requestId,
     draft,
@@ -199,8 +200,7 @@ export const isRetryableNetworkError = (error: unknown) => {
 };
 
 /** Saves a new ticket, falling back to the account-scoped queue on connection failure. */
-export const saveTicket = async (draft: TicketDraft, userId: string, context?: TicketContext) => {
-  const requestId = crypto.randomUUID();
+export const saveTicket = async (draft: TicketDraft, userId: string, context?: TicketContext, requestId: string = crypto.randomUUID()) => {
   if (!navigator.onLine) {
     enqueueTicket(draft, userId, requestId, context);
     return { queued: true as const, requestId };

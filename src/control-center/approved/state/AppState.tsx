@@ -120,6 +120,7 @@ export type ScheduleJobInput = {
 }
 
 export type SaveTicketInput = {
+  requestId?: string
   customerId: string
   jobId?: string
   driverId: string
@@ -834,7 +835,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       return id
     }
     if (!user?.id) throw new Error('Sign in is required')
-    const result = await saveTicketRecord(toTicketDraft(input), user.id, { customerId: input.customerId, jobId: input.jobId })
+    const result = await saveTicketRecord(toTicketDraft(input), user.id, { customerId: input.customerId, jobId: input.jobId }, input.requestId)
     setPendingVersion((value) => value + 1)
     if (!result.queued) await refresh()
     return result.queued ? result.requestId : result.ticket.id

@@ -28,6 +28,7 @@ import {
 } from '@/control-center/approved/state/pricing'
 import { useDemoMode } from '@/control-center/demo/DemoMode'
 import { QA_MISSING_DELIVERY_CUSTOMER_ID, QA_MISSING_DELIVERY_MATERIAL_ID } from '@/control-center/demo/constants'
+import { jobOrder } from '@/control-center/approved/state/jobOrder'
 
 /**
  * Ticket builder.
@@ -37,6 +38,14 @@ import { QA_MISSING_DELIVERY_CUSTOMER_ID, QA_MISSING_DELIVERY_MATERIAL_ID } from
  * by a save that cannot reach the server, it queues instead.
  */
 export function TicketBuilder() {
+  const {booting}=useAppState()
+  const {ticketId}=useParams()
+  const [params]=useSearchParams()
+  if(booting)return <Panel><p role="status">Loading ticket details…</p></Panel>
+  return <TicketBuilderForm key={ticketId??`new:${params.get('job')??''}`}/>
+}
+
+function TicketBuilderForm() {
   const { ticketId } = useParams()
   const [params] = useSearchParams()
   const navigate = useNavigate()
@@ -45,6 +54,7 @@ export function TicketBuilder() {
     customers,
     customerById,
     jobById,
+    quoteById,
     ticketById,
     saveTicket,
     updateTicket,
@@ -55,6 +65,7 @@ export function TicketBuilder() {
 
   const editing = ticketId ? ticketById(ticketId) : undefined
   const fromJob = params.get('job') ? jobById(params.get('job') as string) : undefined
+  const order=fromJob?jobOrder(fromJob,fromJob.quoteId?quoteById(fromJob.quoteId):undefined):null
   const missingDeliveryFixture = demo.enabled && params.get('fixture') === 'missing-delivery'
   const missingDeliveryMaterial = missingDeliveryFixture ? materialById(QA_MISSING_DELIVERY_MATERIAL_ID) : undefined
 
@@ -62,15 +73,15 @@ export function TicketBuilder() {
     editing?.customerId ?? fromJob?.customerId ?? (missingDeliveryFixture ? QA_MISSING_DELIVERY_CUSTOMER_ID : ''),
   )
   const [driverId, setDriverId] = useState(editing?.driverId ?? '')
-  const [address, setAddress] = useState(editing?.address ?? fromJob?.address ?? (missingDeliveryFixture ? '2290 County Road 4104, Kaufman' : ''))
-  const [lines, setLines] = useState<MaterialLine[]>(editing?.materialLines ?? (missingDeliveryMaterial ? [buildMaterialLine('qa-missing-delivery-line', missingDeliveryMaterial, { isFullLoad: true, loads: 1 })] : []))
+  const [address, setAddress] = useState(editing?.address ?? order?.address ?? fromJob?.address ?? (missingDeliveryFixture ? '2290 County Road 4104, Kaufman' : ''))
+  const [lines, setLines] = useState<MaterialLine[]>(editing?.materialLines ?? order?.materialLines ?? (missingDeliveryMaterial ? [buildMaterialLine('qa-missing-delivery-line', missingDeliveryMaterial, { isFullLoad: true, loads: 1 })] : []))
   const [delivery, setDelivery] = useState<DeliverySelection>(
-    editing?.delivery ?? { mode: 'UNSET' },
+    editing?.delivery ?? order?.delivery ?? { mode: 'UNSET' },
   )
-  const [deliveryLoads, setDeliveryLoads] = useState(editing?.deliveryLoads ?? 1)
+  const [deliveryLoads, setDeliveryLoads] = useState(editing?.deliveryLoads ?? order?.deliveryLoads ?? 1)
   /** True once Salvador has set the delivery count himself, so adding a line stops overwriting it. */
-  const [loadsOverridden, setLoadsOverridden] = useState(Boolean(editing))
-  const [notes, setNotes] = useState(editing?.notes ?? '')
+  const [loadsOverridden, setLoadsOverridden] = useState(Boolean(editing||order))
+  const [notes, setNotes] = useState(editing?.notes ?? order?.notes ?? '')
   const [editNote, setEditNote] = useState('')
 
   const [materialSheet, setMaterialSheet] = useState(false)
@@ -78,6 +89,8 @@ export function TicketBuilder() {
   const [savedId, setSavedId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const lineSeed = useRef(0)
+  const savingRef=useRef(false)
+  const requestId=useRef(crypto.randomUUID())
 
   /**
    * A save has been attempted. The flagged sections are derived from the live
@@ -209,6 +222,7 @@ export function TicketBuilder() {
     : new Set<SectionId>()
 
   const save = async () => {
+    if(savingRef.current||savedId)return
     if (problems.length > 0) {
       setAttempted(true)
       goToProblem(problems[0])
@@ -217,6 +231,7 @@ export function TicketBuilder() {
     setAttempted(false)
     if (editing && editNote.trim().length === 0) return
     const input = {
+      requestId:requestId.current,
       customerId,
       jobId,
       driverId,
@@ -226,6 +241,7 @@ export function TicketBuilder() {
       deliveryLoads,
       notes,
     }
+    savingRef.current=true
     setSaving(true)
     try {
       if (editing) {
@@ -237,6 +253,7 @@ export function TicketBuilder() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Ticket could not be saved.')
     } finally {
+      savingRef.current=false
       setSaving(false)
     }
   }

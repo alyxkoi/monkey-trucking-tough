@@ -41,6 +41,7 @@ export function MonthCalendar({
   month,
   selected,
   jobsByDay,
+  reservationDays = new Set<string>(),
   onSelect,
   onMonthChange,
   onToday,
@@ -48,6 +49,7 @@ export function MonthCalendar({
   month: Date
   selected: string
   jobsByDay: Map<string, Job[]>
+  reservationDays?: Set<string>
   onSelect: (day: string) => void
   onMonthChange: (delta: number) => void
   onToday: () => void
@@ -142,6 +144,7 @@ export function MonthCalendar({
               >
                 {day.getDate()}
               </span>
+              {reservationDays.has(key)&&<span className="text-[11px] font-semibold" aria-label="Reserved delivery">Reserved</span>}
 
               {dayJobs.length > 0 && (
                 <span className="flex items-center gap-1 lg:self-start">

@@ -42,6 +42,20 @@ describe("Ticket snapshot and offline safety", () => {
     expect(rpcMock.mock.calls[0][1].p_client_request_id).toBe(requestId);
     expect(rpcMock.mock.calls[1][1].p_client_request_id).toBe(requestId);
   });
+  it('reuses a builder request ID on repeat saves instead of allocating another ticket',async()=>{
+    rpcMock.mockResolvedValue({data:[{id:'same-ticket',ticket_number:'MT1103',created:false}],error:null});
+    const requestId='00000000-0000-4000-8000-00000000cafe';
+    const context={customerId:userA,jobId:userB};
+    await saveTicket(safeTicketDraft,userA,context,requestId);
+    await saveTicket(safeTicketDraft,userA,context,requestId);
+    expect(rpcMock.mock.calls.map(call=>call[1].p_client_request_id)).toEqual([requestId,requestId]);
+    expect(rpcMock.mock.calls[1][1]).toMatchObject({p_job_id:userB,p_customer_id:userA});
+  });
+  it('does not duplicate an offline queue entry for the same builder request',()=>{
+    enqueueTicket(safeTicketDraft,userA,'same-builder-request');
+    enqueueTicket(safeTicketDraft,userA,'same-builder-request');
+    expect(getQueue(userA)).toHaveLength(1);
+  });
 
   it("preserves pricing, material load and tax snapshots in the RPC payload", () => {
     const payload = ticketRpcPayload(safeTicketDraft);

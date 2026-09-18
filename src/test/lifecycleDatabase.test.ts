@@ -32,6 +32,8 @@ beforeAll(async()=>{
  await db.exec(read('20260918042000_lead_notes_schema'))
  await db.exec(read('20260918160000_quote_intake_continuity'))
  await db.exec(read('20260918160000_quote_intake_continuity'))
+ await db.exec(read('20260918190000_delivery_calendar_reservations'))
+ await db.exec(read('20260918190000_delivery_calendar_reservations'))
 },30000)
 afterAll(async()=>{await db?.close()})
 async function fixture(body='my name is Mike'){
@@ -44,6 +46,57 @@ async function transaction(fn:()=>Promise<void>){await db.exec('begin');try{awai
 // Dispatch tests need business time regardless of when the suite runs. Select
 // a fixed-offset zone at noon inside this rolled-back fixture, not production.
 async function businessTimeFixture(){await db.exec("update communication_runtime set timezone=(select name from pg_timezone_names where name like 'Etc/GMT%' and extract(hour from now() at time zone name)=12 limit 1)")}
+describe.sequential('atomic delivery reservations',()=>{
+ async function setup(){
+   const a=await fixture('can we do tomorrow at 1 PM?')
+   const [{slot_date:day}]=await query("select ((now() at time zone 'America/Chicago')::date+1)::text as slot_date")
+   const [material]=await query("insert into materials(name,price_per_yard,full_load_price,full_load_yards) values('Flexbase',38,720,20) returning *")
+   const plan={reserve_delivery:true,current:{date:day,time:'13:00'},requested_date:day,requested_time:'13:00',context:{stage:'LEAD',pricing:{status:'MATERIAL_CALCULATED',material_id:material.id,yards:20,quantity:{status:'RESOLVED'},route:{status:'ROUTE_CALCULATED',origin:'7653 S FM 148',destination:'123 Oak Road',distance_miles:10}}}}
+   return {...a,day,plan}
+ }
+ it.each(['12:00','14:00'])('accepts exactly one hour from a scheduled job at %s',time=>transaction(async()=>{
+   const a=await setup()
+   await query("insert into jobs(customer_id,category,scheduled_date,scheduled_time,address,description) values($1,'MATERIAL_DELIVERY',$2,$3,'Other address','Existing job')",[a.c.id,a.day,time])
+   const result=await a.apply(a.plan)
+   expect(result.delivery_slot.status).toBe('RESERVED')
+   expect((await query('select reserved_delivery_time from leads where id=$1',[a.l.id]))[0].reserved_delivery_time).toBe('13:00:00')
+   expect((await a.apply(a.plan)).status).toBe('ALREADY_APPLIED')
+   expect(await query("select * from activity_history where event_type='DELIVERY_RESERVED'")).toHaveLength(1)
+   expect(await query('select * from quotes')).toHaveLength(0)
+ }))
+ it.each([['13:59',false],['12:01',false],[null,true]])('blocks nearby/all-day jobs (%s,%s) without booking', (time,allDay)=>transaction(async()=>{
+   const a=await setup()
+   await query("insert into jobs(customer_id,category,scheduled_date,scheduled_time,all_day,address,description) values($1,'MATERIAL_DELIVERY',$2,$3,$4,'Other address','Existing job')",[a.c.id,a.day,time,allDay])
+   expect((await a.apply({...a.plan,ready:true})).delivery_slot.status).toBe('CONFLICT')
+   expect((await query('select delivery_reserved_at,requested_delivery_time from leads where id=$1',[a.l.id]))[0]).toMatchObject({delivery_reserved_at:null,requested_delivery_time:'13:00:00'})
+   expect(await query("select * from activity_history where event_type='DELIVERY_RESERVED'")).toHaveLength(0)
+ }))
+ it('rechecks availability after a competing reservation and prevents staff overlap',()=>transaction(async()=>{
+   const a=await setup(),b=await fixture('tomorrow at 1pm')
+   expect((await rpc('check_delivery_slot',[a.day,'13:00',a.l.id])).status).toBe('AVAILABLE')
+   expect((await b.apply(a.plan)).delivery_slot.status).toBe('RESERVED')
+   expect((await a.apply(a.plan)).delivery_slot.status).toBe('CONFLICT')
+   await db.exec('savepoint overlapping_job')
+   await expect(query("insert into jobs(customer_id,category,scheduled_date,scheduled_time,address,description) values($1,'MATERIAL_DELIVERY',$2,'13:30','Other address','New job')",[a.c.id,a.day])).rejects.toThrow('unavailable')
+   await db.exec('rollback to savepoint overlapping_job')
+ }))
+ it('converts its own reservation into an accepted job without duplicating calendar occupancy',()=>transaction(async()=>{
+   const a=await setup();await a.apply(a.plan)
+   const [q]=await query("insert into quotes(quote_number,customer_id,lead_id,description,status) values('QCAL',$1,$2,'Delivery','ACCEPTED') returning *",[a.c.id,a.l.id])
+   await query("insert into jobs(customer_id,quote_id,category,scheduled_date,scheduled_time,address,description) values($1,$2,'MATERIAL_DELIVERY',$3,'13:00','123 Oak Road','Delivery')",[a.c.id,q.id,a.day])
+   expect((await query('select delivery_reserved_at from leads where id=$1',[a.l.id]))[0].delivery_reserved_at).toBeNull()
+   expect((await rpc('check_delivery_slot',[a.day,'13:30',null])).status).toBe('CONFLICT')
+ }))
+ it.each(['takeover','optout','accepted','stale'])('cannot reserve past a %s protection',kind=>transaction(async()=>{
+   const a=await setup()
+   if(kind==='takeover')await query('update leads set human_takeover=true where id=$1',[a.l.id])
+   if(kind==='optout')await query('update customers set sms_opted_out_at=now() where id=$1',[a.c.id])
+   if(kind==='stale')await query('update leads set conversation_revision=2 where id=$1',[a.l.id])
+   if(kind==='accepted')await query("insert into quotes(quote_number,customer_id,lead_id,description,status) values('QCAL',$1,$2,'Delivery','ACCEPTED')",[a.c.id,a.l.id])
+   await a.apply(a.plan)
+   expect((await query('select delivery_reserved_at from leads where id=$1',[a.l.id]))[0].delivery_reserved_at).toBeNull()
+ }))
+})
 describe.sequential('executed lifecycle write transactions',()=>{
  it.each(['yes','yes please','sure','please do','send it','yeah'])('retains verified manual prefill after a failed acknowledgement: %s',answer=>transaction(async()=>{
    const a=await fixture('20 yards of flexbase')

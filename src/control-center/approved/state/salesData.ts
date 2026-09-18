@@ -71,6 +71,7 @@ export type Lead = {
 }
 
 export type Quote = {
+  notes?: string
   id: string
   number: string
   leadId: string

@@ -2,9 +2,10 @@
 import { isSimpleAcceptance, materialCandidates, resolveConversationQuantity, type QuantityResolution } from './material-intelligence.ts'
 import { addressClarification, addressFromText, calculateDeliveryRoute, deliveryForMiles, type RouteResult } from './route-intelligence.ts'
 import { assertCustomerText, composeConversationResponse, responsePlanSchema, sanitizeResponsePlanWording } from './conversation-response.ts'
-import { additionalYards, appendLeadMilestone, dashboardPlanSchema, explicitFullRecap, leadMilestoneQuestion, materialClarification, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName, isQuoteApproval } from './lifecycle.ts'
+import { additionalYards, appendLeadMilestone, dashboardPlanSchema, explicitFullRecap, leadMilestoneQuestion, materialClarification, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName, isQuoteApproval, isDeliveryTimeReply } from './lifecycle.ts'
+import { needsDeliveryReservation, deliverySlotReply } from './delivery-calendar.ts'
 
-export const PROMPT_VERSION = 'mt-ai-lifecycle-v16'
+export const PROMPT_VERSION = 'mt-ai-lifecycle-v17'
 
 const decisionSchema = {
   type: 'object',
@@ -346,6 +347,7 @@ function diagnosticBundle(lifecycle:any, decision:any, route:RouteResult, routeD
   ]
   if(attempts.length)tools.push(...attempts.map((attempt:any)=>({name:'openai.responses',...attempt})))
   else tools.push({name:'openai.responses',status:'SKIPPED',duration_ms:0,reason:timings.openai_skipped_reason??null,error:null})
+  if(decision.dashboard_proposal?.delivery_slot)tools.push({name:'delivery.calendar',status:decision.dashboard_proposal.delivery_slot.status,duration_ms:timings.calendar_ms??0,error:decision.dashboard_proposal.delivery_slot.error??null})
   return {
     lifecycle_stage:lifecycle?.stage??'UNKNOWN',
     known_facts:decision?.known_facts??[],
@@ -556,9 +558,10 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       && (isQuoteApproval(latestCustomer.body,previousReply)
         || /\b(?:email|correo)\b|@/i.test(previousReply)
         || materialCandidates(previousReply,materialResult.data??[]).length===1 && /\b(?:would you like|do you want|shall we use|quiere|prefiere|usamos)\b/i.test(previousReply)))
-    if(mode==='CONVERSATION'&&!forced&&!lifecycle.reactive&&confirmationTurn) {
+    const timeTurn=isDeliveryTimeReply(latestCustomer?.body??'')
+    if(mode==='CONVERSATION'&&!forced&&!lifecycle.reactive&&(confirmationTurn||timeTurn)) {
       decision={detected_language:clarificationLanguage(messages.filter((m:any)=>m.sender_type==='CUSTOMER').map((m:any)=>m.body).join(' ')),customer_intent:'CONFIRM_INTAKE',extracted_facts:[],known_facts:authoritativeFacts,missing_facts:[],uncertain_facts:[],ai_may_continue:true,requires_human:false,escalation_reason:null,recommended_action:pricing.status==='MATERIAL_CALCULATED'?'PROVIDE_STANDARD_PRICE':'ASK_NEXT_MISSING_FACT',draft_reply:'got it.',confidence:'HIGH',deterministic_pricing_required:pricing.status==='MATERIAL_CALCULATED',payment_claim_detected:false}
-      timings.openai_skipped_reason='Direct confirmation handled by verified intake and lifecycle tools.'
+      timings.openai_skipped_reason=timeTurn?'Delivery preference handled by deterministic calendar tools.':'Direct confirmation handled by verified intake and lifecycle tools.'
     } else if (route.status === 'NEEDS_CLARIFICATION' && !forced && latestIsAddressReply) {
       const completeAddress = 'Verify delivery location'
       const language = stateResult.data?.detected_language ?? clarificationLanguage(messages.filter((m: any) => m.sender_type === 'CUSTOMER').map((m: any) => m.body).join(' '))
@@ -691,7 +694,20 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     decision.current_custom_work_request=customWorkRequested
     decision.subtask_escalations=hasCustom?[{topic:'CUSTOM_WORK',reason:'Custom work pricing requires Salvador. Material and delivery may continue.'}]:[]
     if(hasCustom)decision.known_facts=upsertFact(decision.known_facts,'custom_work_request',priorCustom??'Custom work scope/pricing pending Salvador','CONVERSATION')
-    const proposal=lifecycleProposal({lead,customer:customerResult.data,messages,lifecycle,decision,pricing,requestMessage:latestCustomer})
+    const proposal:any=lifecycleProposal({lead,customer:customerResult.data,messages,lifecycle,decision,pricing,requestMessage:latestCustomer})
+    if(mode==='CONVERSATION'&&!forced&&decision.ai_may_continue&&!decision.requires_human&&needsDeliveryReservation(proposal,lifecycle,pricing,lead)) {
+      proposal.reserve_delivery=true
+      const calendarStarted=Date.now()
+      try {
+        const checked=await service.rpc('check_delivery_slot',{p_date:proposal.current.date,p_time:proposal.current.time,p_lead_id:options.sandbox?null:leadId})
+        if(checked.error||!['AVAILABLE','CONFLICT','PAST'].includes(checked.data?.status))throw new Error(checked.error?.message??'Calendar returned no availability')
+        proposal.delivery_slot=checked.data
+      } catch(error) {
+        proposal.delivery_slot={status:'UNAVAILABLE',error:error instanceof Error?error.message:'Calendar unavailable'}
+      }
+      timings.calendar_ms=Date.now()-calendarStarted
+      if(proposal.delivery_slot.status!=='AVAILABLE')proposal.ready=false
+    }
     if(!lifecycle.reactive) {
       // Model labels cannot contradict durable milestone facts.
       decision.missing_facts=decision.missing_facts.filter((fact:string)=>
@@ -710,7 +726,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
         Object.assign(proposal.context,{additional_yards:extra,accepted_yards:Number(item.yards),proposed_pricing:materialTool(messages,[material],appResult.data,{quantity:proposedQuantity,route}),proposal_requires_staff_approval:true})
       }
     }
-    let preparedLifecycleReply=mode==='CONVERSATION'&&!forced?lifecycleReply(proposal,lifecycle,decision,pricing):null
+    let preparedLifecycleReply=mode==='CONVERSATION'&&!forced?(proposal.reserve_delivery?deliverySlotReply(proposal.delivery_slot,proposal,lifecycle,pricing,customerResult.data,decision.detected_language):lifecycleReply(proposal,lifecycle,decision,pricing)):null
     // Request intake is not financial authorization. A server-composed receipt
     // can continue while the actual protected change remains a staff action.
     // Never release a dispute, explicit takeover, or genuinely uncertain claim.
@@ -865,6 +881,15 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
         timings.lifecycle_apply_ms=Date.now()-lifecycleStarted
         if(applied.error||!['APPLIED','ALREADY_APPLIED'].includes(applied.data?.status))throw new Error(applied.error?.message??'Lifecycle update could not be safely applied. Nothing will be sent.')
         quoteApplication.lifecycle=applied.data
+        if(proposal.reserve_delivery) {
+          // The read check is advisory. Only this atomic write authorizes a
+          // confirmation; a racing booking replaces the reply with a conflict.
+          proposal.delivery_slot=applied.data.delivery_slot??{status:'UNAVAILABLE'}
+          if(proposal.delivery_slot.status!=='RESERVED')proposal.ready=false
+          decision.lifecycle_reply=deliverySlotReply(proposal.delivery_slot,proposal,lifecycle,pricing,customerResult.data,decision.detected_language)
+          decision.draft_reply=decision.lifecycle_reply
+          assertCustomerText(decision.draft_reply)
+        }
         if(proposal.lead_need&&proposal.lead_need_source_message_id&&proposal.lead_need_source_text) {
           const needApplied=await service.rpc('apply_ai_lead_need',{
             p_lead_id:leadId,p_expected_revision:expectedRevision,

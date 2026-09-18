@@ -30,6 +30,7 @@ import {
 } from '@/control-center/approved/state/jobsData'
 import { quoteTotals } from '@/control-center/approved/state/salesData'
 import { materialSummary, ticketTotals } from '@/control-center/approved/state/ticketsData'
+import { jobOrder } from '@/control-center/approved/state/jobOrder'
 
 const STATUS_TONE: Record<JobStatus, PillTone> = {
   SCHEDULED: 'ice',
@@ -100,6 +101,7 @@ export function JobDetail() {
 
   const customer = customerById(job.customerId)
   const quote = job.quoteId ? quoteById(job.quoteId) : undefined
+  const order=jobOrder(job,quote)
   const date = parseDateKey(job.date)
   const reminder = reminderFor(job)
   const jobTickets = ticketsForJob(job.id)
@@ -207,6 +209,8 @@ export function JobDetail() {
               )}
             </div>
           </Panel>
+
+          {order&&order.materialLines.length>0&&<Panel title="Material order"><p className="mb-3 text-sm text-cc-muted">From accepted quote {quote?.number}. Review the ticket before saving.</p><div className="space-y-4">{order.materialLines.map(line=><dl key={line.id} className="rounded-xl border border-line p-4"><dt className="text-sm text-cc-muted">Material</dt><dd className="font-bold">{line.materialName}</dd><dt className="mt-2 text-sm text-cc-muted">Quantity</dt><dd className="font-bold">{line.yards} yards{line.isFullLoad&&line.loads?` · ${line.loads} full load${line.loads===1?'':'s'}`:''}</dd></dl>)}</div><p className="mt-3 text-sm text-cc-muted">{order.deliveryLoads} delivery load{order.deliveryLoads===1?'':'s'} · {order.address}</p></Panel>}
 
           <Panel title="Notes">
             <TextArea

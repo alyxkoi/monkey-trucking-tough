@@ -32,6 +32,9 @@ export type Customer = {
 };
 
 export type Lead = {
+  reserved_delivery_date?: string | null;
+  reserved_delivery_time?: string | null;
+  delivery_reserved_at?: string | null;
   requested_delivery_date?: string | null;
   requested_delivery_time?: string | null;
   requested_delivery_text?: string | null;

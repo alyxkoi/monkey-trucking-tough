@@ -60,7 +60,7 @@ const MONTH_SHORT = [
 
 /** Jobs is a live calendar first. The list is never the primary view. */
 export function Jobs() {
-  const { jobs, jobsForDay, customerById, unscheduledQuotes } = useAppState()
+  const { jobs, jobsForDay, customerById, unscheduledQuotes, sourceData } = useAppState()
   const navigate = useNavigate()
 
   const [selected, setSelected] = useState(() => dateKey(new Date()))
@@ -98,6 +98,8 @@ export function Jobs() {
   const cancelledCount = jobs.filter((job) => job.status === 'CANCELLED').length
   const selectedDate = parseDateKey(selected)
   const waiting = unscheduledQuotes()
+  const reservations=(sourceData?.leads??[]).filter(lead=>lead.status!=='LOST'&&lead.delivery_reserved_at&&lead.reserved_delivery_date&&lead.reserved_delivery_time)
+  const reservationDays=new Set(reservations.map(lead=>lead.reserved_delivery_date!))
 
   const selectDay = (day: string) => {
     setSelected(day)
@@ -159,6 +161,7 @@ export function Jobs() {
               month={month}
               selected={selected}
               jobsByDay={jobsByDay}
+              reservationDays={reservationDays}
               onSelect={selectDay}
               onMonthChange={(delta) =>
                 setMonth(new Date(month.getFullYear(), month.getMonth() + delta, 1))
@@ -173,6 +176,7 @@ export function Jobs() {
         </div>
 
         <div className="min-w-0 space-y-5 lg:col-span-5">
+          {reservations.some(lead=>lead.reserved_delivery_date===selected)&&<Panel title="Reserved deliveries"><p className="mb-3 text-sm text-cc-muted">Calendar slots held while quotes are prepared or awaiting acceptance. These are not final jobs.</p><div className="space-y-3">{reservations.filter(lead=>lead.reserved_delivery_date===selected).map(lead=><button key={lead.id} className="block min-h-12 w-full rounded-xl border border-line p-3 text-left" onClick={()=>navigate(`/admin/leads/${lead.id}`)}><span className="font-semibold">{customerById(lead.customer_id)?.name??'Customer'} · {formatTime({time:lead.reserved_delivery_time!.slice(0,5),allDay:false})}</span><span className="block text-sm text-cc-muted">{lead.need} · Review lead</span></button>)}</div></Panel>}
           <SolidInfoModule tone="ice">
             <div className="flex items-start justify-between gap-4 p-5">
               <div>
