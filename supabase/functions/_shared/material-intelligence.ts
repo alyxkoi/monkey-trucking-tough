@@ -106,6 +106,14 @@ export function resolveConversationQuantity(messages: any[], materials: any[], s
     // never the unitless digits of a ZIP, address, price or product grade.
     const correction=[...body.matchAll(/\b(?:make (?:it|that)|change (?:it|that) to|c[aá]mbialo a|que sean)\s+(\d{1,4}(?:\.\d+)?)(?=\s*(?:[.!?,]|$|\b(?:and|y|for|para)\b))/gi)].at(-1)
     const previous=messages[index-1]
+    // A direct yes to one named product resolves identity even when the
+    // question contains no quantity. A comparison/recommendation alone does not.
+    if (isSimpleAcceptance(body) && ['AI','HUMAN'].includes(previous?.sender_type)
+      && /[?？]/.test(previous.body??'')
+      && /\b(?:would you like|do you want|shall we use|go with|quiere|prefiere|usamos)\b/i.test(previous.body??'')) {
+      const accepted=materialForText(String(previous.body??''),materials)
+      if(accepted){currentMaterial=accepted;candidates=[]}
+    }
     const askedUnit=/\b(yards?|yardas?)\b/i.test(previous?.body??'')?'YARDS':/\b(tons?|toneladas?)\b/i.test(previous?.body??'')?'TONS':quantity?.unit
     const directAnswer=askedUnit && previous?.sender_type==='AI' && /\b(how many|cu[aá]ntas|quantity|cantidad)\b/i.test(previous.body??'')
       ? body.trim().match(/^(\d{1,4}(?:\.\d+)?)[.!\s]*$/):null
@@ -168,5 +176,5 @@ export function resolveConversationQuantity(messages: any[], materials: any[], s
 }
 
 export function isSimpleAcceptance(text: string) {
-  return /^(?:(?:ok(?:ay)?|yes|yep|yeah|sure|perfect|si|sí)[,\s]+)?(?:ok(?:ay)?|yes|yep|yeah|sure|sounds good|let'?s do (?:it|that)|do that|perfect|si|sí|est[aá] bien|vamos a hacerlo)[.!\s]*$/i.test(text.trim())
+  return /^(?:(?:ok(?:ay)?|yes|yep|yeah|sure|perfect|si|sí)[,\s]+)?(?:ok(?:ay)?|yes|yes please|yep|yeah|sure|sounds good|let'?s do (?:it|that)|do that|please do|send it|perfect|si|sí|claro|por favor|est[aá] bien|vamos a hacerlo)[.!\s]*$/i.test(text.trim())
 }

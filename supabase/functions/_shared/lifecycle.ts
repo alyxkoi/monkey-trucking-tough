@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { isSimpleAcceptance } from './material-intelligence.ts'
 // Lifecycle is a projection of business records, never a second state machine.
 export const LIFECYCLE_POLICY = `CUSTOMER LIFECYCLE AND DASHBOARD AUTHORITY
 Use lifecycle.stage and its scoped quote/job/invoice, never another transaction belonging to the same customer.
@@ -110,11 +111,12 @@ export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];li
   const {lead,customer,messages,lifecycle,decision,pricing}=input
   const inbound=[...messages].reverse().find(m=>m.sender_type==='CUSTOMER')
   const text=String(input.requestMessage?.body??inbound?.body??'').trim()
-  const lastAi=[...messages].reverse().find(m=>m.sender_type==='AI')?.body??''
+  const previousTurn=messages.slice(0,messages.lastIndexOf(inbound)).filter(m=>['AI','HUMAN','CUSTOMER'].includes(m.sender_type)).at(-1)
+  const lastAi=previousTurn&&['AI','HUMAN'].includes(previousTurn.sender_type)?previousTurn.body??'':''
   const plan=decision.dashboard_plan
   const trustedPlan=plan?.confidence==='HIGH'&&typeof plan.source_text==='string'&&plan.source_text.trim()&&text.includes(plan.source_text)
   const intent=trustedPlan?plan.intent:'NONE'
-  const yes=/^(?:yes|yeah|yep|sure|ok(?:ay)?|si|sí|claro|correct|correcto|please do|send it)[.!\s]*$/i.test(text)
+  const yes=isSimpleAcceptance(text)||/^(?:correct|correcto)[.!\s]*$/i.test(text)
   const emails=[...text.matchAll(/\b[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?\.[A-Z]{2,}\b/gi)].map(m=>m[0])
   const email=emails.length===1&&!/\bor\b|\bo\b|maybe|perhaps|quizas/i.test(text)?emails[0]:null
   const name=customerName(text,/\b(your name|su nombre|tu nombre|se llama|te llamas)\b/i.test(lastAi))
@@ -131,7 +133,10 @@ export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];li
   let precedingQuestion=''
   for(const message of messages) {
     if(['AI','HUMAN'].includes(message.sender_type))precedingQuestion=String(message.body??'')
-    if(message.sender_type==='CUSTOMER'&&isQuoteApproval(String(message.body??''),precedingQuestion))approved=true
+    if(message.sender_type==='CUSTOMER') {
+      if(message.message_kind!=='COMPLIANCE'&&isQuoteApproval(String(message.body??''),precedingQuestion))approved=true
+      precedingQuestion=''
+    }
   }
   const quoteRequested=approved||isQuoteApproval(text,lastAi)||intent==='QUOTE_REQUEST'&&/\b(quote|estimate|cotizacion|presupuesto|send it|mandala|enviala)\b/i.test(normal(text))
   const quoteEmailPrompt=/\b(quote|estimate|cotizaci[oó]n|presupuesto|send|email|correo)\b/i.test(lastAi)
@@ -188,7 +193,7 @@ export function leadMilestoneQuestion(input:{proposal:any;lifecycle:any;pricing:
   if(!route?.destination)return choose('what is the exact delivery address?','cuál es la dirección exacta de entrega?')
   if(!proposal.current?.date)return choose('what delivery date and time work best for you?','qué fecha y hora de entrega le funcionan mejor?')
   if(!proposal.current?.time)return choose('what time works best that day?','qué hora le funciona mejor ese día?')
-  if(!proposal.quote_requested)return choose('would you like us to prepare the quote?','quiere que preparemos la cotización?')
+  if(!proposal.quote_requested)return quotePreparationQuestion(proposal,pricing,es)
   if(!proposal.current?.email)return proposal.current?.contact_email
     ? choose(`should we send the quote to ${proposal.current.contact_email}?`,`enviamos la cotización a ${proposal.current.contact_email}?`)
     : choose('what email should we send the quote to?','a qué correo enviamos la cotización?')
@@ -200,6 +205,23 @@ export function appendLeadMilestone(reply:string,question:string|null) {
   const clean=String(reply??'').trim()
   if(!question||/[?？]\s*$/.test(clean)||clean.toLowerCase().includes(question.toLowerCase()))return clean
   return `${clean}${clean?' ':''}${question}`.trim()
+}
+
+/** Final quote milestone is rendered only from the verified calculation. */
+export function quotePreparationQuestion(proposal:any,pricing:any,es:boolean) {
+  if(pricing?.status!=='MATERIAL_CALCULATED'||pricing.route?.status!=='ROUTE_CALCULATED'
+    || ![pricing.material_total,pricing.delivery_total,pricing.grand_total].every(Number.isFinite))return null
+  const money=(value:number)=>`$${value.toFixed(2)}`
+  const material=String(pricing.material_name).replace(/[—–-]/g,' ')
+  const tax=Number(pricing.tax_total)>0?(es?`, impuestos ${money(pricing.tax_total)}`:`, tax ${money(pricing.tax_total)}`):''
+  // These are local requested calendar values, not an already booked timestamp.
+  const requested=new Date(`${proposal.current.date}T${String(proposal.current.time).slice(0,5)}:00Z`)
+  const when=Number.isFinite(requested.getTime())
+    ? new Intl.DateTimeFormat(es?'es-US':'en-US',{timeZone:'UTC',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(requested)
+    : `${proposal.current.date} ${String(proposal.current.time).slice(0,5)}`
+  return es
+    ? `${pricing.yards} yardas de ${material} a ${pricing.route.destination}, solicitado ${when}. Material ${money(pricing.material_total)}, entrega ${money(pricing.delivery_total)}${tax}; total estimado ${money(pricing.grand_total)}. Quiere que preparemos la cotización?`
+    : `${pricing.yards} yards of ${material} to ${pricing.route.destination}, requested ${when}. Material ${money(pricing.material_total)}, delivery ${money(pricing.delivery_total)}${tax}; estimated total ${money(pricing.grand_total)}. Would you like us to prepare the quote?`
 }
 
 export function lifecycleReply(proposal:any,lifecycle:any,decision:any,pricing:any) {
@@ -217,6 +239,10 @@ export function lifecycleReply(proposal:any,lifecycle:any,decision:any,pricing:a
   if(proposal.job_note&&lifecycle.job)return choose('got it, I added that instruction for the crew.','listo, agregué esa instrucción para el equipo.')
   if(proposal.intent==='ARRIVAL'&&lifecycle.job)return choose(`your current schedule is ${lifecycle.job.scheduled_date}${lifecycle.job.scheduled_time?` at ${lifecycle.job.scheduled_time.slice(0,5)}`:'. an exact arrival time has not been set'}.`,`su horario actual es ${lifecycle.job.scheduled_date}${lifecycle.job.scheduled_time?` a las ${lifecycle.job.scheduled_time.slice(0,5)}`:'. todavía no hay hora exacta de llegada'}.`)
   if(lifecycle.reactive)return null
+  if(pricing.status==='MATERIAL_CALCULATED'&&pricing.route?.status==='ROUTE_CALCULATED'&&Number.isFinite(pricing.grand_total)
+    && /\b(?:actually|make it|make that|change it|mejor|c[aá]mbialo)\b.*\d/i.test(proposal.context?.request??'')) {
+    return choose(`got it, ${pricing.yards} yards. the estimated delivered total is $${pricing.grand_total.toFixed(2)}.`,`anotado, ${pricing.yards} yardas. el total estimado con entrega es $${pricing.grand_total.toFixed(2)}.`)
+  }
   if(proposal.context?.prior_delivery_address&&pricing?.route?.destination
     && String(proposal.context.prior_delivery_address).trim().toLowerCase()!==String(pricing.route.destination).trim().toLowerCase()
     && /\b(address|direcci[oó]n)\b|\d{1,6}\s+\S+/i.test(proposal.context.request??'')) {
@@ -224,9 +250,8 @@ export function lifecycleReply(proposal:any,lifecycle:any,decision:any,pricing:a
   }
   if(proposal.ready&&proposal.progress)return choose('perfect, your quote is ready for review. we’ll send it over shortly.','perfecto, su cotización está lista para revisión. se la enviamos pronto.')
   if(proposal.quote_requested&&proposal.progress&&pricing.status==='MATERIAL_CALCULATED'&&!proposal.current.email)return proposal.current.contact_email?choose(`I have ${proposal.current.contact_email} on file. is that where you want us to send it?`,`tengo ${proposal.current.contact_email}. ahí quiere que enviemos la cotización?`):choose('what email should we send the quote to?','a qué correo enviamos la cotización?')
-  if(!proposal.quote_requested&&proposal.requested_date&&proposal.current.time&&pricing.status==='MATERIAL_CALCULATED'&&pricing.route?.status==='ROUTE_CALCULATED') {
-    const material=String(pricing.material_name).replace(/[—–-]/g,' ')
-    return choose(`I have ${pricing.yards} yards of ${material}, ${pricing.route.destination}, requested for ${proposal.current.date} at ${proposal.current.time}. would you like us to send the quote over?`,`tengo ${pricing.yards} yardas de ${material}, ${pricing.route.destination}, para solicitar el ${proposal.current.date} a las ${proposal.current.time}. quiere que enviemos la cotización?`)
+  if(!proposal.quote_requested&&proposal.progress&&proposal.current.date&&proposal.current.time&&pricing.status==='MATERIAL_CALCULATED'&&pricing.route?.status==='ROUTE_CALCULATED') {
+    return quotePreparationQuestion(proposal,pricing,es)
   }
   return null
 }
@@ -235,7 +260,7 @@ export function isQuoteApproval(text:string,previousReply:string) {
   const value=normal(text).trim()
   if(/\b(?:do not|don't|dont|not yet|no thanks|no quiero)\b/.test(value))return false
   if(/\b(?:prepare|send|make|email|prepara|prepare|manda|mande|envia|envie)\b.{0,45}\b(?:quote|estimate|cotizacion|presupuesto)\b/.test(value))return true
-  const affirmative=/^(?:yes|yeah|yep|sure|ok(?:ay)?|si|claro|correct|correcto|please do|send it|yes please|yes that is correct|yes that's correct)[.!\s]*$/.test(value)
+  const affirmative=isSimpleAcceptance(value)||/^(?:correct|correcto|yes that is correct|yes that's correct)[.!\s]*$/.test(value)
   const question=normal(previousReply).split(/[?？]/).slice(0,-1).pop()??''
   return affirmative&&/\b(?:quote|estimate|cotizacion|presupuesto)\b/.test(question)
     && /\b(?:prepare|send|review|prepar\w*|envi\w*|mand\w*)\b/.test(question)

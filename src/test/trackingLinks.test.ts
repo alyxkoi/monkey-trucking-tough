@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { captureTrackingAttribution, getTrackingAttribution, trackingRedirectUrl } from '@/lib/trackingAttribution'
+import { captureTrackingAttribution, getTrackingAttribution, initializeTrackingVisit, trackingRedirectUrl } from '@/lib/trackingAttribution'
 
 const read = (path: string) => readFileSync(path, 'utf8')
 const migration = read('supabase/migrations/20260828183000_settings_tracking_material_only_tax.sql')
 const organizationMigration = read('supabase/migrations/20260901150000_tracking_link_groups_and_sessions.sql')
 
 describe('durable Tracking Links', () => {
-  beforeEach(() => window.localStorage.clear())
+  beforeEach(() => { window.localStorage.clear(); window.sessionStorage.clear() })
 
   it('copies a real server redirect URL rather than a destination query string', () => {
     const url = trackingRedirectUrl('august-driveway')
@@ -24,7 +24,26 @@ describe('durable Tracking Links', () => {
       source: 'Facebook',
       campaign: 'August Driveway',
     })
-    expect(getTrackingAttribution(Date.now() + 31 * 24 * 60 * 60 * 1000)).toBeNull()
+    expect(getTrackingAttribution(Date.now() + 31 * 60 * 1000)).toBeNull()
+  })
+
+  it('discards legacy month-long campaign attribution on a new direct visit', () => {
+    window.localStorage.setItem('mt_tracking_attribution_v1',JSON.stringify({source:'QR code',campaign:'Food Stores'}))
+    captureTrackingAttribution('?mt_tracking=11111111-1111-4111-8111-111111111111&mt_source=QR+code&mt_campaign=Food+Stores')
+    initializeTrackingVisit('', 'navigate')
+    expect(getTrackingAttribution()).toBeNull()
+    expect(window.localStorage.getItem('mt_tracking_attribution_v1')).toBeNull()
+  })
+
+  it('keeps campaign attribution on internal navigation/reload, but not a later external arrival', () => {
+    captureTrackingAttribution('?mt_tracking=11111111-1111-4111-8111-111111111111&mt_source=QR+code&mt_campaign=Food+Stores')
+    initializeTrackingVisit(window.location.origin+'/materials','navigate')
+    captureTrackingAttribution('')
+    expect(getTrackingAttribution()?.campaign).toBe('Food Stores')
+    initializeTrackingVisit('', 'reload')
+    expect(getTrackingAttribution()).not.toBeNull()
+    initializeTrackingVisit('https://www.google.com/', 'navigate')
+    expect(getTrackingAttribution()).toBeNull()
   })
 
   it('records one server-side visit per signed browser session and avoids fingerprinting', () => {

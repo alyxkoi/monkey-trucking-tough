@@ -26,6 +26,7 @@ import { useControlCenter } from '@/control-center/context'
 import { changeConversationSms } from '@/control-center/data'
 import { clearSmsRequestIdentity, smsRequestIdentity } from '@/control-center/smsRequestIdentity'
 import { AiStaffActions } from '@/control-center/approved/components/ui/AiStaffActions'
+import { CommunicationDiagnostics } from '@/control-center/approved/components/ui/CommunicationDiagnostics'
 
 export function LeadDetail() {
   const { leadId = '' } = useParams()
@@ -196,6 +197,7 @@ export function LeadDetail() {
 
       {entry && <AttentionBanner entry={entry} />}
       <AiStaffActions actions={(sourceData?.staffActions??[]).filter(action=>action.entity_id===lead.id)} onResolved={refresh}/>
+      <CommunicationDiagnostics audit={latestAiAudit}/>
 
       {lead.needsSalvador && (
         <SalvadorNeeded line={lead.conversationState === 'AI_FAILED' ? 'The automated reply failed and needs review.' : latestAiAudit?.concise_rationale ?? 'This conversation needs your reply. The AI stopped rather than guess.'} />

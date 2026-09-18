@@ -2,9 +2,9 @@
 import { isSimpleAcceptance, materialCandidates, resolveConversationQuantity, type QuantityResolution } from './material-intelligence.ts'
 import { addressClarification, addressFromText, calculateDeliveryRoute, deliveryForMiles, type RouteResult } from './route-intelligence.ts'
 import { assertCustomerText, composeConversationResponse, responsePlanSchema, sanitizeResponsePlanWording } from './conversation-response.ts'
-import { additionalYards, appendLeadMilestone, dashboardPlanSchema, explicitFullRecap, leadMilestoneQuestion, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName } from './lifecycle.ts'
+import { additionalYards, appendLeadMilestone, dashboardPlanSchema, explicitFullRecap, leadMilestoneQuestion, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName, isQuoteApproval } from './lifecycle.ts'
 
-export const PROMPT_VERSION = 'mt-ai-lifecycle-v15'
+export const PROMPT_VERSION = 'mt-ai-lifecycle-v16'
 
 const decisionSchema = {
   type: 'object',
@@ -103,7 +103,7 @@ export function materialTool(messages: any[], materials: any[], settings: any, r
   const quantity = resolved?.quantity ?? resolveConversationQuantity(messages, materials)
   const route = resolved?.route
   if (quantity.status !== 'RESOLVED' || !quantity.material_id || !quantity.yards) {
-    return { status: quantity.status === 'UNAVAILABLE' ? 'UNAVAILABLE' : 'NOT_READY', reason: quantity.reason ?? 'Material and quantity are required.', quantity }
+    return { status: quantity.status === 'UNAVAILABLE' ? 'UNAVAILABLE' : 'NOT_READY', reason: quantity.reason ?? 'Material and quantity are required.', quantity, route }
   }
   const material = materials.find((item) => item.id === quantity.material_id)
   const yards = Number(quantity.yards)
@@ -377,7 +377,7 @@ function diagnosticBundle(lifecycle:any, decision:any, route:RouteResult, routeD
 export type AiConfig = { apiKey: string; baseUrl: string; model: string; googleMapsApiKey?: string; tone?: string; concise?: boolean; version?: number }
 export async function generateAiDraft(service: any, body: any, actorId: string | null, config: AiConfig, options: { sandbox?: boolean } = {}) {
   const started = Date.now()
-  const timings:any={model_attempts:0,openai_attempts:[]}
+  const timings:any={model_attempts:0,openai_attempts:[],...body.pipeline_timings}
   let leadId: string | null = null
   let customerId: string | null = null
   let automationRuleId: string | null = null
@@ -422,7 +422,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     const contextStarted=Date.now()
     const [customerResult, messageResult, stateResult, quoteResult, jobResult, invoiceResult, paymentResult, materialResult, appResult, controlResult] = await Promise.all([
       service.from('customers').select('id,name,phone,email,notes,sms_consent_at,sms_consent_source,sms_double_opt_in_at,sms_opted_out_at').eq('id', customerId).single(),
-      leadId ? service.from('lead_messages').select('id,sender_type,body,message_kind,created_at').eq('lead_id', leadId).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(80) : Promise.resolve({ data: [], error: null }),
+      leadId ? service.from('lead_messages').select('id,sender_type,body,message_kind,created_at,provider_message_id').eq('lead_id', leadId).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(80) : Promise.resolve({ data: [], error: null }),
       leadId ? service.from('ai_conversation_state').select('*').eq('lead_id', leadId).maybeSingle() : Promise.resolve({ data: null, error: null }),
       service.from('quotes').select('*,quote_items(*)').eq('customer_id', customerId).eq('lead_id',leadId).order('created_at', { ascending: false }).limit(10),
       service.from('jobs').select('id,quote_id,status,category,scheduled_date,scheduled_time,address,description,agreed_amount,blocked_reason,notes,completed_at').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(30),
@@ -441,6 +441,17 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     const intake = [lead?.service_type, lead?.delivery_address, lead?.address, lead?.need, lead?.description, lead?.message].filter(Boolean).join('. ')
     const toolMessages = intake ? [{ sender_type: 'CUSTOMER', body: intake }, ...messages] : messages
     const actualLatestCustomer = [...messages].reverse().find((item: any) => item.sender_type === 'CUSTOMER')
+    if(actualLatestCustomer?.provider_message_id&&timings.job_created_at) {
+      timings.provider_occurred_at=actualLatestCustomer.created_at
+      timings.inbound_recorded_at=timings.job_created_at
+      timings.provider_to_ingest_ms=Math.max(0,Date.parse(timings.job_created_at)-Date.parse(actualLatestCustomer.created_at))
+      // Older records may not identify webhook versus recovery. Never infer it.
+      try {
+        const ingress=await service.from('sms_webhook_events').select('ingress_timings').eq('provider','SENT_DM')
+          .eq('provider_message_id',actualLatestCustomer.provider_message_id).eq('message_status','RECEIVED').limit(1).maybeSingle()
+        if(!ingress.error&&ingress.data?.ingress_timings)Object.assign(timings,ingress.data.ingress_timings)
+      } catch { /* Missing telemetry must not interrupt a conversation. */ }
+    }
     const resumedCustomer = body.resume_message_id
       ? messages.find((item:any)=>item.id===body.resume_message_id&&item.sender_type==='CUSTOMER'&&item.message_kind!=='COMPLIANCE')
       : null
@@ -537,7 +548,16 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       && !/[?？]/.test(latestCustomer?.body??'')
     const decisionStarted=Date.now()
     let usedModel=false
-    if (route.status === 'NEEDS_CLARIFICATION' && !forced && latestIsAddressReply) {
+    const previousTurn=messages.slice(0,-1).filter((m:any)=>['AI','HUMAN','CUSTOMER'].includes(m.sender_type)).at(-1)
+    const previousReply=previousTurn&&['AI','HUMAN'].includes(previousTurn.sender_type)?previousTurn.body??'':''
+    const confirmationTurn=isSimpleAcceptance(latestCustomer?.body??'') && /[?？]/.test(previousReply)
+      && (isQuoteApproval(latestCustomer.body,previousReply)
+        || /\b(?:email|correo)\b|@/i.test(previousReply)
+        || materialCandidates(previousReply,materialResult.data??[]).length===1 && /\b(?:would you like|do you want|shall we use|quiere|prefiere|usamos)\b/i.test(previousReply))
+    if(mode==='CONVERSATION'&&!forced&&!lifecycle.reactive&&confirmationTurn) {
+      decision={detected_language:clarificationLanguage(messages.filter((m:any)=>m.sender_type==='CUSTOMER').map((m:any)=>m.body).join(' ')),customer_intent:'CONFIRM_INTAKE',extracted_facts:[],known_facts:authoritativeFacts,missing_facts:[],uncertain_facts:[],ai_may_continue:true,requires_human:false,escalation_reason:null,recommended_action:pricing.status==='MATERIAL_CALCULATED'?'PROVIDE_STANDARD_PRICE':'ASK_NEXT_MISSING_FACT',draft_reply:'got it.',confidence:'HIGH',deterministic_pricing_required:pricing.status==='MATERIAL_CALCULATED',payment_claim_detected:false}
+      timings.openai_skipped_reason='Direct confirmation handled by verified intake and lifecycle tools.'
+    } else if (route.status === 'NEEDS_CLARIFICATION' && !forced && latestIsAddressReply) {
       const completeAddress = 'Verify delivery location'
       const language = stateResult.data?.detected_language ?? clarificationLanguage(messages.filter((m: any) => m.sender_type === 'CUSTOMER').map((m: any) => m.body).join(' '))
       const clarification = addressClarification(route.destination, language)
@@ -670,6 +690,14 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     decision.subtask_escalations=hasCustom?[{topic:'CUSTOM_WORK',reason:'Custom work pricing requires Salvador. Material and delivery may continue.'}]:[]
     if(hasCustom)decision.known_facts=upsertFact(decision.known_facts,'custom_work_request',priorCustom??'Custom work scope/pricing pending Salvador','CONVERSATION')
     const proposal=lifecycleProposal({lead,customer:customerResult.data,messages,lifecycle,decision,pricing,requestMessage:latestCustomer})
+    if(!lifecycle.reactive) {
+      // Model labels cannot contradict durable milestone facts.
+      decision.missing_facts=decision.missing_facts.filter((fact:string)=>
+        !(proposal.quote_requested&&/quote request|quote (?:approval|permission)|solicitud.*cotiz/i.test(fact))
+        && !(proposal.current.email&&/email|correo|recipient/i.test(fact)))
+      if(proposal.quote_requested)decision.known_facts=upsertFact(decision.known_facts,'quote_requested','Yes','CONVERSATION')
+      if(proposal.current.email)decision.known_facts=upsertFact(decision.known_facts,'quote_recipient',proposal.current.email,'CONVERSATION')
+    }
     if(proposal.actions.includes('ORDER_CHANGE')) {
       const extra=additionalYards(latestCustomer?.body??'')
       const items=(lifecycle.quote?.quote_items??[]).filter((i:any)=>i.kind==='MATERIAL')
@@ -750,6 +778,11 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
           refresh:{material:true,route:route.status,cached_route:route.cached===true},
         }
         if(!preparedLifecycleReply){
+          // The model may answer service questions, but cannot jump to a quote
+          // before a product and delivered calculation actually exist.
+          if(!lifecycle.reactive&&!proposal.quote_requested&&/quote|estimate|cotizaci[oó]n|presupuesto/i.test(plan.next_question??'')) {
+            plan.next_question=leadMilestoneQuestion({proposal,lifecycle,pricing,route,quantity,customer:customerResult.data,language:decision.detected_language})??''
+          }
           // Qualification questions are owned by the persisted milestone logic.
           // A model question must not re-open already completed quote consent.
           if(!lifecycle.reactive&&proposal.quote_requested&&/quote|estimate|cotizaci[oó]n|presupuesto|email|correo/i.test(plan.next_question??'')) {
@@ -864,7 +897,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
         last_evaluated_message_id: lastMessage?.id ?? null, updated_at: new Date().toISOString(),
       }, { onConflict: 'lead_id' })
     }
-    return { decision, draft: draft.data, tool_results: { pricing, quantity, route, quote_application: quoteApplication, diagnostics } }
+    return { decision, draft: draft.data, tool_results: { pricing, quantity, route, quote_application: quoteApplication, diagnostics, timings } }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'AI draft generation failed.'
     if (service && !options.sandbox) {

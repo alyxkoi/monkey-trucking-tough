@@ -247,6 +247,10 @@ Deno.serve(async (req) => {
       consent_disclosure_text: SMS_CONSENT_DISCLOSURE,
     }
     const trackingLinkId = trackingAttribution && typeof trackingAttribution === 'object'
+      && trackingAttribution.version === 2
+      && Number.isFinite(Date.parse(trackingAttribution.capturedAt))
+      && Date.now() - Date.parse(trackingAttribution.capturedAt) >= -60_000
+      && Date.now() - Date.parse(trackingAttribution.capturedAt) <= 30 * 60_000
       && typeof trackingAttribution.trackingLinkId === 'string'
       && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trackingAttribution.trackingLinkId)
       ? trackingAttribution.trackingLinkId

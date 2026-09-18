@@ -14,7 +14,7 @@ export function AiStaffActions({actions,onResolved}:{actions:Activity[];onResolv
   if(!actions.length)return null
   return <Panel title="Customer requests for staff"><div className="space-y-5" aria-live="polite">
     {error&&<p role="alert" className="text-warn">{error}</p>}
-    {actions.map(entry=>{const a=aiActionDetails(entry);return <section key={entry.id} className="space-y-3 rounded-xl border border-line p-4">
+    {actions.map(entry=>{const a=aiActionDetails(entry);return <section key={entry.id} className={`space-y-3 rounded-xl border p-4 ${a.kind==='QUOTE_READY'?'border-warn/40 bg-warn/10':'border-line'}`}>
       <h3 className="font-bold">{a.title}</h3><p className="break-words text-sm text-cc-muted">{a.context}</p>
       <SecondaryButton onClick={()=>navigate(a.to)}>{a.label}</SecondaryButton>
       {a.kind!=='QUOTE_READY'&&<><label className="block text-sm">Resolution note<input aria-label={`Resolution for ${a.title}`} className="mt-2 block min-h-11 w-full rounded-xl border border-line bg-raised p-3" value={notes[entry.id]??''} onChange={e=>setNotes({...notes,[entry.id]:e.target.value})}/></label>

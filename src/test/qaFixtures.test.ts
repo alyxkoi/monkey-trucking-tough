@@ -111,6 +111,12 @@ describe('Phase 06 deterministic QA fixture layer', () => {
     expect(mapLeads(data)[0].needsSalvador).toBe(true)
     expect(mapLeads(data)[0].conversationState).toBe('AI_FAILED')
 
+    // A later delivered recovery supersedes the failed attempt, not vice versa.
+    data.messages.push({...data.messages[1],id:'recovery',delivery_status:'DELIVERED',created_at:'2026-08-26T17:00:02.000Z'})
+    expect(mapLeads(data)[0].needsSalvador).toBe(false)
+    data.messages[2]={...data.messages[2],delivery_status:'PENDING',send_error:'Provider unavailable'}
+    expect(mapLeads(data)[0].conversationState).toBe('AI_FAILED')
+
     data.messages = data.messages.slice(0,1)
     expect(mapLeads(data)[0].needsSalvador).toBe(false)
     expect(mapLeads(data)[0].conversationState).toBe('AI_PROCESSING')

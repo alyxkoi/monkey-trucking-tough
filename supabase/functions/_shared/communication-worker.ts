@@ -104,6 +104,10 @@ export async function runCommunicationJob(service: any, config: AiConfig, templa
   if (claimed.error) throw new Error('Communication jobs could not be claimed')
   const job = claimed.data
   if (!job) return { processed: false }
+  const workerStarted=Date.now()
+  const pipeline={job_id:job.id,job_created_at:job.created_at,job_due_at:job.due_at,worker_started_at:new Date(workerStarted).toISOString(),
+    queue_wait_ms:Math.max(0,workerStarted-Date.parse(job.created_at)),due_to_worker_ms:Math.max(0,workerStarted-Date.parse(job.due_at)),worker_attempt:job.attempts}
+  let generated:any=null
   let text: string | null = null
   let reason: string | null = null
   let handoff: boolean | null = null
@@ -111,15 +115,18 @@ export async function runCommunicationJob(service: any, config: AiConfig, templa
     const eligible = await service.rpc('communication_job_eligible', { p_job_id: job.id, p_lease_token: job.lease_token })
     if (eligible.error || eligible.data !== true) throw new Error('Communication job is no longer eligible')
     if (job.kind === 'AI_REPLY') {
-      const result = await generateAiDraft(service, { lead_id: job.lead_id, resume_message_id: job.context?.resume_message_id ?? null }, null, config)
+      const result = await generateAiDraft(service, { lead_id: job.lead_id, resume_message_id: job.context?.resume_message_id ?? null, pipeline_timings:pipeline }, null, config)
+      generated=result
       if(result.decision.handoff_acknowledgement)handoff=result.decision.detected_language==='SPANISH'
       else text = autonomousReply(result.decision, result.tool_results.pricing)
     } else text = await scheduledText(service, job, config)
     if (handoff===null&&(!text || text.length>420 || /[—–]/.test(text))) throw new Error('Automated message failed length or style checks')
   } catch (error) { reason = error instanceof Error ? error.message : 'Communication generation failed' }
+  const reserveStarted=Date.now()
   const finished = handoff!==null&&!reason ? await service.rpc('finish_ai_handoff',{p_job_id:job.id,p_lease_token:job.lease_token,p_spanish:handoff,p_template_id:templateId??null}) : await service.rpc('finish_communication_job', {
     p_job_id:job.id,p_lease_token:job.lease_token,p_body:reason ? null : text,p_template_id:templateId ?? null,p_error:reason,
   })
   if (finished.error) throw new Error('Communication result could not be committed')
-  return { processed:true, reserved:Boolean(finished.data?.id), blocked:Boolean(reason), messageId:finished.data?.id ?? null }
+  if(generated?.tool_results?.timings)Object.assign(generated.tool_results.timings,{outbox_reservation_ms:Date.now()-reserveStarted,outbox_reserved_at:finished.data?.created_at??null,worker_generation_ms:reserveStarted-workerStarted,worker_error:reason})
+  return { processed:true, reserved:Boolean(finished.data?.id), blocked:Boolean(reason), messageId:finished.data?.id ?? null, auditId:generated?.draft?.audit_log_id??null, toolResults:generated?.tool_results??null }
 }

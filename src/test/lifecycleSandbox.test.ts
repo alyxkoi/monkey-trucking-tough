@@ -19,6 +19,13 @@ async function run(messages:any[],intent='NONE',scenario='LEAD',language='ENGLIS
 }
 afterEach(()=>vi.unstubAllGlobals())
 describe('full lifecycle sandbox using production engine',()=>{
+ it('acknowledges a quantity correction without repeating the full final recap',async()=>{
+   const result=await run([c('my name is Mike'),c('20 yards flexbase to 123 Oak Road, Kaufman TX 75142'),c('tomorrow at 1pm'),a('Would you like us to prepare the quote?'),c('actually make it 40')])
+   expect(result.reply).toContain('40 yards')
+   expect(result.reply).toContain('$1640.00')
+   expect(result.reply).not.toMatch(/123 Oak|Mike|20 yards/)
+   expect(result.tool_results.quantity.yards).toBe(40)
+ })
  it('acknowledges a protected change request even if the model over-escalates its financial authorization',async()=>{
    const result=await run([c('I might need 5 more yards than I accepted')],'ORDER_CHANGE','ACCEPTED','ENGLISH','',true)
    expect(result.reply).toContain('5 more yards');expect(result.blocked).toBeNull();expect(result.decision.dashboard_proposal.actions).toContain('ORDER_CHANGE')
@@ -54,7 +61,7 @@ describe('full lifecycle sandbox using production engine',()=>{
  it('recaps delivery date then prepares after quote and email confirmation',async()=>{
    const form='20 yards of flexbase delivered to 123 Oak Road, Kaufman, TX 75142'
    const date=await run([c('tomorrow at noon')],'DELIVERY_PREFERENCE','LEAD','ENGLISH',form)
-   expect(date.reply).toMatch(/20 yards.*12:00.*send the quote/)
+   expect(date.reply).toMatch(/20 yards.*12:00.*Material \$720.00.*delivery \$100.00.*total \$820.00.*prepare the quote/)
    const result=await run([c('tomorrow at noon'),a('would you like us to send the quote over?'),c('yes'),a('what email should we use?'),c('use mike@example.com')],'CONFIRM_EMAIL','LEAD','ENGLISH',form)
    expect(result.decision.dashboard_proposal.ready).toBe(true);expect(result.reply).toContain('ready for review');expect(result.reply).not.toContain('?');expect(result.send_allowed).toBe(false)
  })

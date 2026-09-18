@@ -4,7 +4,7 @@ import { appendLeadMilestone,customerName,explicitFullRecap,isQuoteApproval,know
 import { activeAiInstructions,PROMPT_VERSION } from '../../supabase/functions/_shared/ai-engine'
 const now=new Date('2026-09-15T23:30:00Z')
 const lead={id:'lead'},quote={id:'q',lead_id:'lead',status:'ACCEPTED'},job={id:'j',quote_id:'q',status:'SCHEDULED',scheduled_date:'2026-09-20',scheduled_time:'09:00'}
-const pricing={status:'MATERIAL_CALCULATED',yards:20,material_name:'Flexbase',grand_total:800,route:{status:'ROUTE_CALCULATED',destination:'123 Road, Kaufman, TX'}}
+const pricing={status:'MATERIAL_CALCULATED',yards:20,material_name:'Flexbase',material_total:700,delivery_total:100,tax_total:0,grand_total:800,route:{status:'ROUTE_CALCULATED',destination:'123 Road, Kaufman, TX'}}
 const decision={detected_language:'ENGLISH',uncertain_facts:[]}
 function proposal(text:string,extra:Record<string,unknown>={}) {return lifecycleProposal({lead,customer:{name:'Mike',email:'mike@example.com'},messages:[{id:'m',sender_type:'CUSTOMER',body:text}],lifecycle:lifecycleContext(lead,[],[],[],[]),decision,pricing,now,...extra})}
 describe('lifecycle projection and validated proposals',()=>{
@@ -91,7 +91,7 @@ describe('lifecycle projection and validated proposals',()=>{
     expect(explicitFullRecap('change the address to 123 Oak Road')).toBe(false)
   })
   it('recaps date and moves toward quote/email confirmation',()=>{
-    const p=proposal('tomorrow at noon');expect(lifecycleReply(p,{reactive:false},decision,pricing)).toMatch(/20 yards.*2026-09-16.*12:00.*send the quote/)
+    const p=proposal('tomorrow at noon');expect(lifecycleReply(p,{reactive:false},decision,pricing)).toMatch(/20 yards.*Sep 16.*12:00 PM.*total \$800.00.*prepare the quote/)
     const ask=proposal('yes',{messages:[{sender_type:'AI',body:'would you like us to send the quote over?'},{sender_type:'CUSTOMER',body:'yes'}]})
     expect(lifecycleReply(ask,{reactive:false},decision,pricing)).toContain('mike@example.com')
   })

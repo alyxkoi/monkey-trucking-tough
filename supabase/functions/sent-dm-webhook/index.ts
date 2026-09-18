@@ -4,6 +4,7 @@ import { verifySignature } from '../_shared/sms-signature.ts'
 import { HttpError } from '../_shared/staff-auth.ts'
 import { kickCommunications } from '../_shared/communication-kick.ts'
 import { dispatchSms } from '../_shared/sms-dispatch.ts'
+import { recordInboundTiming } from '../_shared/inbound-timing.ts'
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { 'Content-Type': 'application/json' },
@@ -62,6 +63,7 @@ Deno.serve(async (req) => {
     p_error: null,
   })
   if (result.error) return json({ error: 'Webhook could not be committed; retry required' }, 503)
+  if(isInbound&&!result.data?.duplicate)await recordInboundTiming(service,messageId,'WEBHOOK',requestStarted,ingestStarted,occurredAt)
   let inboundResult = result.data?.result
   // sent.DM retries are normally acknowledged as duplicates. If the first
   // attempt committed the inbound before the opt-in reservation completed,

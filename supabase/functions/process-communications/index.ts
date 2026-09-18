@@ -29,7 +29,7 @@ Deno.serve(async(req) => {
     if (planned.error) throw new Error('Communication scheduling failed')
     const runtime=await service.from('communication_runtime').select('ai_sending_enabled,scheduled_sending_enabled').eq('id',1).single()
     if (runtime.error) throw new Error('Runtime settings unavailable')
-    let job:{processed:boolean,messageId?:string|null}={processed:false}
+    let job:Awaited<ReturnType<typeof runCommunicationJob>>={processed:false}
     const generationStarted=Date.now()
     if (jobId&&runtime.data.ai_sending_enabled) {
       job=await runCommunicationJob(service,await configuredAi(service),Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID'),jobId)
@@ -44,6 +44,7 @@ Deno.serve(async(req) => {
       const exactMessageId=messageId??job.messageId??null
       if (exactMessageId) {
         const result=await dispatchSms(service,{apiKey,profileId:Deno.env.get('SENT_DM_PROFILE_ID')},exactMessageId)
+        if(job.toolResults?.timings)Object.assign(job.toolResults.timings,result.timing??{}, {provider_accepted:result.accepted??false})
         if (result.dispatched) dispatches++
       } else if (!targeted) for(let n=0;n<2;n++) {
         const result=await dispatchSms(service,{apiKey,profileId:Deno.env.get('SENT_DM_PROFILE_ID')})
@@ -52,8 +53,17 @@ Deno.serve(async(req) => {
       }
     }
     const timing={generation_ms:generationMs,dispatch_ms:Date.now()-dispatchStarted,total_ms:Date.now()-requestStarted}
+    // Diagnostics must never cause a successful immutable send to be retried.
+    if(job.auditId&&job.toolResults) {
+      Object.assign(job.toolResults.timings,{worker_total_ms:timing.total_ms})
+      if(job.toolResults.diagnostics)job.toolResults.diagnostics.timings=job.toolResults.timings
+      try {
+        const saved=await service.from('ai_audit_logs').update({tool_results:job.toolResults}).eq('id',job.auditId)
+        if(saved.error)console.warn('Could not append transport diagnostics',{auditId:job.auditId})
+      } catch { console.warn('Could not append transport diagnostics',{auditId:job.auditId}) }
+    }
     console.info('communications worker timing',{jobId,messageId,processed:job.processed,dispatches,...timing})
-    return json({planned:planned.data,job,dispatches,timing})
+    return json({planned:planned.data,job:{processed:job.processed,messageId:job.messageId},dispatches,timing})
   } catch(error) {
     console.error('communications worker failed',{total_ms:Date.now()-requestStarted,error:error instanceof Error?error.message:'Communications processing failed'})
     return json({error:error instanceof Error?error.message:'Communications processing failed'},503)

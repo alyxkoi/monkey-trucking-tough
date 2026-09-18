@@ -5,6 +5,8 @@ import { QuoteScreen } from '@/control-center/approved/screens/QuoteScreen'
 import { LeadsQuotes } from '@/control-center/approved/screens/LeadsQuotes'
 import { sortSales } from '@/control-center/approved/state/salesSort'
 import type { AttentionItem } from '@/control-center/approved/state/attention'
+import { AiStaffActions } from '@/control-center/approved/components/ui/AiStaffActions'
+import { CommunicationDiagnostics } from '@/control-center/approved/components/ui/CommunicationDiagnostics'
 
 // Partial provider fixture; unrelated dashboard actions are intentionally absent.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,6 +58,32 @@ describe('quote recipient confirmation UI', () => {
     render(quoteView())
     expect(screen.queryByRole('button',{name:'Confirm recipient'})).not.toBeInTheDocument()
     expect(screen.getByRole('button',{name:'Send Quote'})).toBeEnabled()
+  })
+  it('saves and confirms an alternate recipient without changing the customer profile',async()=>{
+    const view=render(quoteView())
+    fireEvent.change(screen.getByRole('textbox',{name:/Recipient email/}),{target:{value:'alternate@example.com'}})
+    mocks.confirm.mockImplementation(async(_id,email)=>{mocks.state.sourceData.quotes[0].confirmed_email=email})
+    fireEvent.click(screen.getByRole('button',{name:'Confirm recipient'}))
+    await waitFor(()=>expect(mocks.confirm).toHaveBeenCalledWith('q','alternate@example.com'))
+    view.rerender(quoteView())
+    await waitFor(()=>expect(screen.getByRole('button',{name:'Send Quote'})).toBeEnabled())
+    fireEvent.click(screen.getByRole('button',{name:'Send Quote'}))
+    expect(mocks.send).toHaveBeenCalledWith('q')
+    expect(mocks.state.customerById().email).toBe('profile@example.com')
+  })
+  it('presents quote readiness in amber and opens the existing quote',()=>{
+    const action={id:'a',entity_id:'l',metadata:{kind:'QUOTE_READY',quote_id:'q'}}
+    render(<MemoryRouter><AiStaffActions actions={[action as never]} onResolved={vi.fn()}/></MemoryRouter>)
+    expect(screen.getByText('Quote ready to send').closest('section')).toHaveClass('bg-warn/10')
+    expect(screen.getByRole('button',{name:'Review & Send'})).toBeEnabled()
+    expect(screen.queryByRole('button',{name:/Mark handled/})).not.toBeInTheDocument()
+  })
+  it('keeps timing diagnostics collapsed and identifies the actual inbound path',()=>{
+    render(<CommunicationDiagnostics audit={{tool_results:{timings:{ingress_source:'RECONCILIATION',openai_ms:1200,provider_submit_ms:200}}}}/>)
+    expect(screen.getByText('Staff response diagnostics').closest('details')).not.toHaveAttribute('open')
+    expect(screen.getByText('Inbound path: RECONCILIATION')).toBeInTheDocument()
+    expect(screen.getByText('1.20 s')).toBeInTheDocument()
+    expect(screen.getAllByText('Not recorded').length).toBeGreaterThan(0)
   })
 })
 

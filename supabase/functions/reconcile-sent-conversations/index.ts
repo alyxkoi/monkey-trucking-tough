@@ -5,6 +5,7 @@ import { complianceKeyword } from '../_shared/sent-dm-domain.ts'
 import { workerAuthorized } from '../_shared/worker-auth.ts'
 import { reconcileAcceptedSms } from '../_shared/sms-reconcile.ts'
 import { dispatchSms } from '../_shared/sms-dispatch.ts'
+import { recordInboundTiming } from '../_shared/inbound-timing.ts'
 
 const BUSINESS_NUMBER = '+19453750877'
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -30,6 +31,7 @@ Deno.serve(async (req) => {
   if (!leaseToken) return json({ skipped: true, reason: 'already_running' })
 
   let failure: string | null = null
+  const reconciliationStarted=Date.now()
   try {
     const headers: Record<string, string> = { 'x-api-key': apiKey, Accept: 'application/json' }
     const profileId = Deno.env.get('SENT_DM_PROFILE_ID')
@@ -53,6 +55,7 @@ Deno.serve(async (req) => {
     let queued = 0
     for (const message of messages) {
       if (known.has(message.messageId)) continue
+      const ingestStarted=Date.now()
       const result = await service.rpc('ingest_sms_event', {
         p_message_id: message.messageId,
         p_event_type: 'message.received',
@@ -66,6 +69,7 @@ Deno.serve(async (req) => {
         p_error: null,
       })
       if (result.error) throw new Error('A provider message could not be committed')
+      if(!result.data?.duplicate)await recordInboundTiming(service,message.messageId,'RECONCILIATION',reconciliationStarted,ingestStarted,message.occurredAt)
       ingested++
       const jobId = typeof result.data?.result?.job_id === 'string' ? result.data.result.job_id : null
       if (jobId) {

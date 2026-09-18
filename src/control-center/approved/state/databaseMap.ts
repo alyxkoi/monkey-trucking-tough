@@ -109,11 +109,13 @@ export function mapLeads(data: ControlData): Lead[] {
     const lastCustomer = [...messages].reverse().find((message) => message.actor === 'customer' && message.kind !== 'COMPLIANCE')
     const lastResponder = [...messages].reverse().find((message) =>
       (message.actor === 'salvador' || message.actor === 'ai')
+      && !message.sendError
       && !['FAILED', 'FILTERED', 'BLOCKED'].includes(message.deliveryStatus ?? ''),
     )
     const customer = data.customers.find((entry) => entry.id === row.customer_id)
     const auditAt = latestAiAudit ? requiredAt(latestAiAudit.created_at) : 0
     const sendFailed = messages.some((message) => message.actor !== 'customer'
+      && message.at > Math.max(latestResolutionAt,lastResponder?.at??0)
       && (Boolean(message.sendError) || ['FAILED','FILTERED','BLOCKED'].includes(message.deliveryStatus ?? '')))
     const unresolvedEscalation = messages.some((message) => message.escalation && message.at>latestResolutionAt && message.at>(lastResponder?.at??0))
     const explicitHuman = row.human_takeover || Boolean(latestAiAudit && auditAt>latestResolutionAt && auditAt>=(lastResponder?.at??0)

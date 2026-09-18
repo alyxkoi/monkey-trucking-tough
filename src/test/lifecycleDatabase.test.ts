@@ -30,6 +30,8 @@ beforeAll(async()=>{
  expect(await query("select column_name from information_schema.columns where table_schema='public' and table_name='leads' and column_name='notes'")).toHaveLength(0)
  await db.exec(read('20260918042000_lead_notes_schema'))
  await db.exec(read('20260918042000_lead_notes_schema'))
+ await db.exec(read('20260918160000_quote_intake_continuity'))
+ await db.exec(read('20260918160000_quote_intake_continuity'))
 },30000)
 afterAll(async()=>{await db?.close()})
 async function fixture(body='my name is Mike'){
@@ -43,6 +45,26 @@ async function transaction(fn:()=>Promise<void>){await db.exec('begin');try{awai
 // a fixed-offset zone at noon inside this rolled-back fixture, not production.
 async function businessTimeFixture(){await db.exec("update communication_runtime set timezone=(select name from pg_timezone_names where name like 'Etc/GMT%' and extract(hour from now() at time zone name)=12 limit 1)")}
 describe.sequential('executed lifecycle write transactions',()=>{
+ it.each(['yes','yes please','sure','please do','send it','yeah'])('retains verified manual prefill after a failed acknowledgement: %s',answer=>transaction(async()=>{
+   const a=await fixture('20 yards of flexbase')
+   const [material]=await query("insert into materials(name,price_per_yard,full_load_price,full_load_yards) values('Flexbase',38,720,20) returning *")
+   await query("update leads set delivery_address='123 Oak Road' where id=$1",[a.l.id])
+   await query("insert into ai_audit_logs(lead_id,status,decision,tool_results) values($1,'SUCCESS',$2,$3)",[a.l.id,{dashboard_proposal:{source_message_id:a.m.id}},{pricing:{status:'MATERIAL_CALCULATED',material_id:material.id,yards:20,quantity:{status:'RESOLVED'},route:{status:'ROUTE_CALCULATED',destination:'123 Oak Road',origin:'7653 S FM 148',distance_miles:10}}}])
+   await query("insert into lead_messages(lead_id,customer_id,sender_type,body,created_at) values($1,$2,'CUSTOMER',$3,now()+interval '1 second')",[a.l.id,a.c.id,answer])
+   await query("insert into ai_audit_logs(lead_id,status) values($1,'FAILED')",[a.l.id])
+   const [created]=await query('select * from create_quote_draft_from_lead($1)',[a.l.id])
+   const [q]=await query('select * from quotes where id=$1',[created.id])
+   expect(Number(q.grand_total)).toBe(820)
+   expect((await query('select * from quote_items where quote_id=$1',[q.id]))[0].yards).toBe('20')
+   expect((await query('select * from create_quote_draft_from_lead($1)',[a.l.id]))[0].id).toBe(q.id)
+ }))
+ it('does not reuse audited prices across an unprocessed quantity correction',()=>transaction(async()=>{
+   const a=await fixture('20 yards flexbase')
+   await query("insert into ai_audit_logs(lead_id,status,decision,tool_results) values($1,'SUCCESS',$2,$3)",[a.l.id,{dashboard_proposal:{source_message_id:a.m.id}},{pricing:{status:'MATERIAL_CALCULATED',quantity:{status:'RESOLVED'},yards:20}}])
+   await query("insert into lead_messages(lead_id,customer_id,sender_type,body,created_at) values($1,$2,'CUSTOMER','actually make it 40',now()+interval '1 second')",[a.l.id,a.c.id])
+   const [q]=await query('select * from create_quote_draft_from_lead($1)',[a.l.id])
+   expect(await query('select * from quote_items where quote_id=$1',[q.id])).toHaveLength(0)
+ }))
  it.each([[true,'Use the front gate'],[false,'Use the front gate'],[true,null],[false,null]] as const)('prepares one complete quote through approval, correction and email (profile=%s, notes=%s)',(hasEmail,leadNotes)=>transaction(async()=>{
    const a=await fixture('I need 20 yards of flexbase')
    await query('update customers set name=$2,email=$3 where id=$1',[a.c.id,'Mike',hasEmail?'mike@example.com':null])
