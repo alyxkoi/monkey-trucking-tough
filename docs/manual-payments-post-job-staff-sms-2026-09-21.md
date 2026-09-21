@@ -40,3 +40,12 @@ The authorized internal test was accepted by sent.DM in one attempt, but no deli
 Production was already in SMS TESTING mode. The explicitly authorized Salvador destination was appended to its existing test-number list, with a `STAFF_SMS_TEST_NUMBER_APPROVED` audit entry, only after migration 0038 was verified active. Global SMS mode and customer permissions were not broadened; historical staff-number customer traffic is blocked.
 
 Production test must use the explicit internal test button and verify delivery in `staff_sms_outbox`, with no synthetic lead, invoice, or payment. Financial end-to-end fixtures are isolated locally; never mark a real invoice paid for testing.
+
+## Production verification completed
+
+- Staff test submitted 2026-09-21 19:42:55 UTC. Reconciliation verified `DELIVERED` at 19:48:59 UTC. One outbox record, one provider submission attempt, one receipt audit, zero customer messages for that provider ID. No resend was made. The receipt observation time is not the carrier's delivery timestamp.
+- Operational counts stayed 5 customers, 5 leads, 3 invoices, 3 payments. The one pre-existing staff-number customer remains historical; no new staff customer/lead was created.
+- Published Communication & AI page shows the new settings and `TEST · DELIVERED`. Review URL unchanged; rule remains ON. Console error check returned no errors.
+- The previously affected completed/paid lead no longer displays the stale Salvador-needed intake banner. Its manual takeover remains visibly active; no forced AI resume was performed.
+- Live privileges: manual payment RPC rejects anon and checks staff role for authenticated callers; internal dispatcher rejects anon/authenticated and permits service role only. Historical-number dispatch guard is active.
+- No production invoice/payment mutations or synthetic customer financial transactions were used for tests. Financial scenarios ran against isolated PostgreSQL fixtures and UI regression tests.
