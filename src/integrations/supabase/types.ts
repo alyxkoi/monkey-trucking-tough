@@ -1690,6 +1690,7 @@ export type Database = {
           customer_id: string
           id: string
           invoice_id: string
+          manual_request_id: string | null
           method: string
           note: string | null
           payment_source: string | null
@@ -1710,6 +1711,7 @@ export type Database = {
           customer_id: string
           id?: string
           invoice_id: string
+          manual_request_id?: string | null
           method: string
           note?: string | null
           payment_source?: string | null
@@ -1730,6 +1732,7 @@ export type Database = {
           customer_id?: string
           id?: string
           invoice_id?: string
+          manual_request_id?: string | null
           method?: string
           note?: string | null
           payment_source?: string | null
@@ -3458,6 +3461,19 @@ export type Database = {
           p_method: string
           p_note?: string
           p_received_at: string
+        }
+        Returns: string
+      }
+      record_manual_invoice_payment: {
+        Args: {
+          p_amount: number
+          p_expected_total: number
+          p_invoice_id: string
+          p_method: string
+          p_note: string
+          p_processing_fee: number
+          p_received_at: string
+          p_request_id: string
         }
         Returns: string
       }

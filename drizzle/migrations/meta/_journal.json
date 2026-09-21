@@ -239,6 +239,13 @@
       "when": 1789771597017,
       "tag": "0033_immediate_review_request",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790019294999,
+      "tag": "0034_manual_payment_fees",
+      "breakpoints": true
     }
   ]
 }
