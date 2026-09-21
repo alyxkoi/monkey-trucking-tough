@@ -16,17 +16,20 @@
 
 ## Deployment
 
-Apply the four mirrored migrations **once**, in order:
+Apply the five mirrored migrations **once**, in order:
 
 1. `0034_manual_payment_fees` / `20260921100000_manual_payment_fees`
 2. `0035_post_job_review_events` / `20260921101000_post_job_review_events`
 3. `0036_staff_sms_notifications` / `20260921102000_staff_sms_notifications`
 4. `0037_resolve_obsolete_quote_actions` / `20260921103000_resolve_obsolete_quote_actions`
+5. `0038_historical_staff_sms_isolation` / `20260921104000_historical_staff_sms_isolation`
+
+The production read-only check found one historical customer with the staff number. Migration 0038 preserves that record and all history, while blocking customer SMS reservation/dispatch and new leads for configured internal numbers. Inbound replies already use the internal route.
 
 The Drizzle and Supabase versions are identical mirrors, not separate migrations. Keep the existing Cloud journal/schema workflow; do not execute both copies. Deploy `send-sms`, `process-communications`, `customer-document-email` and any deployed function bundling the changed shared dispatcher/worker/response modules. Publish frontend after backend verification.
 
 ## Verification before push
 
-618 tests / 70 files pass. TypeScript app check and Vite production build pass. Changed-file ESLint has no errors (existing AppState fast-refresh warning). PostgreSQL integration covers both completion/payment orders, partial fees, Stripe protection, duplicate events, Friday evening, real worker/transport with stub carrier, delivery receipts, staff toggle gates, internal inbound isolation and resolved-action cancellation. Component tests cover manual fee/partial amount, stable retry ID and staff settings/test interaction.
+619 tests / 70 files pass. TypeScript app check and Vite production build pass. Changed-file ESLint has no errors (existing AppState fast-refresh warning). PostgreSQL integration covers both completion/payment orders, partial fees, Stripe protection, duplicate events, Friday evening, real worker/transport with stub carrier, delivery receipts, staff toggle gates, historical staff-contact isolation and resolved-action cancellation. Component tests cover manual fee/partial amount, stable retry ID and staff settings/test interaction.
 
 Production test must use the explicit internal test button and verify delivery in `staff_sms_outbox`, with no synthetic lead, invoice, or payment. Financial end-to-end fixtures are isolated locally; never mark a real invoice paid for testing.

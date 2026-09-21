@@ -82,7 +82,7 @@ beforeAll(async () => {
     alter table invoices add subtotal_amount numeric,add processing_fee_rate numeric,add processing_fee_amount numeric;
     alter table payments add payment_source text default 'MANUAL';
     create table stripe_checkout_sessions(id uuid primary key default gen_random_uuid(),invoice_id uuid,status text,expires_at timestamptz);`)
-  for(const file of ['20260921100000_manual_payment_fees','20260921101000_post_job_review_events','20260921102000_staff_sms_notifications','20260921103000_resolve_obsolete_quote_actions'])await db.exec(read(file))
+  for(const file of ['20260921100000_manual_payment_fees','20260921101000_post_job_review_events','20260921102000_staff_sms_notifications','20260921103000_resolve_obsolete_quote_actions','20260921104000_historical_staff_sms_isolation'])await db.exec(read(file))
 }, 30_000)
 afterAll(async () => { await db?.close() })
 
@@ -169,6 +169,16 @@ describe.sequential('manual accounting and post-job integration',()=>{
 })
 
 describe.sequential('internal staff notifications',()=>{
+ it('blocks customer SMS for a historical staff contact without deleting its history',async()=>{
+   await db.exec('alter table customers disable trigger protect_internal_staff_contact; alter table leads disable trigger protect_internal_staff_lead')
+   const c=await customer('+12146778466')
+   await db.exec("alter table customers enable trigger protect_internal_staff_contact; alter table leads enable trigger protect_internal_staff_lead; update control_center_settings set sms_status='READY'")
+   await expect(rpc('enqueue_sms',[c.leadId,'Customer test','historical-staff-test','HUMAN',actor,'fixture'])).rejects.toThrow('Internal staff number')
+   await expect(query("insert into leads(customer_id,source,need) values($1,'SMS','Duplicate staff lead')",[c.customerId])).rejects.toThrow('Internal staff number')
+   expect(await rpc('record_inbound_sms',['historical-staff-reply','+12146778466','Hello'])).toMatchObject({internal:true})
+   expect(await query('select id from leads where customer_id=$1',[c.customerId])).toHaveLength(1)
+   expect(await query('select id from lead_messages where lead_id=$1',[c.leadId])).toHaveLength(0)
+ })
  it('keeps quote and staff-action dashboard events when those SMS copies are disabled',()=>transaction(async()=>{
    await rpc('save_staff_sms_settings',[true,true,false,false])
    const c=await customer('+12145550901')
