@@ -267,6 +267,13 @@
       "when": 1790019472056,
       "tag": "0037_resolve_obsolete_quote_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790019656094,
+      "tag": "0038_historical_staff_sms_isolation",
+      "breakpoints": true
     }
   ]
 }
