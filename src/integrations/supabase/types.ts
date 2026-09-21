@@ -2136,6 +2136,7 @@ export type Database = {
           lease_until: string | null
           message_id: string
           next_attempt_at: string
+          next_receipt_check_at: string | null
           operation_key: string
           payload: Json | null
           phone: string
@@ -2155,6 +2156,7 @@ export type Database = {
           lease_until?: string | null
           message_id?: string
           next_attempt_at?: string
+          next_receipt_check_at?: string | null
           operation_key: string
           payload?: Json | null
           phone: string
@@ -2174,6 +2176,7 @@ export type Database = {
           lease_until?: string | null
           message_id?: string
           next_attempt_at?: string
+          next_receipt_check_at?: string | null
           operation_key?: string
           payload?: Json | null
           phone?: string
@@ -3061,6 +3064,7 @@ export type Database = {
         Args: { p_job_id: string }
         Returns: Json
       }
+      claim_customer_sms_receipt_checks: { Args: never; Returns: Json }
       claim_sent_dm_reconciliation: { Args: never; Returns: string }
       claim_sms: { Args: { p_message_id?: string }; Returns: Json }
       claim_sms_receipt_checks: { Args: never; Returns: Json }
