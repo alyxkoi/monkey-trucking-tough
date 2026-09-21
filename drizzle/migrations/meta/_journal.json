@@ -253,6 +253,13 @@
       "when": 1790019347367,
       "tag": "0035_post_job_review_events",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790019443432,
+      "tag": "0036_staff_sms_notifications",
+      "breakpoints": true
     }
   ]
 }

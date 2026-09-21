@@ -2123,6 +2123,105 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_sms_outbox: {
+        Row: {
+          attempts: number
+          body: string
+          created_at: string
+          delivery_status: string
+          entity_id: string | null
+          event_type: string
+          last_error: string | null
+          lease_token: string | null
+          lease_until: string | null
+          message_id: string
+          next_attempt_at: string
+          operation_key: string
+          payload: Json | null
+          phone: string
+          provider_message_id: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          body: string
+          created_at?: string
+          delivery_status?: string
+          entity_id?: string | null
+          event_type: string
+          last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          message_id?: string
+          next_attempt_at?: string
+          operation_key: string
+          payload?: Json | null
+          phone: string
+          provider_message_id?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          body?: string
+          created_at?: string
+          delivery_status?: string
+          entity_id?: string | null
+          event_type?: string
+          last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          message_id?: string
+          next_attempt_at?: string
+          operation_key?: string
+          payload?: Json | null
+          phone?: string
+          provider_message_id?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      staff_sms_settings: {
+        Row: {
+          consent_updated_at: string | null
+          enabled: boolean
+          id: number
+          name: string
+          new_lead: boolean
+          opted_out_at: string | null
+          phone: string
+          quote_accepted: boolean
+          salvador_needed: boolean
+          updated_at: string
+        }
+        Insert: {
+          consent_updated_at?: string | null
+          enabled?: boolean
+          id?: number
+          name?: string
+          new_lead?: boolean
+          opted_out_at?: string | null
+          phone?: string
+          quote_accepted?: boolean
+          salvador_needed?: boolean
+          updated_at?: string
+        }
+        Update: {
+          consent_updated_at?: string | null
+          enabled?: boolean
+          id?: number
+          name?: string
+          new_lead?: boolean
+          opted_out_at?: string | null
+          phone?: string
+          quote_accepted?: boolean
+          salvador_needed?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       stripe_checkout_sessions: {
         Row: {
           amount_cents: number
@@ -2921,6 +3020,14 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_customer_sms_delivery_status: {
+        Args: {
+          p_error_message?: string
+          p_provider_message_id: string
+          p_provider_status: string
+        }
+        Returns: Json
+      }
       apply_sms_delivery_status: {
         Args: {
           p_error_message?: string
@@ -2931,6 +3038,14 @@ export type Database = {
       }
       authorize_sms_dispatch: {
         Args: { p_lease_token: string; p_message_id: string }
+        Returns: Json
+      }
+      authorize_staff_sms_dispatch: {
+        Args: {
+          p_lease_token: string
+          p_message_id: string
+          p_template_id?: string
+        }
         Returns: Json
       }
       automation_rule_enabled: {
@@ -2949,6 +3064,7 @@ export type Database = {
       claim_sent_dm_reconciliation: { Args: never; Returns: string }
       claim_sms: { Args: { p_message_id?: string }; Returns: Json }
       claim_sms_receipt_checks: { Args: never; Returns: Json }
+      claim_staff_sms: { Args: { p_message_id?: string }; Returns: Json }
       communication_candidates: {
         Args: { p_now?: string }
         Returns: {
@@ -2994,6 +3110,15 @@ export type Database = {
         Returns: string
       }
       complete_sms_dispatch: {
+        Args: {
+          p_lease_token: string
+          p_message_id: string
+          p_provider_message_id: string
+          p_status: string
+        }
+        Returns: Json
+      }
+      complete_staff_sms_dispatch: {
         Args: {
           p_lease_token: string
           p_message_id: string
@@ -3267,6 +3392,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      fail_staff_sms_dispatch: {
+        Args: {
+          p_error: string
+          p_lease_token: string
+          p_message_id: string
+          p_retryable: boolean
+        }
+        Returns: undefined
+      }
       fail_stripe_checkout_session: {
         Args: { p_reason: string; p_reservation_id: string }
         Returns: undefined
@@ -3353,6 +3487,7 @@ export type Database = {
       is_admin_or_staff:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
+      is_internal_sms_phone: { Args: { p_phone: string }; Returns: boolean }
       mark_stripe_checkout_terminal: {
         Args: {
           p_event_id: string
@@ -3440,6 +3575,19 @@ export type Database = {
         Args: { p_actor_id: string; p_log_id: string; p_template_id?: string }
         Returns: Json
       }
+      queue_staff_sms: {
+        Args: {
+          p_body: string
+          p_entity: string
+          p_key: string
+          p_type: string
+        }
+        Returns: string
+      }
+      queue_staff_sms_test: {
+        Args: { p_actor_id?: string; p_request_id: string }
+        Returns: string
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -3447,6 +3595,16 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      record_customer_inbound_sms: {
+        Args: {
+          p_body: string
+          p_keyword?: string
+          p_phone: string
+          p_provider_message_id: string
+          p_received_at?: string
+        }
+        Returns: Json
       }
       record_inbound_sms: {
         Args: {
@@ -3540,6 +3698,10 @@ export type Database = {
         Args: { p_note: string; p_request_id: string }
         Returns: undefined
       }
+      resolve_customer_inbound_sms_conversation: {
+        Args: { p_phone: string }
+        Returns: Json
+      }
       resolve_inbound_sms_conversation: {
         Args: { p_phone: string }
         Returns: Json
@@ -3576,6 +3738,15 @@ export type Database = {
           id: string
           quote_number: string
         }[]
+      }
+      save_staff_sms_settings: {
+        Args: {
+          p_enabled: boolean
+          p_new_lead: boolean
+          p_quote_accepted: boolean
+          p_salvador_needed: boolean
+        }
+        Returns: undefined
       }
       schedule_website_contact_response: {
         Args: { p_submission_id: string; p_template_id?: string }
@@ -3616,6 +3787,7 @@ export type Database = {
         Args: { p_at: string; p_hours?: number }
         Returns: string
       }
+      staff_sms_enabled: { Args: { p_type: string }; Returns: boolean }
       update_customer_contact: {
         Args: { p_customer_id: string; p_email: string; p_phone: string }
         Returns: Json
