@@ -82,7 +82,7 @@ beforeAll(async () => {
     alter table invoices add subtotal_amount numeric,add processing_fee_rate numeric,add processing_fee_amount numeric;
     alter table payments add payment_source text default 'MANUAL';
     create table stripe_checkout_sessions(id uuid primary key default gen_random_uuid(),invoice_id uuid,status text,expires_at timestamptz);`)
-  for(const file of ['20260921100000_manual_payment_fees','20260921101000_post_job_review_events','20260921102000_staff_sms_notifications','20260921103000_resolve_obsolete_quote_actions','20260921104000_historical_staff_sms_isolation'])await db.exec(read(file))
+  for(const file of ['20260921100000_manual_payment_fees','20260921101000_post_job_review_events','20260921102000_staff_sms_notifications','20260921103000_resolve_obsolete_quote_actions','20260921104000_historical_staff_sms_isolation','20260921105000_staff_sms_receipt_reconciliation'])await db.exec(read(file))
 }, 30_000)
 afterAll(async () => { await db?.close() })
 
@@ -249,6 +249,9 @@ describe.sequential('internal staff notifications',()=>{
    expect(await dispatchSms(workerService,config,id,carrier)).toMatchObject({accepted:true})
    expect(await dispatchSms(workerService,config,id,carrier)).toMatchObject({dispatched:false})
    expect(calls).toBe(1)
+   await query("update staff_sms_outbox set next_receipt_check_at=now() where message_id=$1",[id])
+   expect(await rpc('claim_sms_receipt_checks')).toContainEqual({message_id:id,internal:true})
+   expect(await rpc('claim_sms_receipt_checks')).not.toContainEqual({message_id:id,internal:true})
    await rpc('ingest_sms_event',['staff-fixture','message.delivered','DELIVERED',false,'+19453750877'])
    expect((await query('select delivery_status from staff_sms_outbox where message_id=$1',[id]))[0].delivery_status).toBe('DELIVERED')
    expect(await rpc('record_inbound_sms',['staff-reply','+12146778466','hi'])).toMatchObject({internal:true})

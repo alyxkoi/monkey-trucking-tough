@@ -3,8 +3,10 @@ import { normalizeSentDmStatus } from './sent-dm-domain.ts'
 import type { SmsProviderConfig } from './sms-dispatch.ts'
 
 /** One-off operator reconciliation, not a second polling loop or a resend. */
-export async function reconcileSms(service:any,config:SmsProviderConfig,messageId:string,leadId:string,fetcher:typeof fetch=fetch,background=false) {
-  const row=await service.from('lead_messages').select('provider_message_id,customer_id,delivery_status').eq('id',messageId).eq('lead_id',leadId).eq('provider','SENT_DM').single()
+export async function reconcileSms(service:any,config:SmsProviderConfig,messageId:string,leadId:string|null,fetcher:typeof fetch=fetch,background=false) {
+  const row=config.internal
+    ? await service.from('staff_sms_outbox').select('provider_message_id,delivery_status').eq('message_id',messageId).single()
+    : await service.from('lead_messages').select('provider_message_id,customer_id,delivery_status').eq('id',messageId).eq('lead_id',leadId).eq('provider','SENT_DM').single()
   if(row.error||!row.data?.provider_message_id) throw new Error('A linked provider message is required')
   const headers:Record<string,string>={'x-api-key':config.apiKey}
   if(config.profileId) headers['x-profile-id']=config.profileId
@@ -20,7 +22,7 @@ export async function reconcileSms(service:any,config:SmsProviderConfig,messageI
   const result=await service.rpc('apply_sms_delivery_status',{p_provider_message_id:row.data.provider_message_id,p_provider_status:status,p_error_message:reason})
   if(result.error) throw new Error('Provider status could not be saved')
   if (!background || row.data.delivery_status !== result.data.delivery_status) {
-    const audit=await service.from('activity_history').insert({customer_id:row.data.customer_id,entity_type:'LEAD',entity_id:leadId,event_type:'SMS_RECONCILED',summary:'SMS status verified directly with sent.DM',actor_label:background?'Communications worker':'Dashboard staff',metadata:{message_id:messageId,provider_status:status}})
+    const audit=await service.from('activity_history').insert({customer_id:config.internal?null:row.data.customer_id,entity_type:config.internal?'SYSTEM':'LEAD',entity_id:config.internal?null:leadId,event_type:config.internal?'STAFF_SMS_RECONCILED':'SMS_RECONCILED',summary:'SMS status verified directly with sent.DM',actor_label:background?'Communications worker':'Dashboard staff',metadata:{message_id:messageId,provider_status:status}})
     if(audit.error) throw new Error('Status saved but reconciliation audit could not be recorded')
   }
   return {success:true,messageId,status:result.data.delivery_status,events}
@@ -34,7 +36,7 @@ export async function reconcileAcceptedSms(service:any,config:SmsProviderConfig,
   const errors:string[]=[]
   const boundedFetch:typeof fetch=(url,init)=>fetcher(url,{...init,signal:AbortSignal.timeout(8_000)})
   await Promise.all(rows.map(async (row:any)=>{
-    try { await reconcileSms(service,config,row.message_id,row.lead_id,boundedFetch,true) }
+    try { await reconcileSms(service,{...config,internal:row.internal===true},row.message_id,row.lead_id??null,boundedFetch,true) }
     catch(error) {errors.push(error instanceof Error?error.message:'Receipt lookup failed')}
   }))
   return {checked:rows.length,errors}

@@ -12,7 +12,7 @@ function fixture(status?:string) {
     single: async () => ({ data: { provider_message_id: providerId, customer_id: 'customer',delivery_status:status }, error: null }),
   }
   const service = {
-    from: (table: string) => table === 'lead_messages' ? row : { insert: audit },
+    from: (table: string) => ['lead_messages','staff_sms_outbox'].includes(table) ? row : { insert: audit },
     rpc: vi.fn<(name:string,args?:Record<string,unknown>)=>Promise<{data:unknown,error:null}>>(async () => ({ data: { delivery_status: 'FAILED' }, error: null })),
   }
   return { service, filters, audit }
@@ -24,6 +24,16 @@ const response = (overrides: Record<string, unknown> = {}) => new Response(JSON.
 } }))
 
 describe('operator SMS reconciliation', () => {
+  it('reconciles internal receipts without creating a customer timeline or resending',async()=>{
+    const {service,filters,audit}=fixture('QUEUED')
+    service.rpc.mockImplementation(async(name:string)=>({data:name==='claim_sms_receipt_checks'?[{message_id:'staff-local',internal:true}]:{delivery_status:'DELIVERED'},error:null}))
+    const fetcher=vi.fn<typeof fetch>(async()=>response({status:'DELIVERED'}))
+    expect(await reconcileAcceptedSms(service,{apiKey:'fixture'},fetcher)).toEqual({checked:1,errors:[]})
+    expect(filters).toEqual([['message_id','staff-local']])
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(audit).toHaveBeenCalledWith(expect.objectContaining({customer_id:null,entity_type:'SYSTEM',entity_id:null,event_type:'STAFF_SMS_RECONCILED'}))
+    expect(service.rpc.mock.calls.map(call=>call[0])).toEqual(['claim_sms_receipt_checks','apply_sms_delivery_status'])
+  })
   it('does not fill the timeline with unchanged background checks',async()=>{
     const {service,audit}=fixture('FAILED')
     await reconcileSms(service,{apiKey:'fixture'},'local','lead',async()=>response(),true)
