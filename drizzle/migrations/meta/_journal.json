@@ -260,6 +260,13 @@
       "when": 1790019443432,
       "tag": "0036_staff_sms_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790019472056,
+      "tag": "0037_resolve_obsolete_quote_actions",
+      "breakpoints": true
     }
   ]
 }
