@@ -243,8 +243,36 @@
     {
       "idx": 34,
       "version": "7",
+      "when": 1790019294999,
+      "tag": "0034_manual_payment_fees",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790019347367,
+      "tag": "0035_post_job_review_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790019443432,
+      "tag": "0036_staff_sms_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790019472056,
+      "tag": "0037_resolve_obsolete_quote_actions",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
       "when": 1790019656094,
-      "tag": "0034_historical_staff_sms_isolation",
+      "tag": "0038_historical_staff_sms_isolation",
       "breakpoints": true
     }
   ]
