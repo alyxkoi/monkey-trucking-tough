@@ -1232,6 +1232,7 @@ export type Database = {
           processing_fee_amount: number | null
           processing_fee_rate: number | null
           quote_id: string | null
+          review_eligible_at: string | null
           standalone_ticket_id: string | null
           status: string
           subtotal_amount: number | null
@@ -1261,6 +1262,7 @@ export type Database = {
           processing_fee_amount?: number | null
           processing_fee_rate?: number | null
           quote_id?: string | null
+          review_eligible_at?: string | null
           standalone_ticket_id?: string | null
           status?: string
           subtotal_amount?: number | null
@@ -1290,6 +1292,7 @@ export type Database = {
           processing_fee_amount?: number | null
           processing_fee_rate?: number | null
           quote_id?: string | null
+          review_eligible_at?: string | null
           standalone_ticket_id?: string | null
           status?: string
           subtotal_amount?: number | null
