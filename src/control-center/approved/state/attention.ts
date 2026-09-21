@@ -194,7 +194,7 @@ export function deriveAttention(input: {
         title: 'Invoice amount is being disputed',
         context: `${name(invoice.customerId)}. Chasing is paused until you settle it.`,
         since: invoice.issuedAt ?? invoice.createdAt,
-        amount: invoice.amount,
+        amount: Math.max(0,invoice.amount-(invoice.amountPaid??0)),
         action: { label: 'Open Invoice', to: `/admin/money/invoices/${invoice.id}` },
         // A disputed amount is settled by talking to them, never by chasing.
         recommend: 'contact',
@@ -257,7 +257,7 @@ export function deriveAttention(input: {
         title: 'Invoice is overdue and the follow ups are finished',
         context: `${name(invoice.customerId)}, invoice ${invoice.number}`,
         since: invoice.dueAt ?? invoice.createdAt,
-        amount: invoice.amount,
+        amount: Math.max(0,invoice.amount-(invoice.amountPaid??0)),
         action: { label: 'Open Invoice', to: `/admin/money/invoices/${invoice.id}` },
         // The automated reminders are spent, so a person has to make contact.
         recommend: 'contact',

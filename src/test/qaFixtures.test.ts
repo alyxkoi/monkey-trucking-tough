@@ -25,6 +25,28 @@ const at = fixtureReferenceDate(reference)
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8')
 
 describe('Phase 06 deterministic QA fixture layer', () => {
+  it('does not turn a settled transaction manual pause into a stale intake alert, but preserves real tasks and new replies', () => {
+    const data=createQaFixtureData(reference), lead=data.leads[0], quote=data.quotes[0], job=data.jobs[0], invoice=data.invoices[0]
+    data.leads=[lead];data.quotes=[quote];data.jobs=[job];data.invoices=[invoice];data.messages=[];data.aiAuditLogs=[];data.staffActions=[]
+    quote.lead_id=lead.id;quote.status='ACCEPTED';job.quote_id=quote.id;job.status='COMPLETED';job.completed_at='2026-08-26T16:00:00Z'
+    invoice.job_id=job.id;invoice.status='PAID';invoice.paid_at='2026-08-26T17:00:00Z';lead.human_takeover=true
+    data.payments=[{...data.payments[0],invoice_id:invoice.id,amount:invoice.amount,voided_at:null}]
+    expect(mapLeads(data)[0]).toMatchObject({needsSalvador:false,aiPaused:true,conversationState:'READY'})
+    data.staffActions=[{...data.activities[0],entity_id:lead.id,event_type:'AI_ACTION_OPEN',metadata:{kind:'COMPLAINT'}}]
+    expect(mapLeads(data)[0].needsSalvador).toBe(true)
+    data.staffActions=[]
+    data.messages=[{id:'new-customer-message',lead_id:lead.id,customer_id:lead.customer_id,sender_type:'CUSTOMER',body:'Please call me about the delivery',delivery_status:'RECEIVED',provider_message_id:'new',created_by:null,created_at:'2026-08-26T18:00:00Z'}]
+    expect(mapLeads(data)[0].needsSalvador).toBe(true)
+    invoice.status='SENT'
+    expect(mapLeads(data)[0].needsSalvador).toBe(true)
+  })
+  it('subtracts partial confirmed payments from outstanding and overdue reporting',()=>{
+    const data=createQaFixtureData(reference),invoice=mapInvoices(data)[0],payment=mapPayments(data)[0]
+    invoice.amount=100;invoice.status='SENT';invoice.dueAt=at-86400000
+    payment.invoiceId=invoice.id;payment.amount=40;payment.voidedAt=undefined
+    const totals=computeMoney({period:'MTD',invoices:[invoice],payments:[payment],workerPayments:[],at})
+    expect(totals.outstanding).toBe(60);expect(totals.overdue).toBe(60)
+  })
   it.each(['SENT','PAID','VOID','DISPUTED','CLAIMED'] as const)('respects %s when a final reminder is recorded',state=>{
     const data=createQaFixtureData(reference)
     const invoice=mapInvoices(data).find(row=>row.id==='qa-invoice-overdue')!

@@ -174,7 +174,7 @@ export type Payment = {
   invoice_id: string;
   customer_id: string;
   amount: number;
-  method: "ACH" | "CARD" | "ZELLE" | "APPLE_PAY" | "CHECK" | "OTHER" | "STRIPE";
+  method: "ACH" | "CARD" | "ZELLE" | "APPLE_PAY" | "CASH" | "CHECK" | "OTHER" | "STRIPE";
   confirmed_by: "HUMAN" | "PROCESSOR";
   payment_source?: "MANUAL" | "STRIPE" | null;
   provider_payment_method_type?: string | null;
@@ -441,6 +441,8 @@ type ControlDatabase = {
       ai_audit_logs: Table<AiAuditLog>;
       ai_drafts: Table<AiDraftRow>;
       stripe_webhook_events: Table<StripeWebhookIssue>;
+      staff_sms_settings: Table<{id:number;name:string;phone:string;enabled:boolean;new_lead:boolean;quote_accepted:boolean;salvador_needed:boolean;opted_out_at:string|null;updated_at:string}>;
+      staff_sms_outbox: Table<{message_id:string;event_type:string;state:string;delivery_status:string;last_error:string|null;created_at:string}>;
     };
     Views: {
       tracking_link_metrics: {
@@ -448,7 +450,7 @@ type ControlDatabase = {
         Relationships: [];
       };
     };
-    Functions: { [_ in never]: never };
+    Functions: { save_staff_sms_settings: {Args:{p_enabled:boolean;p_new_lead:boolean;p_quote_accepted:boolean;p_salvador_needed:boolean};Returns:undefined} };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
@@ -983,12 +985,16 @@ export const reviseDraftInvoice = (invoiceId: string, amount: number, descriptio
     p_reason: reason,
   });
 
-export const recordPayment = (invoiceId: string, method: Payment["method"], note: string, receivedAt = new Date().toISOString()) =>
-  runRpc<string>("record_invoice_payment_full", {
+export const recordPayment = (invoiceId: string, method: Payment["method"], note: string, receivedAt: string, amount: number, fee: number, requestId: string, expectedTotal: number) =>
+  runRpc<string>("record_manual_invoice_payment", {
     p_invoice_id: invoiceId,
     p_method: method,
     p_received_at: receivedAt,
     p_note: note,
+    p_amount: amount,
+    p_processing_fee: fee,
+    p_request_id: requestId,
+    p_expected_total: expectedTotal,
   });
 
 export type CustomerEmailRequest = {

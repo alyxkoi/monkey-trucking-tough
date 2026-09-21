@@ -126,6 +126,12 @@ async function quoteEmail(service: any, quoteId: string, actorId: string | null,
   return { customer, recipient, email, documentToken, dueAt: null }
 }
 
+async function confirmedBalance(service: any, invoice: any) {
+  const result=await service.from('payments').select('amount').eq('invoice_id',invoice.id).is('voided_at',null)
+  if(result.error)throw new ResponseError(503,'Confirmed payment balance unavailable')
+  return Math.max(0,Math.round((Number(invoice.amount)-(result.data??[]).reduce((sum:number,p:any)=>sum+Number(p.amount),0))*100)/100)
+}
+
 async function invoiceEmail(service: any, invoiceId: string, actorId: string | null, resend: boolean) {
   const { data: invoice, error } = await service.from('invoices').select('*').eq('id', invoiceId).single()
   if (error || !invoice) throw new ResponseError(404, 'Invoice not found')
@@ -150,7 +156,7 @@ async function invoiceEmail(service: any, invoiceId: string, actorId: string | n
   const email = renderInvoiceReadyEmail({
     customerFirstName: firstName(customer.name), customerName: customer.name,
     invoiceNumber: invoice.invoice_number, issuedDate: formatBusinessDate(issuedAt), dueDate: formatBusinessDate(dueAt),
-    amountDue: formatMoney(Number(invoice.amount)), paymentStatus: 'Outstanding',
+    amountDue: formatMoney(await confirmedBalance(service,invoice)), paymentStatus: 'Outstanding',
     job: job ? { title: job.description, detail: job.address || undefined } : { title: invoice.description },
     ticketNumbers: (tickets ?? []).map((ticket: any) => ticket.ticket_number),
     invoiceUrl: `${SITE_ORIGIN}/invoice/${documentToken.raw}`,
@@ -167,13 +173,15 @@ async function paymentEmail(service: any, paymentId: string, actorId: string | n
     service.from('invoices').select('*').eq('id', payment.invoice_id).single(),
     service.from('customers').select('id,name,email').eq('id', payment.customer_id).single(),
   ])
-  if (!invoice || invoice.status !== 'PAID') throw new ResponseError(409, 'The invoice is not recorded as paid')
+  if (!invoice || invoice.status === 'VOID') throw new ResponseError(409, 'A current invoice is required for the payment receipt')
+  const balance=await confirmedBalance(service,invoice)
   if (!customer?.email) return { skipped: true as const, reason: 'missing_email' }
   const { data: job } = invoice.job_id ? await service.from('jobs').select('description').eq('id', invoice.job_id).maybeSingle() : { data: null }
   const documentToken = await makeDocumentToken(service, 'INVOICE', invoice.id, actorId)
   const email = renderPaymentReceivedEmail({
     customerFirstName: firstName(customer.name), customerName: customer.name,
     invoiceNumber: invoice.invoice_number, amountReceived: formatMoney(Number(payment.amount)),
+    paidInFull: invoice.status==='PAID'&&balance===0, remainingBalance: formatMoney(balance),
     paymentDate: formatBusinessDate(payment.received_at), paymentMethod: paymentMethodName(String(payment.method)),
     job: job?.description, receiptUrl: `${SITE_ORIGIN}/invoice/${documentToken.raw}`,
     privacyUrl: `${SITE_ORIGIN}/privacy-policy`, termsUrl: `${SITE_ORIGIN}/terms`,

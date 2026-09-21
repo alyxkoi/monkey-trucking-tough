@@ -21,6 +21,17 @@ Deno.serve(async (req) => {
   try {
     const actor = await requireStaff(service, req)
     const input = await req.json().catch(() => null)
+    if (input?.action === 'staff-test') {
+      if (!UUID_PATTERN.test(input?.requestId ?? '')) throw new HttpError(400,'Stable request ID required')
+      const apiKey=Deno.env.get('SENT_DM_API_KEY')
+      if (!apiKey) throw new HttpError(503,'SMS provider credentials missing')
+      const queued=await service.rpc('queue_staff_sms_test',{p_request_id:input.requestId,p_actor_id:actor.id})
+      if(queued.error) throw new HttpError(409,queued.error.message)
+      await dispatchSms(service,{apiKey,profileId:Deno.env.get('SENT_DM_PROFILE_ID'),internal:true,templateId:Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID')},queued.data)
+      const status=await service.from('staff_sms_outbox').select('message_id,state,delivery_status,last_error').eq('message_id',queued.data).single()
+      if(status.error)throw new HttpError(503,'Reserved. Retry with the same request ID.')
+      return json(status.data)
+    }
     if (!UUID_PATTERN.test(input?.leadId ?? '')) throw new HttpError(400, 'A valid lead is required')
     if (input?.action === 'reconcile') {
       if (!UUID_PATTERN.test(input?.messageId ?? '')) throw new HttpError(400,'A valid message is required')

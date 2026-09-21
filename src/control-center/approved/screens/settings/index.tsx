@@ -14,6 +14,7 @@ import { cn } from '@/control-center/approved/lib/cn'
 import { shortAgo, usd } from '@/control-center/approved/lib/format'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import { AiControlPanel } from './AiControlPanel'
+import { StaffSmsSettings } from './StaffSmsSettings'
 import { DELIVERY_OPTIONS } from '@/control-center/approved/state/pricing'
 import { effectiveTaxRate } from '@/control-center/billing'
 import {
@@ -1029,6 +1030,7 @@ export function SettingsCommunication() {
         </div>
       </Panel>
 
+      <StaffSmsSettings />
       <Panel title="How it talks">
         <div className="space-y-4">
           <TextField
@@ -1044,7 +1046,7 @@ export function SettingsCommunication() {
             onChange={setReviewUrl}
             inputMode="url"
             placeholder="https://g.page/r/.../review"
-            hint="The Review request automation turns on only after a valid HTTPS link is saved. It sends once, immediately after full confirmed payment for completed work, within messaging hours."
+            hint="The Review request automation turns on only after a valid HTTPS link is saved. It sends once, promptly after full confirmed payment and completed work, including evenings and weekends. Consent and provider safeguards still apply."
           />
           <Toggle label="English" value={english} onChange={setEnglish} />
           <Toggle

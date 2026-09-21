@@ -113,16 +113,25 @@ export function mapLeads(data: ControlData): Lead[] {
       && !['FAILED', 'FILTERED', 'BLOCKED'].includes(message.deliveryStatus ?? ''),
     )
     const customer = data.customers.find((entry) => entry.id === row.customer_id)
+    const closedJob = data.jobs.find(job => job.quote_id === quote?.id && job.status === 'COMPLETED'
+      && data.invoices.some(invoice => invoice.job_id === job.id && invoice.status === 'PAID'
+        && data.payments.filter(p => p.invoice_id === invoice.id && !p.voided_at).reduce((sum,p) => sum + Number(p.amount),0) >= Number(invoice.amount)))
+    const closedAt = closedJob ? Math.max(requiredAt(closedJob.completed_at ?? closedJob.updated_at),
+      ...data.invoices.filter(i => i.job_id === closedJob.id && i.status === 'PAID').map(i => requiredAt(i.paid_at ?? i.updated_at))) : 0
+    const unansweredCustomer = Boolean(lastCustomer && lastCustomer.at > Math.max(closedAt,lastResponder?.at ?? 0))
+    const openStaffTask = data.staffActions?.some(a => a.entity_id === row.id)
     const auditAt = latestAiAudit ? requiredAt(latestAiAudit.created_at) : 0
     const sendFailed = messages.some((message) => message.actor !== 'customer'
       && message.at > Math.max(latestResolutionAt,lastResponder?.at??0)
       && (Boolean(message.sendError) || ['FAILED','FILTERED','BLOCKED'].includes(message.deliveryStatus ?? '')))
     const unresolvedEscalation = messages.some((message) => message.escalation && message.at>latestResolutionAt && message.at>(lastResponder?.at??0))
-    const explicitHuman = row.human_takeover || Boolean(latestAiAudit && auditAt>latestResolutionAt && auditAt>=(lastResponder?.at??0)
+    // A manual pause is still a pause, but is not a new unanswered request on
+    // a settled transaction. Never clear takeover or hide genuine staff tasks.
+    const explicitHuman = (row.human_takeover && (!closedJob || unansweredCustomer || openStaffTask)) || Boolean(latestAiAudit && auditAt>Math.max(latestResolutionAt,closedAt) && auditAt>=(lastResponder?.at??0)
       && aiDecision?.requires_human === true && (row.human_takeover||!aiDecision?.global_pause_applied&&!aiDecision?.handoff_acknowledgement))
     const aiFailed = sendFailed || unresolvedEscalation || Boolean(latestAiAudit && auditAt>latestResolutionAt && auditAt>=(lastResponder?.at??0) && latestAiAudit.status === 'FAILED')
     const awaitingOptIn = Boolean(customer?.sms_consent_at && !customer.sms_double_opt_in_at && !customer.sms_opted_out_at)
-    const awaitingReply = Boolean(customer?.sms_double_opt_in_at && !customer.sms_opted_out_at
+    const awaitingReply = Boolean((!closedJob || unansweredCustomer) && customer?.sms_double_opt_in_at && !customer.sms_opted_out_at
       && lastCustomer && (!lastResponder || lastCustomer.at > lastResponder.at))
     const conversationState: Lead['conversationState'] = explicitHuman ? 'HUMAN_REQUIRED'
       : aiFailed ? 'AI_FAILED'
@@ -320,6 +329,7 @@ export function mapInvoices(data: ControlData): Invoice[] {
     processingFeeAmount: row.processing_fee_amount == null ? undefined : Number(row.processing_fee_amount),
     amount: Number(row.amount),
     amountSource: row.amount_source,
+    amountPaid: data.payments.filter(p => p.invoice_id === row.id && !p.voided_at).reduce((sum,p) => sum + Number(p.amount),0),
     status: row.status,
     createdAt: requiredAt(row.created_at),
     issuedAt: at(row.issued_at),

@@ -41,6 +41,8 @@ export type PaymentEmailData = {
   customerName: string
   invoiceNumber: string
   amountReceived: string
+  paidInFull?: boolean
+  remainingBalance?: string
   paymentDate: string
   paymentMethod: string
   job?: string
@@ -139,14 +141,15 @@ export function renderInvoiceReadyEmail(data: InvoiceEmailData): EmailRenderResu
 
 export function renderPaymentReceivedEmail(data: PaymentEmailData): EmailRenderResult {
   const preheader = 'We received your payment. Thank you for choosing Monkey Trucking.'
+  const paidInFull = data.paidInFull !== false
   const details = [
-    { label: 'INVOICE', title: data.invoiceNumber, detail: 'Paid in full' },
+    { label: 'INVOICE', title: data.invoiceNumber, detail: paidInFull ? 'Paid in full' : `Remaining balance: ${data.remainingBalance ?? 'See invoice'}` },
     { label: 'PAYMENT METHOD', title: data.paymentMethod },
     ...(data.job ? [{ label: 'JOB', title: data.job }] : []),
   ]
   const thanks = `<tr><td align="center" class="pad body" style="padding:4px 10px 30px;color:#c3c4c0;font-size:15px;line-height:24px">we appreciate you trusting Monkey Trucking with the work. if you need anything else, just reply to this email and we’ll be here.</td></tr>`
   const html = start('Payment received by Monkey Trucking', preheader)
-    + header('PAYMENT CONFIRMED', 'Payment received', `thank you ${data.customerFirstName}. your payment has been recorded, and the invoice is now paid in full.`, '#7fc695')
+    + header('PAYMENT CONFIRMED', 'Payment received', `thank you ${data.customerFirstName}. your payment has been recorded${paidInFull ? ', and the invoice is now paid in full.' : `. the remaining balance is ${data.remainingBalance ?? 'shown on your invoice'}.`}`, '#7fc695')
     + amountPanel('PAYMENT RECEIVED', data.amountReceived, data.paymentDate, true)
     + thanks
     + sectionIntro('Receipt details', 'A record of the payment tied to this invoice.')

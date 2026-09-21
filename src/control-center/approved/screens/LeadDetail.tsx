@@ -73,7 +73,7 @@ export function LeadDetail() {
   const quote = lead.quoteId ? quoteById(lead.quoteId) : undefined
   const activities = activitiesForCustomer(lead.customerId).slice(0, 3)
   const latestAiAudit = sourceData?.aiAuditLogs.find((entry) => entry.lead_id === lead.id)
-  const customWorkPending = lead.known.some((fact) => fact.label === 'custom work request')
+  const customWorkPending = (sourceData?.staffActions ?? []).some(action => action.entity_id === lead.id && action.metadata && typeof action.metadata === 'object' && !Array.isArray(action.metadata) && action.metadata.kind === 'CUSTOM_WORK')
   const needsSmsConfirmation = Boolean(
     smsCustomer?.sms_consent_at
       && !smsCustomer.sms_double_opt_in_at
@@ -200,7 +200,7 @@ export function LeadDetail() {
       <CommunicationDiagnostics audit={latestAiAudit}/>
 
       {lead.needsSalvador && (
-        <SalvadorNeeded line={lead.conversationState === 'AI_FAILED' ? 'The automated reply failed and needs review.' : latestAiAudit?.concise_rationale ?? 'This conversation needs your reply. The AI stopped rather than guess.'} />
+        <SalvadorNeeded line={lead.conversationState === 'AI_FAILED' ? 'The automated reply failed and needs review.' : lead.aiPaused ? 'AI is paused. Review the customer’s latest message or outstanding staff request.' : 'This conversation needs your reply. Review the current staff request.'} />
       )}
       {lead.conversationState === 'AWAITING_OPT_IN' && (
         <div role="status" className="rounded-xl border border-ice/25 bg-ice/5 px-5 py-4 text-sm">

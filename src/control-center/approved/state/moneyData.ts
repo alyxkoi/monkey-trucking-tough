@@ -48,6 +48,8 @@ export type Invoice = {
   processingFeeAmount?: number
   /** Authoritative amount due, including the snapshotted processing fee. */
   amount: number
+  /** Derived from confirmed non-void payment records, never a second stored balance. */
+  amountPaid?: number
   amountSource: InvoiceAmountSource
   status: InvoiceStatus
   createdAt: number
@@ -71,13 +73,14 @@ export type Invoice = {
   voidedBy?: string
 }
 
-export type PaymentMethod = 'ACH' | 'CARD' | 'ZELLE' | 'APPLE_PAY' | 'CHECK' | 'OTHER' | 'STRIPE'
+export type PaymentMethod = 'ACH' | 'CARD' | 'ZELLE' | 'APPLE_PAY' | 'CASH' | 'CHECK' | 'OTHER' | 'STRIPE'
 
 export const PAYMENT_METHODS: PaymentMethod[] = [
   'ACH',
   'CARD',
   'ZELLE',
   'APPLE_PAY',
+  'CASH',
   'CHECK',
   'OTHER',
 ]
@@ -87,6 +90,7 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   CARD: 'Card',
   ZELLE: 'Zelle',
   APPLE_PAY: 'Apple Pay',
+  CASH: 'Cash',
   CHECK: 'Check',
   OTHER: 'Other',
   STRIPE: 'Stripe',
@@ -675,9 +679,9 @@ export function computeMoney(input: {
   return {
     collected: inPeriod.reduce((sum, payment) => sum + payment.amount, 0),
     collectedCount: inPeriod.length,
-    outstanding: open.reduce((sum, invoice) => sum + invoice.amount, 0),
+    outstanding: open.reduce((sum, invoice) => sum + Math.max(0,invoice.amount - input.payments.filter(p=>p.invoiceId===invoice.id&&!p.voidedAt).reduce((n,p)=>n+p.amount,0)), 0),
     outstandingCount: open.length,
-    overdue: overdue.reduce((sum, invoice) => sum + invoice.amount, 0),
+    overdue: overdue.reduce((sum, invoice) => sum + Math.max(0,invoice.amount - input.payments.filter(p=>p.invoiceId===invoice.id&&!p.voidedAt).reduce((n,p)=>n+p.amount,0)), 0),
     overdueCount: overdue.length,
     workerPay: workerPay.reduce((sum, entry) => sum + entry.amount, 0),
     workerCount: new Set(workerPay.map((entry) => entry.workerId)).size,

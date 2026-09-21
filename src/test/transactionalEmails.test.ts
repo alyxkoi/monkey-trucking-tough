@@ -75,6 +75,17 @@ describe('approved transactional email rendering', () => {
     expect(withTickets.html).toContain('MT1048 · MT1049')
   })
 
+  it('does not claim a partial payment has settled the invoice', () => {
+    const email = renderPaymentReceivedEmail({
+      customerFirstName: 'John', customerName: 'John Martinez', invoiceNumber: 'INV-1048',
+      amountReceived: '$40.00', paymentDate: 'Sep 21, 2026', paymentMethod: 'Zelle',
+      paidInFull: false, remainingBalance: '$65.00',
+      receiptUrl: 'https://www.monkeytrucking.llc/invoice/secure-token', ...urls,
+    })
+    expect(email.html).toContain('$65.00')
+    expect(email.html).not.toContain('paid in full')
+  })
+
   it('renders a payment receipt from the actual payment event', () => {
     const email = renderPaymentReceivedEmail({
       customerFirstName: 'John', customerName: 'John Martinez', invoiceNumber: 'INV-1048',

@@ -90,6 +90,11 @@ async function scheduledText(service: any, job: any, config: AiConfig) {
   }
   const invoice = await service.from('invoices').select('amount,invoice_number,due_at,status,job_id').eq('id',job.context.subject_id).eq('customer_id',lead.data.customer_id).single()
   if (invoice.error || !Number.isFinite(Number(invoice.data.amount))) throw new Error('Invoice context unavailable')
+  if (job.rule_id === 'invoice-follow-up') {
+    const payments=await service.from('payments').select('amount,voided_at').eq('invoice_id',job.context.subject_id)
+    if(payments.error)throw new Error('Confirmed payment balance unavailable')
+    invoice.data.amount=Math.max(0,Math.round((Number(invoice.data.amount)-(payments.data??[]).filter((p:any)=>!p.voided_at).reduce((n:number,p:any)=>n+Number(p.amount),0))*100)/100)
+  }
   const work = job.rule_id === 'invoice-follow-up' ? null
     : await service.from('jobs').select('category,status').eq('id',invoice.data.job_id).eq('customer_id',lead.data.customer_id).single()
   if (work?.error) throw new Error('Completed work context unavailable')

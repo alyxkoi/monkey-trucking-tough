@@ -49,7 +49,7 @@ export function ReviewRequestPanel({ invoice, job, configured, sent }: { invoice
           ? 'Held back. Asking for a review while something is unresolved is the wrong move, and Salvador decides whether it goes later or not at all.'
           : sent
             ? 'One request went out. There is never a second one for the same job.'
-            : 'Ready to send immediately after the completed job is fully paid, within the configured messaging hours.'}
+            : 'Ready to send immediately after the completed job is fully paid, including evenings and weekends. Consent, human takeover and provider safeguards still apply.'}
       </p>
 
       <ul className="mt-4 space-y-2">

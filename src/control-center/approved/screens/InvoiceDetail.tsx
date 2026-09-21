@@ -225,6 +225,8 @@ export function InvoiceDetail() {
                   <Field label="Invoice subtotal" value={usdExact(invoiceSubtotal)} />
                   <Field label={`Processing fee ${formatTaxRate(invoice.processingFeeRate ?? 0)}`} value={usdExact(invoice.processingFeeAmount ?? 0)} />
                   <Field label="Invoice total" value={usdExact(invoice.amount)} />
+                  <Field label="Amount paid" value={usdExact(invoice.amountPaid ?? 0)} />
+                  <Field label="Remaining balance" value={usdExact(Math.max(0,invoice.amount-(invoice.amountPaid ?? 0)))} />
                 </div>
               )}
               {invoice.voidReason && <Field label="Voided because" value={invoice.voidReason} />}

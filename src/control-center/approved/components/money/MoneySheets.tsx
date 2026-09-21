@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { manualPaymentMath } from '@/control-center/manualPayment'
 import { FileUp, Sparkles } from 'lucide-react'
 import { PrimaryButton, SecondaryButton } from '@/control-center/approved/components/ui/Button'
 import { SelectField, TextArea, TextField } from '@/control-center/approved/components/ui/Field'
@@ -27,7 +28,7 @@ export function RecordPaymentSheet({
   onClose: () => void
   invoiceId?: string
 }) {
-  const { invoices, customerById, invoiceById, recordPayment } = useAppState()
+  const { invoices, payments, customerById, invoiceById, recordPayment } = useAppState()
   const openInvoices = useMemo(() => invoices.filter((invoice) => isOpen(invoice)), [invoices])
 
   const [selected, setSelected] = useState(invoiceId ?? openInvoices[0]?.id ?? '')
@@ -35,6 +36,10 @@ export function RecordPaymentSheet({
   const [method, setMethod] = useState<PaymentMethod>('ZELLE')
   const [date, setDate] = useState(dateKey(new Date()))
   const [note, setNote] = useState('')
+  const [fee, setFee] = useState('0')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID())
 
   const invoice = invoiceById(selected)
 
@@ -42,19 +47,29 @@ export function RecordPaymentSheet({
     if (!open) return
     const next = invoiceId ?? openInvoices[0]?.id ?? ''
     setSelected(next)
-    const target = invoices.find((entry) => entry.id === next)
-    setAmount(target ? String(target.amount) : '')
-    setMethod(target?.claimedPaid?.method ?? 'ZELLE')
+    setMethod('ZELLE')
     setDate(dateKey(new Date()))
     setNote('')
-  }, [invoiceId, invoices, open, openInvoices])
+    setError('')
+    setRequestId(crypto.randomUUID())
+  // A live refresh must not overwrite staff's in-progress payment entry.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceId, open])
 
   useEffect(() => {
-    if (invoice) setAmount(String(invoice.amount))
-  }, [invoice])
+    if (!open || !invoice) return
+    const prior = payments.filter(p => p.invoiceId === invoice.id && !p.voidedAt)
+    const initialFee = prior.some(p => p.confirmedBy === 'PROCESSOR') ? invoice.processingFeeAmount ?? 0 : 0
+    setFee(String(initialFee))
+    setAmount(String(Math.max(0, manualPaymentMath(invoice, prior.reduce((n,p) => n+p.amount,0), initialFee, 0).outstanding)))
+    setRequestId(crypto.randomUUID())
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, open])
 
   const value = Number(amount) || 0
-  const valid = Boolean(invoice) && value > 0
+  const paid = payments.filter(p => p.invoiceId === selected && !p.voidedAt).reduce((n,p) => n+p.amount,0)
+  const math = invoice ? manualPaymentMath(invoice, paid, Number(fee), value) : null
+  const valid = Boolean(math?.valid) && Boolean(fee.trim()) && !saving
 
   return (
     <Sheet
@@ -67,24 +82,28 @@ export function RecordPaymentSheet({
           <PrimaryButton
             fullWidth
             disabled={!valid}
-            onClick={() => {
+            onClick={async () => {
               if (!invoice) return
-              recordPayment({
+              setSaving(true); setError('')
+              try { await recordPayment({
                 invoiceId: invoice.id,
                 amount: value,
                 method,
                 receivedAt: parseDateKey(date).getTime(),
                 note,
+                processingFee: Number(fee), requestId, expectedTotal: invoice.amount,
               })
               onClose()
+              } catch (err) { setError(err instanceof Error ? err.message : 'Payment could not be recorded') }
+              finally { setSaving(false) }
             }}
           >
-            Confirm Payment
+            {saving ? 'Saving payment…' : 'Confirm Payment'}
           </PrimaryButton>
           <p className="text-[13px] leading-snug text-cc-muted">
-            Confirming means you checked and the money is there. This records the full
-            balance. Nothing is marked paid from a message alone.
+            Confirm only money you verified was received. Partial payments leave the remaining balance open.
           </p>
+          {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
         </div>
       }
     >
@@ -112,24 +131,16 @@ export function RecordPaymentSheet({
               </div>
             )}
 
-            {/*
-              v1 records the full outstanding balance. The model keeps an amount
-              so partial payments stay possible later, but no split payment UI is
-              exposed until that is actually asked for.
-            */}
-            <div>
-              <span className="mb-2 block font-label text-[12px] font-semibold uppercase tracking-[0.16em] text-cc-muted">
-                Amount
-              </span>
-              <div className="flex items-baseline justify-between gap-4 rounded-xl border border-line bg-raised px-4 py-3">
-                <span className="font-display display-tight tnum text-[30px]">
-                  {usdExact(value)}
-                </span>
-                <span className="font-label text-[12px] uppercase tracking-[0.1em] text-cc-muted">
-                  Full balance
-                </span>
-              </div>
-            </div>
+            <TextField label="Processing fee ($)" inputMode="decimal" value={fee} onChange={next => {
+              const full = math && Math.abs(value - math.outstanding) < 0.005
+              setFee(next)
+              if (full && invoice) setAmount(String(Math.max(0, manualPaymentMath(invoice,paid,Number(next),0).outstanding)))
+            }} hint="Invoice surcharge for this manual payment. Normally $0; this does not change Stripe processor fees." />
+            <TextField label="Amount actually received ($)" inputMode="decimal" value={amount} onChange={setAmount} />
+            {math && <div className="rounded-xl border border-line bg-raised p-4 text-sm space-y-2" aria-live="polite">
+              <p>Agreed amount: {usdExact(math.subtotal)}</p><p>Invoice total with fee: {usdExact(math.total)}</p>
+              <p>Already paid: {usdExact(paid)}</p><p>Balance after this payment: {usdExact(math.remaining)}</p>
+            </div>}
             <SelectField
               label="Method"
               value={method}

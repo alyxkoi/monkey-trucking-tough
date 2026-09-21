@@ -24,7 +24,7 @@ export function scheduledResponse(context: FollowupContext): string {
   }
   if (!job || job.status !== 'COMPLETED' || invoice.status !== 'PAID') throw new Error('Completed work and confirmed payment are required')
   const scope: Record<string, [string, string]> = {
-    DRIVEWAY: ['driveway project', 'proyecto de entrada'], POND: ['pond project', 'proyecto de estanque'],
+    DRIVEWAY: ['driveway work', 'trabajo de entrada'], POND: ['pond project', 'proyecto de estanque'],
     MATERIAL_DELIVERY: ['material delivery', 'entrega de material'], DIRT_GRADING: ['dirt work project', 'trabajo de tierra'],
   }
   const work = scope[job.category]?.[es ? 1 : 0] ?? (es ? 'trabajo' : 'project')
@@ -33,8 +33,8 @@ export function scheduledResponse(context: FollowupContext): string {
     try { url = new URL(context.reviewUrl ?? '') } catch { throw new Error('Verified review URL is missing') }
     if (url.protocol !== 'https:' || url.username || url.password) throw new Error('Verified HTTPS review URL is required')
     // Ask everyone eligible, not only happy customers; never invent an outcome.
-    return es ? `gracias por confiar en Monkey Trucking con su ${work}. si desea compartir su experiencia, puede dejar una reseña en Google aquí: ${url.href}`
-      : `thanks for trusting Monkey Trucking with your ${work}. if you would like to share your experience, you can leave a Google review here: ${url.href}`
+    return es ? `¡Gracias por confiar en Monkey Trucking con su ${work}! Nos encantaría que compartiera su experiencia en una reseña de Google. Su apoyo a nuestro negocio local significa mucho para nosotros. ${url.href} Dios lo bendiga 🚚`
+      : `Thank you for trusting Monkey Trucking with your ${work}! We'd really appreciate a quick Google review about your experience. Supporting our local business means a lot to us. ${url.href} God bless 🚚`
   }
   throw new Error('No verified trigger and response for this automation')
 }

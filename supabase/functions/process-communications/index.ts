@@ -30,6 +30,12 @@ Deno.serve(async(req) => {
     const runtime=await service.from('communication_runtime').select('ai_sending_enabled,scheduled_sending_enabled').eq('id',1).single()
     if (runtime.error) throw new Error('Runtime settings unavailable')
     let job:Awaited<ReturnType<typeof runCommunicationJob>>={processed:false}
+    const apiKey=Deno.env.get('SENT_DM_API_KEY')
+    // Run independently so a staff carrier timeout cannot delay customer SMS.
+    const staffDispatch=apiKey&&!targeted
+      ? dispatchSms(service,{apiKey,profileId:Deno.env.get('SENT_DM_PROFILE_ID'),internal:true,templateId:Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID')})
+        .catch(()=>console.warn('Internal notification remains queued for reconciliation'))
+      : Promise.resolve()
     const generationStarted=Date.now()
     if (jobId&&runtime.data.ai_sending_enabled) {
       job=await runCommunicationJob(service,await configuredAi(service),Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID'),jobId)
@@ -37,7 +43,6 @@ Deno.serve(async(req) => {
       job=await runCommunicationJob(service,await configuredAi(service),Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID'))
     }
     const generationMs=Date.now()-generationStarted
-    const apiKey=Deno.env.get('SENT_DM_API_KEY')
     const dispatchStarted=Date.now()
     let dispatches=0
     if (apiKey) {
@@ -52,6 +57,7 @@ Deno.serve(async(req) => {
         dispatches++
       }
     }
+    await staffDispatch
     const timing={generation_ms:generationMs,dispatch_ms:Date.now()-dispatchStarted,total_ms:Date.now()-requestStarted}
     // Diagnostics must never cause a successful immutable send to be retried.
     if(job.auditId&&job.toolResults) {
