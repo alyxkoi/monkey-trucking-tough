@@ -2123,6 +2123,24 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_alert_links: {
+        Row: {
+          code: string
+          created_at: string
+          destination: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          destination: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          destination?: string
+        }
+        Relationships: []
+      }
       staff_sms_outbox: {
         Row: {
           attempts: number
@@ -2195,6 +2213,7 @@ export type Database = {
           new_lead: boolean
           opted_out_at: string | null
           phone: string
+          preferences: Json
           quote_accepted: boolean
           salvador_needed: boolean
           updated_at: string
@@ -2207,6 +2226,7 @@ export type Database = {
           new_lead?: boolean
           opted_out_at?: string | null
           phone?: string
+          preferences?: Json
           quote_accepted?: boolean
           salvador_needed?: boolean
           updated_at?: string
@@ -2219,6 +2239,7 @@ export type Database = {
           new_lead?: boolean
           opted_out_at?: string | null
           phone?: string
+          preferences?: Json
           quote_accepted?: boolean
           salvador_needed?: boolean
           updated_at?: string
@@ -3710,6 +3731,7 @@ export type Database = {
         Args: { p_phone: string }
         Returns: Json
       }
+      resolve_staff_alert_link: { Args: { p_code: string }; Returns: string }
       resume_conversation_ai: {
         Args: { p_actor_id: string; p_lead_id: string }
         Returns: undefined
@@ -3742,6 +3764,10 @@ export type Database = {
           id: string
           quote_number: string
         }[]
+      }
+      save_staff_sms_preferences: {
+        Args: { p_enabled: boolean; p_preferences: Json }
+        Returns: undefined
       }
       save_staff_sms_settings: {
         Args: {
@@ -3791,7 +3817,12 @@ export type Database = {
         Args: { p_at: string; p_hours?: number }
         Returns: string
       }
+      staff_alert_link: { Args: { p_destination: string }; Returns: string }
       staff_sms_enabled: { Args: { p_type: string }; Returns: boolean }
+      sync_business_conversation: {
+        Args: { p_lead_id: string }
+        Returns: undefined
+      }
       update_customer_contact: {
         Args: { p_customer_id: string; p_email: string; p_phone: string }
         Returns: Json
