@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { computeTotals, MATERIALS, TAX_RATE } from '@/control-center/approved/state/pricing'
 import { formatTaxRate } from '@/lib/tax'
-import { forceMonochromePixels } from '@/lib/admin/print'
+import { forceMonochromePixels, forceSolidBlackLogoPixels } from '@/lib/admin/print'
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8')
 
@@ -59,6 +59,12 @@ describe('Ticket and material final polish', () => {
       0, 0, 0, 255,
       255, 255, 255, 255,
     ])
+  })
+
+  it('makes faded logo ink solid black without filling transparent or white space', () => {
+    const pixels = new Uint8ClampedArray([90, 90, 90, 80, 0, 0, 0, 30, 255, 255, 255, 255, 0, 0, 0, 0])
+    forceSolidBlackLogoPixels(pixels)
+    expect([...pixels]).toEqual([0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0])
   })
 
   it('ships a forward-only zero-tax setting and protected material delete RPC', () => {

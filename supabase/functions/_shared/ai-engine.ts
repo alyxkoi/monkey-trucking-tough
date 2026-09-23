@@ -797,6 +797,10 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
           refresh:{material:true,route:route.status,cached_route:route.cached===true},
         }
         if(!preparedLifecycleReply){
+          if(!lifecycle.reactive&&!proposal.quote_requested&&!proposal.current.name
+            && /\b(name|nombre|llamas)\b/i.test(plan.next_question??'')) {
+            plan.next_question=leadMilestoneQuestion({proposal,lifecycle,pricing,route,quantity,customer:customerResult.data,language:decision.detected_language})??''
+          }
           // The model may answer service questions, but cannot jump to a quote
           // before a product and delivered calculation actually exist.
           if(!lifecycle.reactive&&!proposal.quote_requested&&/quote|estimate|cotizaci[oó]n|presupuesto/i.test(plan.next_question??'')) {
@@ -832,11 +836,6 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
       const milestone=leadMilestoneQuestion({proposal,lifecycle,pricing,route,quantity,customer:customerResult.data,language:decision.detected_language})
       let reply=preparedLifecycleReply
       const policyReply=Boolean(reply)
-      if(!reply&&!knownCustomerName(customerResult.data.name)&&!authoritativeFacts.some((f:any)=>f.key==='customer_name')&&!proposal.name&&!lifecycle.reactive&&decision.recommended_action!=='PROVIDE_STANDARD_PRICE'&&!latestIsAddressReply) {
-        const question=decision.detected_language==='SPANISH'?'cómo se llama para empezar su solicitud?':'what is your name so I can get this started for you?'
-        if((decision.recommended_action==='ASK_NEXT_MISSING_FACT'||plan?.objective==='COLLECT'&&!plan?.answers?.length)&&!/[?？]/.test(latestCustomer?.body??''))reply=question
-        if(decision.draft_reply.length+question.length<360&&!decision.draft_reply.includes('?'))reply=decision.draft_reply+' '+question
-      }
       if(!reply&&milestone&&decision.recommended_action==='PROVIDE_STANDARD_PRICE')decision.next_milestone_question=milestone
       else if(!reply&&milestone)reply=appendLeadMilestone(decision.draft_reply,milestone)
       if(reply){reply=reply.replace(/(\d{4})-(\d{2})-(\d{2})/g,'$2/$3/$1');decision.lifecycle_reply=reply.charAt(0).toLowerCase()+reply.slice(1);decision.draft_reply=decision.lifecycle_reply;if(policyReply)decision.recommended_action='ASK_NEXT_MISSING_FACT'}

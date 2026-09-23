@@ -132,6 +132,19 @@ describe.sequential('atomic delivery reservations',()=>{
  }))
 })
 describe.sequential('executed lifecycle write transactions',()=>{
+ it.each(['johnsmith@gmail.com John Smith','John Smith, johnsmith@gmail.com'])('persists direct-SMS name and email with the ready quote (%s)',body=>transaction(async()=>{
+   const a=await fixture(body)
+   const [material]=await query("insert into materials(name,price_per_yard,full_load_price,full_load_yards) values('Flexbase',38,720,20) returning *")
+   const [{date}]=await query("select (current_date+1)::text date")
+   await query('update leads set requested_delivery_date=$2,requested_delivery_time=$3,quote_requested_at=now() where id=$1',[a.l.id,date,'10:00'])
+   const [lead]=await query('select * from leads where id=$1',[a.l.id])
+   const messages=[{sender_type:'AI',body:'what email should we send the quote to, and what name should we put it under?'},a.m]
+   const plan=lifecycleProposal({lead,customer:a.c,messages,lifecycle:lifecycleContext(lead,[],[],[],[]),decision:{uncertain_facts:[]},pricing:{status:'MATERIAL_CALCULATED',material_id:material.id,material_name:material.name,yards:20,material_total:720,delivery_total:100,grand_total:820,quantity:{status:'RESOLVED'},route:{status:'ROUTE_CALCULATED',destination:'123 Oak Road, Kaufman TX',origin:'7653 S FM 148',distance_miles:10}}})
+   expect(plan).toMatchObject({name:'John Smith',email:'johnsmith@gmail.com',ready:true})
+   expect((await a.apply(plan)).ready).toBe(true)
+   expect((await query('select name,email from customers where id=$1',[a.c.id]))[0]).toMatchObject({name:'John Smith',email:'johnsmith@gmail.com'})
+   expect((await query('select ai_ready_at from quotes where lead_id=$1',[a.l.id]))[0].ai_ready_at).toBeTruthy()
+ }))
  it.each(['yes','yes please','sure','please do','send it','yeah'])('retains verified manual prefill after a failed acknowledgement: %s',answer=>transaction(async()=>{
    const a=await fixture('20 yards of flexbase')
    const [material]=await query("insert into materials(name,price_per_yard,full_load_price,full_load_yards) values('Flexbase',38,720,20) returning *")

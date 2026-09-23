@@ -43,6 +43,15 @@ export const forceMonochromePixels = (data: Uint8ClampedArray, threshold = MONOC
   return data;
 };
 
+/** Preserve the logo silhouette, but replace faded/transparent ink with solid black. */
+export const forceSolidBlackLogoPixels = (data: Uint8ClampedArray) => {
+  for (let i = 0; i < data.length; i += 4) {
+    const ink = data[i + 3] > 8 && (data[i] * .299 + data[i + 1] * .587 + data[i + 2] * .114) < 248;
+    data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = ink ? 255 : 0;
+  }
+  return data;
+};
+
 const forceBlackAndWhite = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
   const pixels = ctx.getImageData(0, 0, width, height);
   forceMonochromePixels(pixels.data);
@@ -73,6 +82,15 @@ export const renderTicketPng = async (t: PrintTicket): Promise<Blob> => {
   canvas.width = W; canvas.height = H * labels.length + CUT_GAP * Math.max(0, labels.length - 1);
   const ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) throw new Error("Unable to create label canvas");
+  const logoCanvas = document.createElement("canvas");
+  const logoSource = loadedLogo as CanvasImageSource & { width?: number; height?: number };
+  logoCanvas.width = logoSource.width ?? 440; logoCanvas.height = logoSource.height ?? 150;
+  const logoCtx = logoCanvas.getContext("2d");
+  if (!logoCtx) throw new Error("Unable to prepare ticket logo");
+  logoCtx.drawImage(loadedLogo, 0, 0, logoCanvas.width, logoCanvas.height);
+  const logoPixels = logoCtx.getImageData(0, 0, logoCanvas.width, logoCanvas.height);
+  forceSolidBlackLogoPixels(logoPixels.data);
+  logoCtx.putImageData(logoPixels, 0, 0);
   ctx.imageSmoothingEnabled = false; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "#000"; ctx.strokeStyle = "#000"; ctx.textBaseline = "top";
   const font = (size: number, display = false) => { ctx.font = `${display ? 400 : 700} ${size}px ${display ? DISPLAY : SANS}`; };
@@ -89,7 +107,7 @@ export const renderTicketPng = async (t: PrintTicket): Promise<Blob> => {
     const compact = items.length >= 5, logoH = compact ? 124 : 150, infoH = compact ? 98 : 112;
     const customerH = compact ? 94 : 110, itemH = compact ? 58 : 72;
     let y = offset + PAD;
-    const logo = loadedLogo as CanvasImageSource & { width?: number; height?: number };
+    const logo = logoCanvas;
     const maxLogoW = 440, maxLogoH = logoH - 46;
     const sourceW = logo.width ?? maxLogoW, sourceH = logo.height ?? maxLogoH;
     const scale = Math.min(maxLogoW / sourceW, maxLogoH / sourceH);

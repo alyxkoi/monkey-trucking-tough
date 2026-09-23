@@ -61,16 +61,19 @@ describe('full lifecycle sandbox using production engine',()=>{
    expect(result.tool_results.timings).toMatchObject({model_attempts:0,deterministic_address_reply:true})
    expect(result.reply).toContain('estimated total');expect(result.reply).not.toContain('what material')
  })
- it('asks unknown names, extracts the answer and never writes a real customer',async()=>{
-   const first=await run([c('hello')]);expect(first.reply).toContain('name')
-   const next=await run([c('hello'),a('what is your name?'),c('Mike')],'CONTACT')
-   expect(next.decision.dashboard_proposal.name).toBe('Mike');expect(next.database_changes).toBe(false)
+ it('defers an unknown direct-SMS name until quote email, then extracts both without a real customer write',async()=>{
+   const first=await run([c('20 yards of flexbase')]);expect(first.reply).not.toMatch(/your name|what name/i)
+   const intake=[c('20 yards of flexbase to 123 Oak Road, Kaufman TX 75142'),c('tomorrow at noon'),a('would you like us to prepare the quote?'),c('yes')]
+   const asked=await run(intake);expect(asked.reply).toContain('what email');expect(asked.reply).toContain('what name')
+   const named=await run([...intake,a(asked.reply),c('johnsmith@gmail.com John Smith')])
+   expect(named.decision.dashboard_proposal).toMatchObject({name:'John Smith',email:'johnsmith@gmail.com',confirmed_email:'johnsmith@gmail.com',ready:true})
+   expect(named.reply).toContain('ready for review');expect(named.database_changes).toBe(false)
  })
  it('recaps delivery date then prepares after quote and email confirmation',async()=>{
    const form='20 yards of flexbase delivered to 123 Oak Road, Kaufman, TX 75142'
    const date=await run([c('tomorrow at noon')],'DELIVERY_PREFERENCE','LEAD','ENGLISH',form)
    expect(date.reply).toMatch(/20 yards.*12:00.*Material \$720.00.*delivery \$100.00.*total \$820.00.*prepare the quote/)
-   const result=await run([c('tomorrow at noon'),a('would you like us to send the quote over?'),c('yes'),a('what email should we use?'),c('use mike@example.com')],'CONFIRM_EMAIL','LEAD','ENGLISH',form)
+   const result=await run([c('my name is Mike'),c('tomorrow at noon'),a('would you like us to send the quote over?'),c('yes'),a('what email should we use?'),c('use mike@example.com')],'CONFIRM_EMAIL','LEAD','ENGLISH',form)
    expect(result.decision.dashboard_proposal.ready).toBe(true);expect(result.reply).toContain('ready for review');expect(result.reply).not.toContain('?');expect(result.send_allowed).toBe(false)
  })
  it('does not let a model question restart permission after approval and correction',async()=>{

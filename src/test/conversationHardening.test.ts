@@ -205,7 +205,12 @@ describe('shared production conversation orchestration',()=>{
   })
   it('drops unsafe model wording when a deterministic next milestone is available',async()=>{
     const result=await run([customer('18 yards commercial')],{acknowledgement:'Delivery is $1.',next_question:''})
-    expect(result.reply).toContain('your name');expect(result.reply).not.toContain('$1')
+    expect(result.reply).toContain('delivery address');expect(result.reply).not.toContain('$1')
+  })
+  it('does not allow a model-authored name question to interrupt a direct-SMS inquiry',async()=>{
+    const result=await run([customer('18 yards commercial')],{next_question:'what is your name?'})
+    expect(result.reply).toContain('delivery address')
+    expect(result.reply).not.toMatch(/your name|what name/i)
   })
   it('rejects unknown material identities',async()=>{
     await expect(run([customer('18 yards commercial')],{objective:'COMPARE',comparison_keys:['made-up']})).rejects.toThrow('unknown catalog identity')

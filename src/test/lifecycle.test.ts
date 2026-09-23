@@ -41,6 +41,31 @@ describe('lifecycle projection and validated proposals',()=>{
   })
   it.each(['hey this is Mike','my name is Mike','me llamo Mike','soy Mike'])('extracts explicit identity %s',text=>expect(customerName(text)).toBe('Mike'))
   it('accepts a short answer only to a name question',()=>{expect(customerName('Mike',true)).toBe('Mike');expect(customerName('Mike')).toBeNull();expect(customerName('yes',true)).toBeNull();expect(knownCustomerName('Unknown SMS +12145550000')).toBeNull();expect(knownCustomerName('Mike')).toBe('Mike')})
+  it.each(['johnsmith@gmail.com John Smith','John Smith, johnsmith@gmail.com','johnsmith@gmail.com\nJohn Smith'])('collects email and name from either reply order: %s',text=>{
+    const p=proposal(text,{customer:{name:'Unknown SMS +12145550000',email:null},lead:{...lead,quote_requested_at:'now',requested_delivery_date:'2026-09-16',requested_delivery_time:'10:00'},messages:[{sender_type:'AI',body:'what email should we send the quote to, and what name should we put it under?'},{sender_type:'CUSTOMER',body:text}]})
+    expect(p).toMatchObject({name:'John Smith',email:'johnsmith@gmail.com',confirmed_email:'johnsmith@gmail.com',ready:true})
+  })
+  it('waits until quote collection to ask an unknown SMS customer for a name',()=>{
+    const customer={name:'Unknown SMS +12145550000',email:null}
+    const early=proposal('20 yards of flexbase',{customer})
+    expect(leadMilestoneQuestion({proposal:early,lifecycle:{reactive:false},pricing,route:{destination:null},quantity:{status:'RESOLVED'},customer,language:'ENGLISH'})).toContain('delivery address')
+    const agreed=proposal('yes',{customer,lead:{...lead,quote_requested_at:'now',requested_delivery_date:'2026-09-16',requested_delivery_time:'10:00'},messages:[{sender_type:'AI',body:'would you like us to prepare the quote?'},{sender_type:'CUSTOMER',body:'yes'}]})
+    expect(lifecycleReply(agreed,{reactive:false},decision,pricing)).toBe('what email should we send the quote to, and what name should we put it under?')
+    expect(agreed.ready).toBe(false)
+  })
+  it('asks only for the remaining quote identity detail and ignores acknowledgments',()=>{
+    const customer={name:'Unknown SMS +12145550000',email:null}
+    const base={customer,lead:{...lead,quote_requested_at:'now',requested_delivery_date:'2026-09-16',requested_delivery_time:'10:00'}}
+    const emailOnly=proposal('johnsmith@gmail.com',{...base,messages:[{sender_type:'AI',body:'what email should we send the quote to, and what name should we put it under?'},{sender_type:'CUSTOMER',body:'johnsmith@gmail.com'}]})
+    expect(emailOnly.name).toBeNull();expect(emailOnly.ready).toBe(false)
+    expect(lifecycleReply(emailOnly,{reactive:false},decision,pricing)).toBe('what name should we put on the quote?')
+    const nameOnly=proposal('John Smith',{...base,messages:[{sender_type:'AI',body:'what email should we send the quote to, and what name should we put it under?'},{sender_type:'CUSTOMER',body:'John Smith'}]})
+    expect(nameOnly.name).toBe('John Smith');expect(nameOnly.email).toBeNull()
+    expect(lifecycleReply(nameOnly,{reactive:false},decision,pricing)).toBe('what email should we send the quote to?')
+    expect(customerName("it's okay",true)).toBeNull()
+    expect(customerName('yes please',true)).toBeNull()
+    expect(lifecycleReply(proposal('johnsmith@gmail.com',{...base,customer:{name:'John Smith',email:null},messages:[{sender_type:'AI',body:'what email should we send the quote to?'},{sender_type:'CUSTOMER',body:'johnsmith@gmail.com'}]}),{reactive:false},decision,pricing)).toContain('ready for review')
+  })
   it('does not attach another lead transaction',()=>expect(lifecycleContext(lead,[{...quote,lead_id:'other'}],[job],[],[]).stage).toBe('LEAD'))
   it.each([['SENT','QUOTE_SENT'],['ACCEPTED','SCHEDULING'],['DRAFT','QUOTING']])('derives %s', (status,stage)=>expect(lifecycleContext(lead,[{...quote,status}],[],[],[]).stage).toBe(stage))
   it('derives scheduled, completed and verified paid without trusting a label alone',()=>{
