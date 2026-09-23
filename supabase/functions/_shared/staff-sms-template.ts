@@ -24,7 +24,10 @@ export async function ensureStaffSmsTemplate(service:any, config:{apiKey:string;
   if(!id){
     const created=await fetcher('https://api.sent.dm/v3/templates',{method:'POST',headers:{...headers,'Idempotency-Key':'mt_internal_staff_alert_layout_v1'},body:JSON.stringify(STAFF_TEMPLATE),signal:AbortSignal.timeout(20_000)})
     const body=await created.json().catch(()=>null)
-    if(!created.ok||typeof body?.data?.id!=='string')throw new HttpError(503,`Staff template setup was not accepted (HTTP ${created.status}); no SMS sent`)
+    if(!created.ok||typeof body?.data?.id!=='string'){
+      const reason=String(body?.error?.message??'Provider rejected template setup').replace(/[\n\r]/g,' ').slice(0,180)
+      throw new HttpError(503,`Staff template setup HTTP ${created.status}: ${reason}. No SMS sent.`)
+    }
     id=body.data.id
     const saved=await service.from('staff_sms_settings').update({staff_template_id:id,staff_template_ready:false}).eq('id',1)
     if(saved.error)throw new HttpError(503,'Staff template created but could not be linked; retry uses the same setup operation')

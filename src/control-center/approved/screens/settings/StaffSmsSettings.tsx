@@ -54,7 +54,10 @@ export function StaffSmsSettings() {
       if(demo.enabled){setNotice('Demo only. No SMS sent.');return}
       requestId.current??=crypto.randomUUID()
       const result=await supabase.functions.invoke('send-sms',{body:{action:'staff-test',requestId:requestId.current}})
-      if(result.error)throw new Error(result.error.message)
+      if(result.error){
+        const detail=await result.error.context?.json?.().catch(()=>null)
+        throw new Error(typeof detail?.error==='string'?detail.error:result.error.message)
+      }
       if(result.data?.last_error)throw new Error(result.data.last_error)
       setNotice(`Test ${String(result.data?.delivery_status??result.data?.state??'queued').toLowerCase()}. Delivery status is shown below.`)
       requestId.current=null
