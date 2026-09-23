@@ -13,7 +13,7 @@ describe('dedicated internal staff template',()=>{
    const {state,service}=fixture(),fetcher=vi.fn().mockImplementation(accepted)
    await ensureStaffSmsTemplate(service,{apiKey:'test'},fetcher)
    expect(state.staff_template_ready).toBe(true)
-   expect(fetcher.mock.calls[0][1].headers['Idempotency-Key']).toBe('mt_internal_staff_alert_layout_v1')
+   expect(fetcher.mock.calls[0][1].headers['Idempotency-Key']).toBe('mt_internal_staff_alert_layout_v2')
    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual(STAFF_TEMPLATE)
    await ensureStaffSmsTemplate(service,{apiKey:'test'},fetcher)
    expect(fetcher).toHaveBeenCalledTimes(2)
@@ -32,7 +32,10 @@ describe('dedicated internal staff template',()=>{
    expect(fetcher).not.toHaveBeenCalled()
  })
  it('places line breaks in the template, never sample variable values',()=>{
-   expect(STAFF_TEMPLATE.definition.body.multiChannel.template).toContain('\n')
+   const content=STAFF_TEMPLATE.definition.body.multiChannel.template
+   expect(content).toContain('\n')
+   expect(content).not.toMatch(/\}\}\s+\{\{/)
+   expect(content.replace(/\{\{.*?\}\}/g,'').trim().split(/\s+/).length).toBeGreaterThanOrEqual(9)
    for(const variable of STAFF_TEMPLATE.definition.body.multiChannel.variables)expect(variable.props.sample).not.toMatch(/[\n\r\t]| {5}/)
  })
 })
