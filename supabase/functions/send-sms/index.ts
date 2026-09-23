@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.116.0'
 import { dispatchSms } from '../_shared/sms-dispatch.ts'
 import { reconcileSms } from '../_shared/sms-reconcile.ts'
 import { HttpError, requireStaff, UUID_PATTERN } from '../_shared/staff-auth.ts'
+import { ensureStaffSmsTemplate } from '../_shared/staff-sms-template.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,6 +26,7 @@ Deno.serve(async (req) => {
       if (!UUID_PATTERN.test(input?.requestId ?? '')) throw new HttpError(400,'Stable request ID required')
       const apiKey=Deno.env.get('SENT_DM_API_KEY')
       if (!apiKey) throw new HttpError(503,'SMS provider credentials missing')
+      await ensureStaffSmsTemplate(service,{apiKey,profileId:Deno.env.get('SENT_DM_PROFILE_ID')})
       const queued=await service.rpc('queue_staff_sms_test',{p_request_id:input.requestId,p_actor_id:actor.id})
       if(queued.error) throw new HttpError(409,queued.error.message)
       await dispatchSms(service,{apiKey,profileId:Deno.env.get('SENT_DM_PROFILE_ID'),internal:true,templateId:Deno.env.get('SENT_DM_FIRST_CONTACT_TEMPLATE_ID')},queued.data)

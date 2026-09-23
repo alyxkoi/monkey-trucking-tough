@@ -90,8 +90,27 @@ beforeAll(async () => {
   await db.exec(read('20260923100000_conversation_origin_and_bursts'))
   await db.exec(read('20260923101000_staff_alert_preferences_and_links'))
   await db.exec(read('20260923103000_communication_failure_actions'))
+  await db.exec(read('20260923110000_staff_template_layout'))
 }, 30_000)
 afterAll(async () => { await db?.close() })
+
+describe('provider-safe staff template layout',()=>{
+ it('keeps all detail lines and strips forbidden whitespace inside variables',async()=>{
+   expect(await rpc('staff_sms_template_parameters',['QUOTE READY\nTyrone\n20 yd Flexbase\n$1,042.43\n\nOpen: monkeytrucking.llc/a/1234567890'])).toEqual({event:'QUOTE READY',customer:'Tyrone',detail:'20 yd Flexbase · $1,042.43',link:'monkeytrucking.llc/a/1234567890'})
+ })
+ it('uses immutable approved layout payload and keeps fallback parameters valid',()=>transaction(async()=>{
+   await db.exec("update control_center_settings set sms_status='READY'")
+   const first=await rpc('queue_staff_sms_test',[crypto.randomUUID()])
+   const claim=await rpc('claim_staff_sms',[first])
+   const fallback=await rpc('authorize_staff_sms_dispatch',[first,claim.lease_token,'legacy'])
+   expect(fallback.payload.template.parameters.message).not.toMatch(/[\n\r\t]| {5}/)
+   await db.exec("update staff_sms_settings set staff_template_ready=true,staff_template_id='staff-layout'")
+   const id=await rpc('queue_staff_sms_test',[crypto.randomUUID()]),lease=await rpc('claim_staff_sms',[id])
+   const approved=await rpc('authorize_staff_sms_dispatch',[id,lease.lease_token,'legacy'])
+   expect(approved.payload.template).toEqual({id:'staff-layout',parameters:{event:'TEST ALERT',customer:'Salvador',detail:'Staff SMS alerts are connected.',link:'monkeytrucking.llc/admin'}})
+   await expect(query("update staff_sms_outbox set payload='{}' where message_id=$1",[id])).rejects.toThrow(/immutable/)
+ }))
+})
 
 async function transaction(work:()=>Promise<void>) {await db.exec('begin');try{await work()}finally{await db.exec('rollback')}}
 async function order(completed=true) {
