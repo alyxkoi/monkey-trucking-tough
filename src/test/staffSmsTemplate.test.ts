@@ -21,9 +21,9 @@ describe('dedicated internal staff template',()=>{
  it('does not mark a pending template ready or recreate it on retry',async()=>{
    const {state,service}=fixture(),fetcher=vi.fn().mockResolvedValue(new Response(JSON.stringify({data:{id:'pending'}}),{status:201}))
    fetcher.mockImplementationOnce(accepted).mockImplementation(()=>new Response(JSON.stringify({data:{status:'PENDING',is_published:false,channels:['sms']}})))
-   await expect(ensureStaffSmsTemplate(service,{apiKey:'test'},fetcher)).rejects.toThrow(/awaiting provider/)
+   await expect(ensureStaffSmsTemplate(service,{apiKey:'test'},fetcher)).rejects.toThrow(/status PENDING/)
    expect(state.staff_template_ready).toBe(false)
-   await expect(ensureStaffSmsTemplate(service,{apiKey:'test'},fetcher)).rejects.toThrow(/awaiting provider/)
+   await expect(ensureStaffSmsTemplate(service,{apiKey:'test'},fetcher)).rejects.toThrow(/status PENDING/)
    expect(fetcher.mock.calls.filter(call=>call[1].method==='POST')).toHaveLength(1)
  })
  it('never provisions for opted-out or disabled staff',async()=>{

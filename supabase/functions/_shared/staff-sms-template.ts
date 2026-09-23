@@ -35,7 +35,7 @@ export async function ensureStaffSmsTemplate(service:any, config:{apiKey:string;
   }
   const checked=await fetcher(`https://api.sent.dm/v3/templates/${encodeURIComponent(id!)}`,{headers,signal:AbortSignal.timeout(20_000)})
   const body=await checked.json().catch(()=>null)
-  if(!checked.ok||body?.data?.status!=='APPROVED'||body.data.is_published!==true||!body.data.channels?.includes('sms'))throw new HttpError(409,'Staff layout template is awaiting provider SMS approval. No test sent; existing approved alert transport remains available.')
+  if(!checked.ok||body?.data?.status!=='APPROVED'||body.data.is_published!==true||!body.data.channels?.includes('sms'))throw new HttpError(409,`Staff layout is not verified for SMS (HTTP ${checked.status}, status ${String(body?.data?.status??'unknown')}, published ${String(body?.data?.is_published??'unknown')}, channels ${JSON.stringify(body?.data?.channels??[])}). No test sent; existing approved alert transport remains available.`)
   const saved=await service.from('staff_sms_settings').update({staff_template_ready:true}).eq('id',1)
   if(saved.error)throw new HttpError(503,'Staff template approval could not be saved')
 }
