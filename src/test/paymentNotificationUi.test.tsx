@@ -40,8 +40,9 @@ describe('manual payment and staff settings controls',()=>{
  it('persists toggles and sends a test without a lead/customer identifier',async()=>{
   render(<StaffSmsSettings/>);const toggle=await screen.findByRole('switch',{name:'New Lead'})
   fireEvent.click(toggle)
-  await waitFor(()=>expect(mock.rpc).toHaveBeenCalledWith('save_staff_sms_settings',{p_enabled:true,p_new_lead:false,p_quote_accepted:true,p_salvador_needed:true}))
-  fireEvent.click(screen.getByRole('button',{name:'Send Test Notification'}))
+  await waitFor(()=>expect(mock.rpc).toHaveBeenCalledWith('save_staff_sms_preferences',{p_enabled:true,p_preferences:expect.objectContaining({NEW_LEAD:false,QUOTE_READY:true,SALVADOR_NEEDED:true})}))
+  expect(screen.queryByRole('button',{name:'Refresh status'})).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button',{name:'Send Test Alert'}))
   await waitFor(()=>expect(mock.invoke).toHaveBeenCalledWith('send-sms',{body:{action:'staff-test',requestId:expect.any(String)}}))
   expect(await screen.findByRole('status')).toHaveTextContent('delivered')
  })

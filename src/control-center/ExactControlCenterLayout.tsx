@@ -38,7 +38,7 @@ function ExactControlCenterGate() {
   const isOverview = pathname === "/admin" || pathname === "/admin/";
 
   if (!demo.enabled && (loading || (!!user && access.isLoading))) return <LoadingGate />;
-  if (!demo.enabled && (!user || !access.authorized)) return <Navigate to="/signin" replace />;
+  if (!demo.enabled && (!user || !access.authorized)) return <Navigate to="/signin" state={{from:pathname}} replace />;
 
   return (
     <div className={`control-center-root ${isOverview ? "cc-overview-canvas" : "cc-tab-canvas"}`}>

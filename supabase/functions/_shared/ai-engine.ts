@@ -2,10 +2,12 @@
 import { isSimpleAcceptance, materialCandidates, resolveConversationQuantity, type QuantityResolution } from './material-intelligence.ts'
 import { addressClarification, addressFromText, calculateDeliveryRoute, deliveryForMiles, type RouteResult } from './route-intelligence.ts'
 import { assertCustomerText, composeConversationResponse, responsePlanSchema, sanitizeResponsePlanWording } from './conversation-response.ts'
-import { additionalYards, appendLeadMilestone, dashboardPlanSchema, explicitFullRecap, leadMilestoneQuestion, materialClarification, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, customerName, isQuoteApproval, isDeliveryTimeReply } from './lifecycle.ts'
+import { additionalYards, appendLeadMilestone, dashboardPlanSchema, explicitFullRecap, leadMilestoneQuestion, materialClarification, LIFECYCLE_POLICY, lifecycleContext, lifecycleProposal, lifecycleReply, knownCustomerName, isQuoteApproval, isDeliveryTimeReply } from './lifecycle.ts'
 import { needsDeliveryReservation, deliverySlotReply } from './delivery-calendar.ts'
+import { latestCustomerTurn } from './conversation-turn.ts'
+import { conversationCustomerName } from './lifecycle.ts'
 
-export const PROMPT_VERSION = 'mt-ai-lifecycle-v17'
+export const PROMPT_VERSION = 'mt-ai-lifecycle-v18'
 
 const decisionSchema = {
   type: 'object',
@@ -293,8 +295,7 @@ function currentFacts(previous:any[], quantity:QuantityResolution, route:RouteRe
   // labels alongside the current canonical selection or corrected quantity.
   const managed=/^(material|material_id|material_catalog_key|quantity.*|coverage_buffer_yards|delivery_address|address|delivery_zip|postal_code|zip|name|customer_name)$/
   let facts=(previous??[]).filter((f:any)=>typeof f?.key==='string'&&!managed.test(f.key))
-  const bodies=messages.filter(m=>m.sender_type==='CUSTOMER').map(m=>String(m.body??''))
-  const name=bodies.map(b=>customerName(b)).filter(Boolean).at(-1) ?? knownCustomerName(customer?.name)
+  const name=conversationCustomerName(messages) ?? knownCustomerName(customer?.name)
   if(name)facts=upsertFact(facts,'customer_name',name,'CONVERSATION')
   if(quantity.material_id){
     facts=upsertFact(facts,'material_id',quantity.material_id)
@@ -457,7 +458,7 @@ export async function generateAiDraft(service: any, body: any, actorId: string |
     const resumedCustomer = body.resume_message_id
       ? messages.find((item:any)=>item.id===body.resume_message_id&&item.sender_type==='CUSTOMER'&&item.message_kind!=='COMPLIANCE')
       : null
-    const latestCustomer = resumedCustomer ?? actualLatestCustomer
+    const latestCustomer = resumedCustomer ?? latestCustomerTurn(messages)
     const takeover = Boolean((lead ?? subject)?.human_takeover)
     const forcedReason = forcedEscalation(latestCustomer?.body ?? '', takeover)
     const customWorkRequested = forcedReason === 'Custom work pricing requires Salvador.'

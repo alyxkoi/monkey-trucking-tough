@@ -3,6 +3,7 @@ export const AI_ACTION_LABELS: Record<string,string> = {
   QUOTE_READY:'Quote ready to send',CUSTOM_WORK:'Custom work needs pricing',HUMAN_REQUEST:'Customer requested Salvador',
   SCHEDULE_CHANGE:'Schedule change requested',ORDER_CHANGE:'Order change needs review',ADDRESS_CHANGE:'Address change affects delivery',
   PAYMENT_CLAIM:'Customer says they paid',COMPLAINT:'Customer complaint',NEW_WORK:'Returning customer wants new work',CONTACT_REVIEW:'Contact information needs review',
+  COMMUNICATION_FAILURE:'Customer message needs attention',
 }
 export function aiActionDetails(entry:Activity) {
   const m=entry.metadata&&typeof entry.metadata==='object'&&!Array.isArray(entry.metadata)?entry.metadata:{}

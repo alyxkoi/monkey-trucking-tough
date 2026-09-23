@@ -9,6 +9,7 @@ import Index from "./pages/Index"; // keep eager — it's the LCP page
 import { captureTrackingAttribution } from "@/lib/trackingAttribution";
 import { publicRouteLoaders } from "@/publicRouteLoaders";
 import { DemoModeProvider } from "@/control-center/demo/DemoMode";
+import { StaffAlertEntry, StaffAlertRedirect } from '@/control-center/StaffAlertRedirect';
 
 // Lazy-load secondary routes so their bundles + images don't ship with the homepage
 const Services = lazy(publicRouteLoaders.services);
@@ -92,7 +93,9 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/quote/:token" element={<PublicQuote />} />
               <Route path="/invoice/:token" element={<PublicInvoice />} />
+              <Route path="/a/:code" element={<StaffAlertEntry />} />
               <Route path="/admin" element={<ControlCenterLayout />}>
+                <Route path="alerts/:code" element={<StaffAlertRedirect />} />
                 <Route index element={<Overview />} />
                 <Route path="attention" element={<NeedsAttention />} />
                 <Route path="leads" element={<LeadsQuotes />} />

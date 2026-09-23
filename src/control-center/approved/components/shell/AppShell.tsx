@@ -59,7 +59,7 @@ export function AppShell() {
           which sits 80px up and is 56px tall. Anything less and the last control
           on a screen ends up under the button.
         */}
-        <main className="flex-1 pb-36 lg:pb-14">
+        <main className="min-w-0 flex-1 pb-[calc(env(safe-area-inset-bottom,0px)+80px+max(64px,var(--cc-action-height,0px)))] lg:pb-14">
           {/*
             Wide monitors get used. The shell runs to 1760px and the gutters open
             up past that, instead of leaving important cards in a narrow column.

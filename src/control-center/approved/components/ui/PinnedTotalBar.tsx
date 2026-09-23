@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { cn } from '@/control-center/approved/lib/cn'
 import { useAppState } from '@/control-center/approved/state/AppState'
 
@@ -25,6 +25,15 @@ export function PinnedTotalBar({
   className?: string
 }) {
   const { setPinnedBarActive } = useAppState()
+  const bar = useRef<HTMLDivElement>(null)
+  useLayoutEffect(()=>{
+    if(!pinned||!bar.current)return
+    const element=bar.current
+    const measure=()=>document.documentElement.style.setProperty('--cc-action-height',`${element.getBoundingClientRect().height}px`)
+    measure()
+    const observer=new ResizeObserver(measure);observer.observe(element)
+    return ()=>{observer.disconnect();document.documentElement.style.removeProperty('--cc-action-height')}
+  },[pinned])
 
   // While this bar is pinned it owns the bottom of the phone screen, so the
   // floating New action steps aside rather than covering the confirming action.
@@ -36,6 +45,7 @@ export function PinnedTotalBar({
 
   return (
     <div
+      ref={bar}
       className={cn(
         'cc-pinned-total z-30 border-t border-line bg-raised',
         // Fixed above the mobile tab bar, sticky on desktop. Either way the running
@@ -45,7 +55,7 @@ export function PinnedTotalBar({
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-4 px-5 py-3.5 pb-safe lg:py-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-3.5 lg:py-4">
         <div className="min-w-0">
           <div className="font-label text-[12px] font-semibold uppercase tracking-[0.16em] text-cc-muted">
             {label}

@@ -15,6 +15,7 @@ import { shortAgo, usd } from '@/control-center/approved/lib/format'
 import { useAppState } from '@/control-center/approved/state/AppState'
 import { AiControlPanel } from './AiControlPanel'
 import { StaffSmsSettings } from './StaffSmsSettings'
+import { Toggle } from '@/control-center/approved/components/ui/Toggle'
 import { DELIVERY_OPTIONS } from '@/control-center/approved/state/pricing'
 import { effectiveTaxRate } from '@/control-center/billing'
 import {
@@ -1038,7 +1039,7 @@ export function SettingsCommunication() {
             value={initialReplyMinutes}
             onChange={setInitialReplyMinutes}
             inputMode="numeric"
-            hint="Minutes, from 0 to 10. Set to 0 for an immediate reply. Applies only to the first automated reply; ongoing replies stay immediate."
+            hint="Minutes, from 0 to 10. Set to 0 for the fastest reply. A brief 3-second pause groups back-to-back customer texts; ongoing replies use only that pause."
           />
           <TextField
             label="Google review link"
@@ -1379,57 +1380,6 @@ function jsonTextList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
 }
 
-function Toggle({
-  label,
-  line,
-  value,
-  onChange,
-  tone = 'default',
-}: {
-  label: string
-  line?: string
-  value: boolean
-  onChange: (value: boolean) => void
-  tone?: 'default' | 'onSolid'
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!value)}
-      className="flex min-h-[44px] w-full items-start justify-between gap-4 py-1 text-left"
-    >
-      <span className="min-w-0">
-        <span className={cn(
-          'block font-label text-[14px] font-semibold uppercase tracking-[0.08em]',
-          tone === 'onSolid' ? 'text-canvas' : 'text-ink',
-        )}>
-          {label}
-        </span>
-        {line && <span className={cn(
-          'mt-0.5 block text-[14px] leading-snug',
-          tone === 'onSolid' ? 'text-canvas/75' : 'text-cc-muted',
-        )}>{line}</span>}
-      </span>
-      <span
-        className={cn(
-          'relative mt-1 h-7 w-12 shrink-0 rounded-full border transition-colors',
-          value
-            ? tone === 'onSolid' ? 'border-canvas bg-canvas' : 'border-ice bg-ice'
-            : tone === 'onSolid' ? 'border-canvas/40 bg-canvas/15' : 'border-line bg-raised',
-        )}
-      >
-        <span
-          className={cn(
-            'absolute top-1 h-5 w-5 rounded-full transition-all',
-            value
-              ? tone === 'onSolid' ? 'left-6 bg-mt-red' : 'left-6 bg-canvas'
-              : tone === 'onSolid' ? 'left-1 bg-canvas/70' : 'left-1 bg-cc-muted',
-          )}
-        />
-      </span>
-    </button>
-  )
-}
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (

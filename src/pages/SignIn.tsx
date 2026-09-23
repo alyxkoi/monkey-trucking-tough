@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, CircleAlert, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,8 @@ import "@/styles/signin.css";
 const SignIn = () => {
   const { signIn, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const alertReturn = typeof location.state?.from === 'string' && /^\/admin\/alerts\/[A-Z0-9]{10}$/i.test(location.state.from) ? location.state.from : '/admin';
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -22,8 +24,8 @@ const SignIn = () => {
   const goToControlCenter = useCallback(() => {
     if (redirecting.current) return;
     redirecting.current = true;
-    navigate("/admin", { replace: true });
-  }, [navigate]);
+    navigate(alertReturn, { replace: true });
+  }, [navigate, alertReturn]);
 
   useEffect(() => {
     if (user) goToControlCenter();

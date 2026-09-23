@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { isSimpleAcceptance } from './material-intelligence.ts'
+import { customerBurstMessages } from './conversation-turn.ts'
 // Lifecycle is a projection of business records, never a second state machine.
 export const LIFECYCLE_POLICY = `CUSTOMER LIFECYCLE AND DASHBOARD AUTHORITY
 Use lifecycle.stage and its scoped quote/job/invoice, never another transaction belonging to the same customer.
@@ -40,9 +41,27 @@ export function knownCustomerName(value:unknown) {
   return name&&!/^(?:unknown|test customer|sms |\+?\d)/i.test(name)?name:null
 }
 export function customerName(text:string, asked=false) {
+  // Social acknowledgements are not identity, even after a name question.
+  if (/^(?:it['’]?s?\s+ok(?:ay)?|that['’]?s?\s+(?:ok(?:ay)?|fine)|ok(?:ay)?|please(?: and thank you)?|thank you|no problem|all good|sounds good|est[aá] bien|gracias)[.!\s]*$/i.test(text.trim())) return null
   const prefix=/\b(?:my name is|me llamo|mi nombre es|this is|soy)\s+([\p{L}][\p{L}'’]*(?:\s+[\p{L}][\p{L}'’]*){0,3})(?=[,.!?]|\s+(?:and|y|i need|necesito)\b|$)/iu
   const name=text.match(prefix)?.[1]??(asked&&/^[\p{L}][\p{L}'’]*(?:\s+[\p{L}][\p{L}'’]*){0,3}[.!]?$/u.test(text.trim())?text.trim().replace(/[.!]$/,''):null)
-  return name&&!/\b(need|want|gravel|ready|yes|no|hola|thanks|necesito|quiero|listo|too|much|expensive|cheap|confusing|wrong|correct|great|good|fine|bad|a|the)\b/i.test(name)&&name.length<=80?name:null
+  return name&&!/\b(need|want|gravel|ready|yes|no|hola|thanks|okay|ok|please|sorry|necesito|quiero|listo|too|much|expensive|cheap|confusing|wrong|correct|great|good|fine|bad|a|the)\b/i.test(name)&&name.length<=80?name:null
+}
+
+export function nameQuestion(text: string) {
+  return /\b(your name|what name|which name|su nombre|tu nombre|se llama|te llamas|a nombre de)\b/i.test(text)
+}
+
+export function conversationCustomerName(messages: any[]) {
+  let question = '', name: string | null = null
+  for (const message of messages) {
+    if (['AI','HUMAN'].includes(message.sender_type)) question = String(message.body ?? '')
+    else if (message.sender_type === 'CUSTOMER' && message.message_kind !== 'COMPLIANCE') {
+      name = customerName(String(message.body ?? ''), nameQuestion(question)) ?? name
+      question = ''
+    }
+  }
+  return name
 }
 
 export const LEAD_NEEDS=['material-delivery','material-pickup','driveway','pond','dirt-grading','land-clearing'] as const
@@ -124,15 +143,18 @@ export function lifecycleProposal(input:{lead:any;customer:any;messages:any[];li
   const {lead,customer,messages,lifecycle,decision,pricing}=input
   const inbound=[...messages].reverse().find(m=>m.sender_type==='CUSTOMER')
   const text=String(input.requestMessage?.body??inbound?.body??'').trim()
-  const previousTurn=messages.slice(0,messages.lastIndexOf(inbound)).filter(m=>['AI','HUMAN','CUSTOMER'].includes(m.sender_type)).at(-1)
+  const burst=customerBurstMessages(messages)
+  const previousTurn=messages.slice(0,messages.indexOf(burst[0]??inbound)).filter(m=>['AI','HUMAN','CUSTOMER'].includes(m.sender_type)).at(-1)
   const lastAi=previousTurn&&['AI','HUMAN'].includes(previousTurn.sender_type)?previousTurn.body??'':''
   const plan=decision.dashboard_plan
   const trustedPlan=plan?.confidence==='HIGH'&&typeof plan.source_text==='string'&&plan.source_text.trim()&&text.includes(plan.source_text)
   const intent=trustedPlan?plan.intent:'NONE'
   const yes=isSimpleAcceptance(text)||/^(?:correct|correcto)[.!\s]*$/i.test(text)
-  const emails=[...text.matchAll(/\b[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?\.[A-Z]{2,}\b/gi)].map(m=>m[0])
+  const lastLine=text.split('\n').at(-1)??text
+  const emailText=/^(?:wait|actually|sorry|use|instead|no[, ])\b/i.test(lastLine)&&/@/.test(lastLine)?lastLine:text
+  const emails=[...emailText.matchAll(/\b[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?\.[A-Z]{2,}\b/gi)].map(m=>m[0])
   const email=emails.length===1&&!/\bor\b|\bo\b|maybe|perhaps|quizas/i.test(text)?emails[0]:null
-  const name=customerName(text,/\b(your name|su nombre|tu nombre|se llama|te llamas)\b/i.test(lastAi))
+  const name=text.split('\n').map((line,index)=>customerName(line,index===0&&nameQuestion(lastAi))).filter(Boolean).at(-1)??null
   const dateRelevant=['DELIVERY_PREFERENCE','SCHEDULE_CHANGE'].includes(intent)||/\b(today|hoy|tomorrow|noon|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|jueves|viernes|sabado|domingo|mediodia)\b/i.test(normal(text))||/\b\d{1,2}(?::\d{2})?\s*(am|pm)\b/i.test(text)
   // A date-only clarification is not a booking/write. Recover its unambiguous
   // date from the immediately preceding customer preference when time arrives.

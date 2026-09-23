@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { generateAiDraft, type AiConfig } from './ai-engine.ts'
 import { autonomousReply } from './communication-worker.ts'
-import { customerName, lifecycleContext, lifecycleProposal } from './lifecycle.ts'
+import { customerName, nameQuestion, lifecycleContext, lifecycleProposal } from './lifecycle.ts'
 
 // Deliberately separate from the real database client: the engine can read
 // synthetic context only. No real lead ID, quote mutation, outbox or SMS path.
@@ -22,7 +22,9 @@ export async function simulateConversation(service: any, input: any, config: AiC
   const rows: Record<string, any> = {
     leads: { id:syntheticId, customer_id:syntheticId, human_takeover:Boolean(input.takeover)||input.messages.some((m:any)=>m.sender_type==='HUMAN'||m.sender_type==='AI'&&/^(got it, I will have Salvador take a look at this\.|claro, le aviso a Salvador para que revise su mensaje\.)$/.test(m.body)), conversation_revision:1, need:'Inbound SMS conversation', description:String(input.form ?? '').slice(0,2000) },
     customers: { id:syntheticId,name:'Test customer' },
-    lead_messages: input.messages.map((m:any,i:number)=>({...m,id:String(i),created_at:new Date(Date.now()+i).toISOString()})).reverse(),
+    // Transcript entries are separate turns unless their timestamps explicitly
+    // describe a burst. Do not invent millisecond-spaced historical messages.
+    lead_messages: input.messages.map((m:any,i:number)=>({...m,id:String(i),created_at:Number.isFinite(Date.parse(m.created_at))?m.created_at:new Date(Date.now()-(input.messages.length-i)*30_000).toISOString()})).reverse(),
     ai_conversation_state: { known_facts:[],missing_facts:[],uncertain_facts:[] },
     quotes: [], jobs: [], invoices: [], payments: [], materials:materials.data,
     app_settings:app.data, control_center_settings:control.data,
@@ -38,7 +40,7 @@ export async function simulateConversation(service: any, input: any, config: AiC
   // Replay synthetic intake only; never accept production entity IDs.
   for(let n=0;n<input.messages.length-1;n++) {
     if(input.messages[n].sender_type!=='CUSTOMER')continue
-    const prefix=input.messages.slice(0,n+1),name=customerName(prefix[n].body,/your name|su nombre/i.test(prefix[n-1]?.body??''))
+    const prefix=input.messages.slice(0,n+1),name=customerName(prefix[n].body,nameQuestion(prefix[n-1]?.body??''))
     if(name)rows.customers.name=name
     const proposal=lifecycleProposal({lead:rows.leads,customer:rows.customers,messages:prefix,lifecycle:lifecycleContext(rows.leads,rows.quotes,rows.jobs,rows.invoices,rows.payments),decision:{},pricing:{}})
     if(proposal.email)rows.customers.email=proposal.email

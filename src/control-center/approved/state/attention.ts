@@ -143,8 +143,8 @@ export function deriveAttention(input: {
       id: `ai-failure:${failure.id}`,
       priority: 'TODAY',
       kind: 'ai_failure',
-      title: 'Automation draft needs manual attention',
-      context: failure.error || 'OpenAI could not produce a safe structured draft.',
+      title: 'Automatic follow-up needs review',
+      context: 'A follow-up could not be prepared safely. Check communication settings for details.',
       since: failure.at,
       action: { label: 'Review AI setup', to: '/admin/settings/communication' },
       recommend: 'none',
@@ -170,14 +170,14 @@ export function deriveAttention(input: {
 
   // 2. A customer is waiting on a human.
   input.leads
-    .filter((lead) => lead.needsSalvador)
+    .filter((lead) => lead.needsSalvador && !input.staffActions?.some(action=>action.entity_id===lead.id))
     .forEach((lead) => {
       items.push({
         id: `waiting:${lead.id}`,
         priority: 'NOW',
         kind: 'customer_waiting',
         title: `${name(lead.customerId)} is waiting on your answer`,
-        context: 'The AI escalated instead of guessing.',
+        context: lead.conversationState==='AI_FAILED'?'A message could not be completed. Check the conversation and reply.':'The customer needs a staff reply. Open the conversation to help.',
         since: lead.lastActivityAt,
         action: { label: 'Reply', to: `/admin/leads/${lead.id}` },
         recommend: 'reply',
@@ -205,7 +205,10 @@ export function deriveAttention(input: {
   input.leads
     .filter(
       (lead) =>
-        lead.status === 'NEW' && !lead.messages.some((message) => message.actor === 'salvador'||message.actor==='ai'),
+        lead.status === 'NEW' && !lead.needsSalvador
+        && !['AI_PROCESSING','AWAITING_OPT_IN'].includes(lead.conversationState??'')
+        && !input.staffActions?.some(action=>action.entity_id===lead.id)
+        && !lead.messages.some((message) => message.actor === 'salvador'||message.actor==='ai'),
     )
     .forEach((lead) => {
       items.push({

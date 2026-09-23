@@ -450,7 +450,7 @@ type ControlDatabase = {
         Relationships: [];
       };
     };
-    Functions: { save_staff_sms_settings: {Args:{p_enabled:boolean;p_new_lead:boolean;p_quote_accepted:boolean;p_salvador_needed:boolean};Returns:undefined} };
+    Functions: { save_staff_sms_settings: {Args:{p_enabled:boolean;p_new_lead:boolean;p_quote_accepted:boolean;p_salvador_needed:boolean};Returns:undefined}; save_staff_sms_preferences: {Args:{p_enabled:boolean;p_preferences:Record<string,boolean>};Returns:undefined}; resolve_staff_alert_link:{Args:{p_code:string};Returns:string|null} };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

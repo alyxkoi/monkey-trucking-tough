@@ -34,6 +34,8 @@ beforeAll(async()=>{
  await db.exec(read('20260918160000_quote_intake_continuity'))
  await db.exec(read('20260918190000_delivery_calendar_reservations'))
  await db.exec(read('20260918190000_delivery_calendar_reservations'))
+ await db.exec(`create table ai_conversation_state(lead_id uuid primary key,missing_facts jsonb default '[]',known_facts jsonb default '[]',updated_at timestamptz default now());`)
+ await db.exec(read('20260923102000_business_event_attention'))
 },30000)
 afterAll(async()=>{await db?.close()})
 async function fixture(body='my name is Mike'){
@@ -46,6 +48,38 @@ async function transaction(fn:()=>Promise<void>){await db.exec('begin');try{awai
 // Dispatch tests need business time regardless of when the suite runs. Select
 // a fixed-offset zone at noon inside this rolled-back fixture, not production.
 async function businessTimeFixture(){await db.exec("update communication_runtime set timezone=(select name from pg_timezone_names where name like 'Etc/GMT%' and extract(hour from now() at time zone name)=12 limit 1)")}
+describe.sequential('burst persistence and business-event resolution',()=>{
+ it.each([['my name is Tyrone','please and thank you',{name:'Tyrone'}],['my email is john@gmail.com','wait use john2@gmail.com instead',{email:'john2@gmail.com',confirmed_email:'john2@gmail.com'}]])('preserves current burst evidence for %s', (first,last,plan)=>transaction(async()=>{
+  const a=await fixture(first as string)
+  const [newest]=await query("insert into lead_messages(lead_id,customer_id,sender_type,body,delivery_status,message_kind,created_at) values($1,$2,'CUSTOMER',$3,'RECEIVED','INBOUND',now()+interval '2 seconds') returning *",[a.l.id,a.c.id,last])
+  await query('update leads set conversation_revision=2 where id=$1',[a.l.id])
+  const result=await rpc('apply_ai_lifecycle',[a.l.id,2,newest.id,{write_allowed:true,actions:[],...plan}])
+  expect(result.status).not.toBe('STALE')
+  const [customer]=await query('select name,email from customers where id=$1',[a.c.id])
+  if('name' in plan)expect(customer.name).toBe('Tyrone')
+  else expect(customer.email).toBe('john2@gmail.com')
+  expect((await query('select body from lead_messages where id=$1',[newest.id]))[0].body).toBe(last)
+  expect((await a.apply({name:'Obsolete'})).status).toBe('STALE')
+ }))
+ it('does not persist a polite acknowledgment even if a caller proposes it as a name',()=>transaction(async()=>{
+  const a=await fixture("it's okay")
+  await a.apply({name:"it's okay"})
+  expect((await query('select name from customers where id=$1',[a.c.id]))[0].name).toBe(a.c.name)
+ }))
+ it('business events clear stale intake without erasing facts or closing real custom/human actions',()=>transaction(async()=>{
+  const a=await fixture()
+  await query("insert into ai_conversation_state(lead_id,known_facts,missing_facts) values($1,'[{\"key\":\"name\",\"value\":\"Tyrone\"}]','[\"email\"]')",[a.l.id])
+  const custom=await rpc('open_ai_staff_action',[a.l.id,a.m.id,'CUSTOM_WORK',{request:'Driveway grading'}])
+  await query('update leads set human_takeover=true where id=$1',[a.l.id])
+  const human=await rpc('open_ai_staff_action',[a.l.id,a.m.id,'HUMAN_REQUEST',{}])
+  await query("insert into quotes(quote_number,customer_id,lead_id,description,status,sent_at) values('Q-business',$1,$2,'Delivery','SENT',now())",[a.c.id,a.l.id])
+  expect((await query('select known_facts,missing_facts from ai_conversation_state where lead_id=$1',[a.l.id]))[0]).toEqual({known_facts:[{key:'name',value:'Tyrone'}],missing_facts:[]})
+  expect(await query("select id from activity_history where event_type='AI_ACTION_RESOLVED' and metadata->>'request_id' in ($1,$2)",[custom,human])).toHaveLength(0)
+  await query('update leads set human_takeover=false where id=$1',[a.l.id])
+  expect(await query("select id from activity_history where event_type='AI_ACTION_RESOLVED' and metadata->>'request_id'=$1",[human])).toHaveLength(1)
+  expect(await query("select id from activity_history where event_type='AI_ACTION_RESOLVED' and metadata->>'request_id'=$1",[custom])).toHaveLength(0)
+ }))
+})
 describe.sequential('atomic delivery reservations',()=>{
  async function setup(){
    const a=await fixture('can we do tomorrow at 1 PM?')

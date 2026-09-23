@@ -120,6 +120,8 @@ export function mapLeads(data: ControlData): Lead[] {
       ...data.invoices.filter(i => i.job_id === closedJob.id && i.status === 'PAID').map(i => requiredAt(i.paid_at ?? i.updated_at))) : 0
     const unansweredCustomer = Boolean(lastCustomer && lastCustomer.at > Math.max(closedAt,lastResponder?.at ?? 0))
     const openStaffTask = data.staffActions?.some(a => a.entity_id === row.id)
+    const businessAt = Math.max(closedAt, at(quote?.sent_at)??0, at(quote?.accepted_at)??0,
+      ...data.jobs.filter(j=>j.quote_id===quote?.id).map(j=>requiredAt(j.completed_at??j.created_at)))
     const auditAt = latestAiAudit ? requiredAt(latestAiAudit.created_at) : 0
     const sendFailed = messages.some((message) => message.actor !== 'customer'
       && message.at > Math.max(latestResolutionAt,lastResponder?.at??0)
@@ -127,7 +129,7 @@ export function mapLeads(data: ControlData): Lead[] {
     const unresolvedEscalation = messages.some((message) => message.escalation && message.at>latestResolutionAt && message.at>(lastResponder?.at??0))
     // A manual pause is still a pause, but is not a new unanswered request on
     // a settled transaction. Never clear takeover or hide genuine staff tasks.
-    const explicitHuman = (row.human_takeover && (!closedJob || unansweredCustomer || openStaffTask)) || Boolean(latestAiAudit && auditAt>Math.max(latestResolutionAt,closedAt) && auditAt>=(lastResponder?.at??0)
+    const explicitHuman = (row.human_takeover && (unansweredCustomer || openStaffTask)) || Boolean(latestAiAudit && auditAt>Math.max(latestResolutionAt,businessAt) && auditAt>=(lastResponder?.at??0)
       && aiDecision?.requires_human === true && (row.human_takeover||!aiDecision?.global_pause_applied&&!aiDecision?.handoff_acknowledgement))
     const aiFailed = sendFailed || unresolvedEscalation || Boolean(latestAiAudit && auditAt>latestResolutionAt && auditAt>=(lastResponder?.at??0) && latestAiAudit.status === 'FAILED')
     const awaitingOptIn = Boolean(customer?.sms_consent_at && !customer.sms_double_opt_in_at && !customer.sms_opted_out_at)

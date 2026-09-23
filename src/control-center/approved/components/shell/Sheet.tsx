@@ -51,7 +51,7 @@ export function Sheet({
         role="dialog"
         aria-modal="true"
         className={cn(
-          'animate-sheet relative flex max-h-[88vh] w-full flex-col border border-line bg-panel',
+          'animate-sheet relative flex max-h-[88dvh] w-full min-w-0 max-w-full flex-col overflow-hidden border border-line bg-panel',
           'rounded-t-block sm:max-w-lg sm:rounded-block',
         )}
       >
@@ -74,7 +74,7 @@ export function Sheet({
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain [overflow-wrap:anywhere]">{children}</div>
 
         {footer && (
           <div className="border-t border-line px-5 py-4 pb-safe sm:pb-4">{footer}</div>

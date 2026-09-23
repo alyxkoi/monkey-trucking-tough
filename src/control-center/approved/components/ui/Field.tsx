@@ -4,7 +4,7 @@ import { cn } from '@/control-center/approved/lib/cn'
 
 /** Every input is 48px tall with 16px text so iOS never zooms the page on focus. */
 const CONTROL =
-  'w-full rounded-xl border border-line bg-raised px-4 text-[16px] text-ink placeholder:text-cc-muted transition-colors focus:border-ice/60 focus:outline-none'
+  'min-w-0 max-w-full w-full rounded-xl border border-line bg-raised px-4 text-[16px] text-ink placeholder:text-cc-muted transition-colors focus:border-ice/60 focus:outline-none'
 type FieldTone = 'default' | 'onSolid'
 
 export function FieldLabel({ children, tone = 'default' }: { children: ReactNode; tone?: FieldTone }) {
