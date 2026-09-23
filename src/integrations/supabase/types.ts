@@ -2216,6 +2216,8 @@ export type Database = {
           preferences: Json
           quote_accepted: boolean
           salvador_needed: boolean
+          staff_template_id: string | null
+          staff_template_ready: boolean
           updated_at: string
         }
         Insert: {
@@ -2229,6 +2231,8 @@ export type Database = {
           preferences?: Json
           quote_accepted?: boolean
           salvador_needed?: boolean
+          staff_template_id?: string | null
+          staff_template_ready?: boolean
           updated_at?: string
         }
         Update: {
@@ -2242,6 +2246,8 @@ export type Database = {
           preferences?: Json
           quote_accepted?: boolean
           salvador_needed?: boolean
+          staff_template_id?: string | null
+          staff_template_ready?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -3819,6 +3825,7 @@ export type Database = {
       }
       staff_alert_link: { Args: { p_destination: string }; Returns: string }
       staff_sms_enabled: { Args: { p_type: string }; Returns: boolean }
+      staff_sms_template_parameters: { Args: { p_body: string }; Returns: Json }
       sync_business_conversation: {
         Args: { p_lead_id: string }
         Returns: undefined
