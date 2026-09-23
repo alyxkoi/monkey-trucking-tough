@@ -46,4 +46,13 @@ describe('manual payment and staff settings controls',()=>{
   await waitFor(()=>expect(mock.invoke).toHaveBeenCalledWith('send-sms',{body:{action:'staff-test',requestId:expect.any(String)}}))
   expect(await screen.findByRole('status')).toHaveTextContent('delivered')
  })
+ it('shows provider setup errors and keeps the same test request on retry',async()=>{
+  mock.invoke.mockImplementation(()=>Promise.resolve({data:null,error:{message:'Edge Function error',context:{json:async()=>({error:'Staff template is awaiting approval. No SMS sent.'})}}}))
+  render(<StaffSmsSettings/>);await screen.findByRole('switch',{name:'New Lead'})
+  fireEvent.click(screen.getByRole('button',{name:'Send Test Alert'}))
+  expect(await screen.findByRole('alert')).toHaveTextContent('awaiting approval')
+  fireEvent.click(screen.getByRole('button',{name:'Send Test Alert'}))
+  await waitFor(()=>expect(mock.invoke).toHaveBeenCalledTimes(2))
+  expect(mock.invoke.mock.calls[1][1].body.requestId).toBe(mock.invoke.mock.calls[0][1].body.requestId)
+ })
 })

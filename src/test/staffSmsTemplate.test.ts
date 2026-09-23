@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe,expect,it,vi } from 'vitest'
-import { ensureStaffSmsTemplate,STAFF_TEMPLATE } from '../../supabase/functions/_shared/staff-sms-template'
+import { ensureStaffSmsTemplate,refreshStaffSmsTemplate,STAFF_TEMPLATE } from '../../supabase/functions/_shared/staff-sms-template'
 
 function fixture(overrides={}) {
  const state={enabled:true,opted_out_at:null,staff_template_id:null,staff_template_ready:false,...overrides}
@@ -9,6 +9,15 @@ function fixture(overrides={}) {
 }
 const accepted=()=>new Response(JSON.stringify({data:{id:'fixture-template',status:'APPROVED',is_published:true,channels:['sms']}}),{status:200})
 describe('dedicated internal staff template',()=>{
+ it('automatically promotes a queued-alert template only after approval, without creating one',async()=>{
+   const {state,service}=fixture({staff_template_id:'existing'}),fetcher=vi.fn().mockImplementation(()=>new Response(JSON.stringify({data:{status:'PENDING'}})))
+   expect(await refreshStaffSmsTemplate(service,{apiKey:'test'},fetcher)).toBe(false)
+   expect(state.staff_template_ready).toBe(false)
+   fetcher.mockImplementation(accepted)
+   expect(await refreshStaffSmsTemplate(service,{apiKey:'test'},fetcher)).toBe(true)
+   expect(fetcher.mock.calls.every(call=>!call[1].method)).toBe(true)
+   expect(state.staff_template_ready).toBe(true)
+ })
  it('creates once with a stable operation key, confirms approval, and reuses setup',async()=>{
    const {state,service}=fixture(),fetcher=vi.fn().mockImplementation(accepted)
    await ensureStaffSmsTemplate(service,{apiKey:'test'},fetcher)

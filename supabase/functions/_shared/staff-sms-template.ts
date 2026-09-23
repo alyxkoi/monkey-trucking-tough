@@ -12,6 +12,21 @@ export const STAFF_TEMPLATE = {
   } } },
 }
 
+/** Check an already-created template only when a staff alert is actually due.
+ * Never creates templates, sends messages, or treats pending as approval. */
+export async function refreshStaffSmsTemplate(service:any, config:{apiKey:string;profileId?:string}, fetcher:typeof fetch=fetch) {
+  const settings=await service.from('staff_sms_settings').select('staff_template_id,staff_template_ready').eq('id',1).single()
+  if(settings.error||!settings.data?.staff_template_id)return false
+  if(settings.data.staff_template_ready)return true
+  const headers:Record<string,string>={'x-api-key':config.apiKey}
+  if(config.profileId)headers['x-profile-id']=config.profileId
+  const response=await fetcher(`https://api.sent.dm/v3/templates/${encodeURIComponent(settings.data.staff_template_id)}`,{headers,signal:AbortSignal.timeout(5_000)})
+  const body=await response.json().catch(()=>null)
+  if(!response.ok||body?.data?.status!=='APPROVED'||body.data.is_published!==true||!body.data.channels?.includes('sms'))return false
+  const saved=await service.from('staff_sms_settings').update({staff_template_ready:true}).eq('id',1)
+  return !saved.error
+}
+
 /** Only called by the authenticated, explicitly requested internal test action. */
 export async function ensureStaffSmsTemplate(service:any, config:{apiKey:string;profileId?:string}, fetcher:typeof fetch=fetch) {
   const settings=await service.from('staff_sms_settings').select('enabled,opted_out_at,staff_template_id,staff_template_ready').eq('id',1).single()

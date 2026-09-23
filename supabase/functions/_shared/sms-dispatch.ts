@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { normalizeSentDmStatus, sentDmIdempotencyKey } from './sent-dm-domain.ts'
+import { refreshStaffSmsTemplate } from './staff-sms-template.ts'
 
 export type SmsProviderConfig = { apiKey: string; profileId?: string; internal?: boolean; templateId?: string }
 
@@ -11,6 +12,9 @@ export async function dispatchSms(service: any, config: SmsProviderConfig, messa
   if (claim.error) throw new Error('SMS queue could not be claimed')
   if (!claim.data) return { dispatched: false }
   const { message_id, lease_token } = claim.data
+  // The approved legacy template remains usable while a layout is in review.
+  // Recheck only for a real queued alert, never poll the provider on idle ticks.
+  if(config.internal&&!claim.data.payload)await refreshStaffSmsTemplate(service,config,fetcher).catch(()=>false)
   const authorization = await service.rpc(config.internal ? 'authorize_staff_sms_dispatch' : 'authorize_sms_dispatch', { p_message_id: message_id, p_lease_token: lease_token, ...(config.internal ? {p_template_id: config.templateId ?? null} : {}) })
   if (authorization.error) throw new Error('SMS dispatch authorization failed')
   if (!authorization.data) return { dispatched: false, cancelled: true }

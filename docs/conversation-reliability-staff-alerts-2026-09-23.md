@@ -22,11 +22,13 @@ The completed September 22 test job/invoice was traced through database records,
 
 ## Footer finding
 
-The application appended its own STOP sentence to the **test alert**. That duplicate body sentence was removed. Staff transport still uses the existing configured approved sent.DM template (`SENT_DM_FIRST_CONTACT_TEMPLATE_ID`); its branding/footer and carrier requirements were not bypassed or changed. The provider dashboard was signed out during this pass, so no claim is made that its template footer can be removed.
+The application appended its own STOP sentence to the **test alert**. That duplicate body sentence was removed. The legacy approved template remains unchanged. A live staff test then found sent.DM rejects newlines inside template variables (HTTP 400 / `VALIDATION_008`). Migration 0044 adds a dedicated template layout with four single-line variables and a valid legacy one-line fallback. The dedicated template keeps one opt-out line; removal has not been verified as permitted. No claim is made that sent.DM automatically appends it or that it is legally mandatory on every internal message.
+
+Official provider contracts: [variable validation](https://docs.sent.dm/reference/api/error-catalog), [template body rules](https://docs.sent.dm/reference/api/template-definition). Template line breaks must be literal layout, and adjacent variables require non-whitespace labels. An authenticated staff test can provision the fixed template once with provider idempotency; only a verified published, approved SMS template becomes active. Rejected/pending setup is shown as an actionable error. Customer templates and immutable sent payloads stay untouched.
 
 ## Verification
 
-653 tests across 73 files passed before final deployment; TypeScript app check, changed-file ESLint and production build passed. Build retains existing bundle-size/Browserslist warnings.
+653 tests across 73 files passed before the initial deployment; final provider-layout/error/approval regression coverage brings this to **661 tests across 74 files, all passing**. TypeScript app check, changed-file ESLint and production build passed. Build retains existing bundle-size/Browserslist warnings.
 
 Coverage includes burst correction/name/email writes, obsolete revision rejection, real versus automated takeover, silent full payment through actual PostgreSQL worker/outbox/dispatch with a stub carrier, ordinary inbound during review dispatch, STOP, authenticated short links, per-type/master toggles, duplicate events/retries, recovery, and the existing Accepted/Scheduled/pricing/payment/ticket regression suite.
 
@@ -40,7 +42,22 @@ Apply **one copy only**, in order (Drizzle and Supabase files are mirrors):
 2. 0041 / 20260923101000 staff preferences and links
 3. 0042 / 20260923102000 business-event attention
 4. 0043 / 20260923103000 communication failure actions
+5. 0044 / 20260923110000 provider-safe staff template layout
 
 Redeploy the functions bundling the changed engine/kick: `ai-draft`, `ai-control`, `process-communications`, `sent-dm-webhook`, `reconcile-sent-conversations`, `send-contact-email`. Keep secrets and schedules unchanged. Publish frontend after database/function verification.
 
 `docs/sql/20260923_verified_test_conversation_repair.sql` is a separate, guarded repair for only the traced test conversation. It verifies the exact invoice notice and earlier staff resume, refuses to override later genuine staff replies/open requests/new AI activity, corrects only the proven malformed name, records before values, and invokes normal review planning. It does not alter payments, consent, invoices or sent payloads, replay old inbound texts, or launch a historical customer review campaign.
+
+## Verified production results
+
+- Initial implementation `65f986b`, deployment-path correction `cfd4fec`, metadata `30ee3a7`. Migrations 0040–0043 applied once, six functions redeployed, frontend published. Prompt v18 and all 12 staff preference toggles observed live.
+- Guarded repair succeeded: Tyrone's lead revision 20 → 21, false takeover removed, malformed customer name corrected with audit history. No consent/financial records changed.
+- Exactly one review message `1e120fb7-da65-4162-9655-b8caaee47c09` was submitted once and is **DELIVERED**, provider `f62996be-f519-4c13-9850-c146ec13d614`. Confirmed directly in Cloud SQL, including the correct Google review URL and preserved warm wording.
+- Live no-SMS sandbox handled “I need 20 yards of flexbase, please and thank you” naturally in **12.67 seconds**, asking for the delivery address without escalating.
+- Authenticated `/a/A9793CE927` redirected to the intended Tyrone lead. Database grants deny public link-table access and anonymous resolver calls. Authentication/role handling is regression tested.
+- Tyrone has no false attention banner. Remaining Overview cards were inspected: Alexander has an unfinished draft and unanswered request, Alex has a failed opt-in, BigBoy Ricky has unresolved custom pricing. They were correctly retained.
+- Provider-layout correction `581f52a`, migration metadata `97e24a1`, actionable-error UI `922454d`, template-content contract fix `7300b59`. Only `send-sms` needed additional backend deployments; customer/review paths were untouched.
+- Staff fallback test `4529b5af-ea7d-4472-985b-31c1e60fa800` is **DELIVERED**, observed in the auto-refreshing live settings log. The earlier rejected multiline-variable test remains FAILED in history; it was not silently reset or resent.
+- Dedicated template `64c74095-7b67-4c56-bb4c-856790ace415` was created once. Final provider readiness inspection returned HTTP 200, **PENDING**, `is_published=false`, channels SMS/WhatsApp/RCS. It is not marked ready. The existing approved fallback remains in use.
+- Queued staff sends now recheck an existing pending template with a 5-second limit before authorizing a new payload. Only APPROVED + published + SMS support activates it. Idle worker ticks never poll/create templates, previously reserved payloads stay immutable, and an approval-check outage falls back to the existing approved route. `send-sms` and `process-communications` are the only internal dispatch callers requiring this final shared-helper deployment. No customer send path changes.
+- Pre-existing migration-journal omission for 0028 was reported by the deployment tool and left unchanged; this pass appended only its own migrations.
