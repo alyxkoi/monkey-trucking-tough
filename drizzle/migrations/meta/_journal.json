@@ -302,6 +302,13 @@
       "when": 1790178398641,
       "tag": "0042_business_event_attention",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1790178423537,
+      "tag": "0043_communication_failure_actions",
+      "breakpoints": true
     }
   ]
 }
