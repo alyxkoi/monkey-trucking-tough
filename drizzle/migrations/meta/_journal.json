@@ -295,6 +295,13 @@
       "when": 1790178369372,
       "tag": "0041_staff_alert_preferences_and_links",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1790178398641,
+      "tag": "0042_business_event_attention",
+      "breakpoints": true
     }
   ]
 }

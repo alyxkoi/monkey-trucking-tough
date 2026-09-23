@@ -3819,6 +3819,10 @@ export type Database = {
       }
       staff_alert_link: { Args: { p_destination: string }; Returns: string }
       staff_sms_enabled: { Args: { p_type: string }; Returns: boolean }
+      sync_business_conversation: {
+        Args: { p_lead_id: string }
+        Returns: undefined
+      }
       update_customer_contact: {
         Args: { p_customer_id: string; p_email: string; p_phone: string }
         Returns: Json
